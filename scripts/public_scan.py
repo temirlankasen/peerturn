@@ -39,7 +39,10 @@ def main(args):
     cached, strict, commit, markers = options(args)
     os.chdir(git("rev-parse", "--show-toplevel").decode("utf-8").strip())
     # Fresh public exports have one root commit; inspect their identity by default.
-    commit = commit or len(git("rev-list", "--max-count=2", "--all").splitlines()) == 1
+    # A shallow CI checkout also shows one commit, but it is a contributor's own
+    # public identity, so only an explicit --commit inspects it.
+    shallow = git("rev-parse", "--is-shallow-repository").strip() == b"true"
+    commit = commit or (not shallow and len(git("rev-list", "--max-count=2", "--all").splitlines()) == 1)
     excluded, _ = POLICY["exclusions"](Path(__file__).with_name("public-exclude.txt"))
     entries = {}
     for entry in git("ls-files", "--stage", "-z").split(b"\0"):

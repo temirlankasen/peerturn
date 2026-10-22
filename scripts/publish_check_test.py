@@ -195,6 +195,26 @@ class PublicationCheck(unittest.TestCase):
         self.assertIn(b"commit metadata", result.stderr)
         self.assertNotIn(private_email.encode(), result.stderr)
 
+    def test_shallow_clone_commit_metadata_requires_explicit_request(self):
+        # CI checks out one commit; a contributor's own public identity there
+        # is not an exported root and must not fail every pull request.
+        self.put("clean")
+        contributor = "user" + "@" + "mail.example"
+        self.git("config", "user.name", "Example Contributor")
+        self.git("config", "user.email", contributor)
+        self.git("commit", "-qm", "test: base")
+        self.git("commit", "-q", "--allow-empty", "-m", "test: contribution")
+        clone = self.root.parent / (self.root.name + "-shallow")
+        self.addCleanup(shutil.rmtree, clone, True)
+        self.git("clone", "-q", "--depth", "1", "file://" + str(self.root), str(clone))
+        shallow = subprocess.run(["/bin/sh", str(SCAN), "--cached", "--strict"], cwd=clone,
+                                 capture_output=True, timeout=30)
+        self.assertEqual(shallow.returncode, 0, shallow.stderr.decode())
+        explicit = subprocess.run(["/bin/sh", str(SCAN), "--cached", "--strict", "--commit"], cwd=clone,
+                                  capture_output=True, timeout=30)
+        self.assertNotEqual(explicit.returncode, 0)
+        self.assertIn(b"commit metadata", explicit.stderr)
+
     def test_commit_metadata_requires_utc_in_both_raw_date_headers(self):
         self.put("clean")
         self.git("config", "user.name", "Example Maintainer")
