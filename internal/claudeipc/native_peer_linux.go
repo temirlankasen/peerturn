@@ -23,17 +23,20 @@ func processIdentity(pid int) (nativeProcess, error) {
 	if pid <= 0 {
 		return nativeProcess{}, rebind()
 	}
-	path := "/proc/" + strconv.Itoa(pid)
-	info, err := os.Stat(path)
+	// Reads stay inside /proc even if the numeric name were ever malformed;
+	// the peer process identity must never be read from another tree.
+	proc, err := os.OpenRoot("/proc")
 	if err != nil {
+		return nativeProcess{}, rebind()
+	}
+	name := strconv.Itoa(pid)
+	info, statErr := proc.Stat(name)
+	data, readErr := proc.ReadFile(name + "/stat")
+	if closeErr := proc.Close(); statErr != nil || readErr != nil || closeErr != nil || len(data) > 4096 {
 		return nativeProcess{}, rebind()
 	}
 	owner, ok := info.Sys().(*syscall.Stat_t)
 	if !ok {
-		return nativeProcess{}, rebind()
-	}
-	data, err := os.ReadFile(path + "/stat")
-	if err != nil || len(data) > 4096 {
 		return nativeProcess{}, rebind()
 	}
 	// The executable name is parenthesized and can itself contain whitespace or

@@ -84,8 +84,14 @@ func askNativeProcess() int {
 	if !input.Scan() {
 		return 2
 	}
-	journal := filepath.Join(os.Getenv("HOME"), ".claude/projects/fixture", child+".jsonl")
-	if err = os.WriteFile(journal, askJournal(child, cwd, true), 0600); err != nil {
+	// The child id comes from argv; writing through a root keeps the fixture
+	// journal inside the fixture project even for a hostile id.
+	projects, err := os.OpenRoot(filepath.Join(os.Getenv("HOME"), ".claude/projects/fixture"))
+	if err != nil {
+		return 2
+	}
+	err = projects.WriteFile(child+".jsonl", askJournal(child, cwd, true), 0600)
+	if closeErr := projects.Close(); err != nil || closeErr != nil {
 		return 2
 	}
 	encoder := json.NewEncoder(os.Stdout)
@@ -159,7 +165,10 @@ func TestAskDaemonStartsRealSupervisedWorker(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	command := exec.CommandContext(t.Context(), executable, "capture-ask-configuration")
+	command, err := askConfigurationFixture(t, executable)
+	if err != nil {
+		t.Fatal(err)
+	}
 	command.Dir, command.Env = project, environment
 	data, err := command.Output()
 	if err != nil {
@@ -212,4 +221,13 @@ func TestAskDaemonStartsRealSupervisedWorker(t *testing.T) {
 	if err != nil || len(files) != 1 || files[0].Name() != askProcessParent+".jsonl" {
 		t.Fatal("fork remains resumable or parent was removed", files, err)
 	}
+}
+
+func askConfigurationFixture(t *testing.T, executable string) (*exec.Cmd, error) {
+	// Fixture executables come from os.Executable; no PATH lookup or shell is
+	// permitted when re-entering the test image as a native Claude stand-in.
+	if !filepath.IsAbs(executable) || filepath.Clean(executable) != executable {
+		return nil, fmt.Errorf("fixture executable must be a clean absolute path")
+	}
+	return exec.CommandContext(t.Context(), executable, "capture-ask-configuration"), nil
 }
