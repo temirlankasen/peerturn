@@ -1,0 +1,13 @@
+**
+!go.mod
+!go.sum
+!LICENSE
+!NOTICE
+!cmd/
+!cmd/**
+!internal/
+!internal/**
+!packaging/
+!packaging/docker/
+!packaging/docker/Dockerfile
+!packaging/docker/licenses.sh

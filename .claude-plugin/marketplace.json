@@ -1,0 +1,12 @@
+{
+  "name": "peerturn",
+  "description": "PeerTurn pre-alpha agent adapters",
+  "owner": { "name": "PeerTurn contributors" },
+  "plugins": [
+    {
+      "name": "peerturn",
+      "source": "./adapters/claude",
+      "description": "Explicit Claude Code 2.1.306 binding and coauthor delivery"
+    }
+  ]
+}

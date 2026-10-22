@@ -1,0 +1,7 @@
+{
+  "name": "peerturn",
+  "version": "0.1.0",
+  "description": "Explicit encrypted PeerTurn sessions for Codex 0.163.0 shared daemon",
+  "skills": "./skills",
+  "hooks": "./hooks/hooks.json"
+}

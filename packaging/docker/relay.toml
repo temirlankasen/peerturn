@@ -1,0 +1,41 @@
+# Replace admin_keys with a dedicated relay administrator's Ed25519 PUBLIC key
+# (canonical unpadded base64url); never place a private client key here.
+listen = "0.0.0.0:8443"
+private_listen = "127.0.0.1:9090"
+data_dir = "/var/lib/peerturn"
+public_authority = "relay.example"
+client_ip_header = "X-Forwarded-For"
+tls_cert = "/run/secrets/relay.crt"
+tls_key = "/run/secrets/relay.key"
+admin_keys = ["REPLACE_WITH_ADMIN_ROUTING_PUBLIC_KEY"]
+# bootstrap_file = "/etc/peerturn/bootstrap.json"
+
+# For a TLS-terminating proxy, remove tls_cert/tls_key, bind to an isolated
+# interface, and set its immediate source IP/CIDR. The proxy must replace
+# X-Forwarded-Proto=https, X-Forwarded-Host=public_authority, and client_ip_header.
+# Only loopback, RFC1918 IPv4 and IPv6 ULA proxy subnets are supported.
+# trusted_proxies = ["127.0.0.1/32"]
+
+[limits]
+total_bytes = 1073741824
+mailbox_bytes = 33554432
+mailbox_items = 1000
+metadata_items = 100000
+ciphertext_bytes = 98304
+body_bytes = 135168
+batch_items = 100
+long_poll_seconds = 25
+request_timeout_seconds = 35
+read_header_seconds = 5
+body_read_seconds = 5
+idle_seconds = 60
+max_connections = 512
+requests_per_ip = 8
+ipv6_prefix_bits = 64
+polls_per_key = 4
+polls_per_mailbox = 4
+max_streams = 256
+streams_per_key = 4
+streams_per_mailbox = 4
+rate_per_minute = 120
+rate_burst = 30

@@ -1,0 +1,1 @@
+{"header":{"wire_version":1,"suite":"0020-0001-0003","feature_bits":0,"dst_mailbox":"mailbox_b","route_permit_id":"permit_a","message_id":"00112233445566778899aabbccddeeff","recipient_key_epoch":3,"expires_at":1800000300},"enc":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","ciphertext":"AAAAAAAAAAAAAAAAAAAAAA=="}

@@ -1,0 +1,96 @@
+version: 2
+
+project_name: peerturn
+
+env:
+  - CGO_ENABLED=0
+
+builds:
+  - id: peerturn
+    main: ./cmd/peerturn
+    binary: peerturn
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    flags:
+      - -trimpath
+    ldflags:
+      - >-
+        -s -w
+        -X github.com/temirlankasen/peerturn/internal/version.Version={{ .Version }}
+        -X github.com/temirlankasen/peerturn/internal/version.Commit={{ .FullCommit }}
+        -X github.com/temirlankasen/peerturn/internal/version.Date={{ .CommitDate }}
+
+archives:
+  - id: archives
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    builds_info:
+      owner: root
+      group: root
+      mode: 0755
+      mtime: "{{ .CommitDate }}"
+    files:
+      - src: LICENSE
+        info: &file_info
+          owner: root
+          group: root
+          mode: 0644
+          mtime: "{{ .CommitDate }}"
+      - src: NOTICE
+        info: *file_info
+      - src: README.md
+        info: *file_info
+      - src: .claude-plugin/marketplace.json
+        info: *file_info
+      - src: packaging/codex/.agents/plugins/marketplace.json
+        dst: .agents/plugins
+        strip_parent: true
+        info: *file_info
+      - src: adapters/claude/.claude-plugin/plugin.json
+        info: *file_info
+      - src: adapters/claude/hooks/hooks.json
+        info: *file_info
+      - src: adapters/claude/hooks/register.js
+        info: *file_info
+      - src: adapters/claude/skills/peerturn/SKILL.md
+        info: *file_info
+      - src: adapters/codex/plugin/.codex-plugin/plugin.json
+        info: *file_info
+      - src: adapters/codex/plugin/hooks/hooks.json
+        info: *file_info
+      - src: adapters/codex/plugin/scripts/inform.sh
+        info:
+          <<: *file_info
+          mode: 0755
+      - src: adapters/codex/plugin/skills/peerturn/SKILL.md
+        info: *file_info
+
+sboms:
+  - id: archives
+    artifacts: archive
+    documents:
+      - "{{ .ArtifactName }}.sbom.json"
+    cmd: syft
+    args: ["scan", "$artifact", "--output", "cyclonedx-json=$document"]
+
+checksum:
+  name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"
+  algorithm: sha256
+  extra_files:
+    - glob: scripts/install.sh
+    - glob: install.ps1
+
+release:
+  github:
+    owner: temirlankasen
+    name: peerturn
+  draft: true
+  replace_existing_draft: true
+  prerelease: auto
+  extra_files:
+    - glob: scripts/install.sh
+    - glob: install.ps1
+
+changelog:
+  disable: true

@@ -1,0 +1,167 @@
+{
+  "date": "2026-10-22",
+  "outcome": "both required native receivers passed local synthetic acceptance",
+  "platform": "linux/arm64",
+  "fresh_disposable_machines": 3,
+  "source": {
+    "binding": "test_session",
+    "native_source_binding_claimed": false,
+    "single_use_invitations": 2
+  },
+  "artifacts_sha256": {
+    "binary": "81c9ab6a79d4a481bac76af928a55193c43987640a1875dcaaf214adf437cb81",
+    "archive": "847d38482ac5210b5c0827ae9ec79cde66ee8cf5acdb877bf13b14e6d177e4cb",
+    "installer": "9d6ef5fb804e899915083c1fa1e767b0aea4161a49b11dfb591f8c7c42e7695e",
+    "signed_checksum_manifest": "926c3c5abbebf2cf55e6a8c6757edd8e520563a10edfdab1fcfc79b623e16be7",
+    "signature_bundle": "ce9b2ed2ff7ad4caf592f24654dfd11495b2dc22fe8da4f58b6a4d6cdebd8f47",
+    "cosign_linux_binary": "c5d324e091826b0d7a78eb16fef316450b4eb9aaec045611c08ba06f5e73220a"
+  },
+  "release_trust": {
+    "version": "0.1.0-preview",
+    "cosign_version": "3.1.3",
+    "signature_verification": "real cosign bundle with an explicitly trusted disposable local public key",
+    "local_signature_exit": 0,
+    "public_oidc_claimed": false,
+    "transparency_claimed": false,
+    "verifier_bootstrap": "official HTTPS download and published SHA-256; independent publisher signature qualification not claimed"
+  },
+  "negative_checks": {
+    "tampered_signed_manifest_installer_exit": 1,
+    "tampered_manifest_result": "signature verification failed; executable remained absent",
+    "untrusted_tls_curl_exit": 60,
+    "explicitly_trusted_tls_exit": 0
+  },
+  "receivers": [
+    {
+      "alias": "claude-current",
+      "runtime": "Claude Code 2.1.306",
+      "provider": "gateway",
+      "observed_model": "deepseek-flash",
+      "observed_permission_mode": "bypass permissions",
+      "effort": "preexisting default preserved; value not independently qualified",
+      "model_or_permission_override_used": false,
+      "activation": {
+        "action": "/reload-plugins in the same native session",
+        "same_native_session_continuity": true,
+        "loaded_plugins": 1,
+        "loaded_hooks": 1,
+        "separate_trust_dialog_observed": false
+      },
+      "current_binding": {
+        "result": "native_claude",
+        "proof": "accepted native tool-child nonce handshake and CURRENT commands; separate same-directory native session refused",
+        "literal_native_uuid_equality": "not exposed by the public CLI, which returns a local preview label"
+      },
+      "invitation": {
+        "original_prose_and_complete_url_pasted": true,
+        "pasted_url_equals_private_stdin_url": true,
+        "fragment_preserved": true,
+        "private_stdin_file_mode": "0600",
+        "surrounding_text_equal_ignoring_trailing_newline": true,
+        "shell_invitation_secret_occurrences": 0,
+        "join_states_observed": ["waiting_inviter", "connected"]
+      },
+      "setup": {
+        "initial_exit": 0,
+        "repeat_exit": 0,
+        "repeat_result": "marketplace already on disk; plugin loads in place; update reports latest version 0.1.0",
+        "changed_content_upgrade_qualified": false
+      },
+      "installed_binary_matches_pinned_artifact": true,
+      "native_observation": {
+        "user_message_origin": "peerturn plugin",
+        "body_marker": "PUB_NATIVE_CLAUDE",
+        "body_excerpt": "Reply exactly PUB_NATIVE_CLAUDE_ACK. Do not use tools or create agents.",
+        "assistant_reply": "PUB_NATIVE_CLAUDE_ACK"
+      },
+      "independent_sender_receipts": {
+        "stages_observed": ["relay_stored", "receiver_stored", "adapter_accepted"],
+        "final_evidence_kind": "claude_prompt_submit"
+      },
+      "same_directory_neighbor": {
+        "alias": "claude-neighbor",
+        "current_command_error": "needs_rebind",
+        "coauthor_marker_received": false,
+        "selected_receiver_still_received_marker": true
+      }
+    },
+    {
+      "alias": "codex-current",
+      "runtime": "Codex CLI 0.163.0 shared daemon",
+      "provider": "lab gateway",
+      "observed_model": "gpt-5.4-mini",
+      "observed_effort": "low",
+      "observed_approval_policy": "never",
+      "observed_sandbox_policy": "danger-full-access",
+      "model_or_permission_override_used": false,
+      "activation": {
+        "action": "resume the same native thread and review its actual hook",
+        "same_native_thread_before_and_after_resume": true,
+        "reviewed_event": "UserPromptSubmit",
+        "reviewed_source": "PeerTurn plugin verified packaged helper",
+        "reviewed_timeout_seconds": 3,
+        "reviewed_context_limit_tokens": 256,
+        "native_trust_state": "Trusted",
+        "installed_hooks": 1,
+        "active_hooks": 1
+      },
+      "current_binding": {
+        "result": "codex_shared_daemon",
+        "initialization_from_native_tool_child": true,
+        "native_thread_equal_to_init_and_status_identity": true,
+        "supplied_thread_override_used": false
+      },
+      "invitation": {
+        "original_prose_and_complete_url_pasted": true,
+        "pasted_url_equals_private_stdin_url": true,
+        "fragment_preserved": true,
+        "private_stdin_file_mode": "0600",
+        "surrounding_text_equal_ignoring_trailing_newline": true,
+        "shell_invitation_secret_occurrences": 0,
+        "join_states_observed": ["waiting_inviter", "connected"]
+      },
+      "daemon_lifecycle": {
+        "initial_native_tool_launch": "unavailable after native TUI exit",
+        "recovery": "assisted separate supervisor with explicit inherited-profile runtime environment",
+        "same_persisted_identity_and_grant_retained": true,
+        "reinitialization_after_resume": false,
+        "invitation_replay_after_resume": false
+      },
+      "setup": {
+        "initial_exit": 0,
+        "repeat_exit": 0,
+        "repeat_result": "existing marketplace accepted; plugin add refreshed the installed pinned plugin",
+        "changed_content_upgrade_qualified": false
+      },
+      "installed_binary_matches_pinned_artifact": true,
+      "packaged_and_installed_hook_helpers_match_pinned_binary": true,
+      "native_observation": {
+        "user_message_origin": "PeerTurn verified peer message, native queue",
+        "body_marker": "PUB_NATIVE_CODEX",
+        "body_excerpt": "Reply exactly PUB_NATIVE_CODEX_ACK. Do not use tools or create agents.",
+        "assistant_reply": "PUB_NATIVE_CODEX_ACK"
+      },
+      "independent_sender_receipts": {
+        "stages_observed": ["relay_stored", "adapter_accepted"],
+        "receiver_stored_separately_sampled": false,
+        "final_evidence_kind": "codex_queue"
+      },
+      "same_directory_neighbor": "not exercised"
+    }
+  ],
+  "limits": [
+    "assisted bootstrap; native reload/resume and host trust actions remain necessary",
+    "receipt acceptance, native model input and assistant text are distinct observations",
+    "automatic reverse-message transport and exactly-once effects are not claimed",
+    "different-content upgrades and automatic trust invalidation are not qualified",
+    "direct Claude-to-Codex exchange was not exercised in this run",
+    "production publisher OIDC, Internet deployment, other platforms and restricted ask are not qualified"
+  ],
+  "teardown": {
+    "targets": "only the three assigned disposable machines",
+    "exit": 0,
+    "processes_and_containers_removed": true,
+    "unrelated_containers_targeted": false
+  },
+  "retention": "synthetic scrubbed summary only; private harnesses, prompts, native transcripts and raw logs excluded"
+}

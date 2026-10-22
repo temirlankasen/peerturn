@@ -1,0 +1,6 @@
+{
+  "name": "peerturn",
+  "plugins": [
+    {"name": "peerturn", "source": {"source": "local", "path": "./adapters/codex/plugin"}}
+  ]
+}

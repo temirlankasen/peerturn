@@ -1,0 +1,14 @@
+{
+  "name": "peerturn",
+  "version": "0.1.0",
+  "description": "Explicit PeerTurn binding and coauthor delivery for Claude Code 2.1.306",
+  "license": "Apache-2.0",
+  "author": { "name": "PeerTurn contributors" },
+  "userConfig": {
+    "peerturn_binary": {
+      "type": "string",
+      "title": "PeerTurn executable",
+      "description": "Absolute path to the installed peerturn executable"
+    }
+  }
+}

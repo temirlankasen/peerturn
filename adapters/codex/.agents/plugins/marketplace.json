@@ -1,0 +1,4 @@
+{
+  "name": "peerturn-local",
+  "plugins": [{"name": "peerturn", "source": {"source": "local", "path": "./plugin"}}]
+}

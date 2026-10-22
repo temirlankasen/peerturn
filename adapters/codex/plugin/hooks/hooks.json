@@ -1,0 +1,5 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "\"$PLUGIN_ROOT/scripts/inform.sh\"", "timeout": 3, "additionalContextLimit": 256}]}]
+  }
+}

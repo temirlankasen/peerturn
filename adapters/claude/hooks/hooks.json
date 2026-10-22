@@ -1,0 +1,17 @@
+{
+  "modules": ["./register.js"],
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${user_config.peerturn_binary}",
+            "args": ["adapter", "claude", "owner-boundary"],
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

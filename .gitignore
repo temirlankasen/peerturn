@@ -1,0 +1,66 @@
+# Hidden local configuration and state; public metadata is explicit.
+.*
+!/.gitignore
+!/.dockerignore
+!/.editorconfig
+!/.gitattributes
+!/.golangci.yml
+!/.goreleaser.yaml
+!/.github/
+!/.claude-plugin/
+
+# Private research inputs, historical reports, and collection tooling.
+/research/sources/
+/research/data/
+/research/docs/
+/research/reports/
+/research/scripts/
+
+# Publish only the explicitly reviewed laboratory summaries.
+/research/lab/*
+!/research/lab/README.md
+!/research/lab/results/
+/research/lab/results/*
+!/research/lab/results/host-monitor-ws.md
+!/research/lab/results/m0b-fork-responder.md
+!/research/lab/results/relay-vps-smoke.md
+!/research/lab/results/l1-platform/
+/research/lab/results/l1-platform/*
+!/research/lab/results/l1-platform/README.md
+!/research/lab/results/l2-tools/
+/research/lab/results/l2-tools/*
+!/research/lab/results/l2-tools/README.md
+!/research/lab/results/m0-guard/
+/research/lab/results/m0-guard/*
+!/research/lab/results/m0-guard/README.md
+!/research/lab/results/int-m3-m4/
+/research/lab/results/int-m3-m4/*
+!/research/lab/results/int-m3-m4/README.md
+!/research/lab/results/m3-claude/
+/research/lab/results/m3-claude/*
+!/research/lab/results/m3-claude/README.md
+!/research/lab/results/m3-claude/fixes/
+/research/lab/results/m3-claude/fixes/*
+!/research/lab/results/m3-claude/fixes/README.md
+!/research/lab/results/m4-codex/
+/research/lab/results/m4-codex/*
+!/research/lab/results/m4-codex/README.md
+!/research/lab/results/m4-codex/fix-20261022/
+/research/lab/results/m4-codex/fix-20261022/*
+!/research/lab/results/m4-codex/fix-20261022/README.md
+!/research/lab/results/install-by-link/
+/research/lab/results/install-by-link/*
+!/research/lab/results/install-by-link/README.md
+!/research/lab/results/install-by-link/evidence-summary.json
+
+# Local briefs, original summaries, run journals, and broker state.
+.run/
+
+# Local build and test outputs.
+/dist/
+/bin/
+/coverage/
+coverage.out
+coverage.txt
+coverage.html
+*.coverprofile

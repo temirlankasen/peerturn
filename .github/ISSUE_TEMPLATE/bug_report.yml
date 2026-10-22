@@ -1,0 +1,42 @@
+name: Bug report
+description: Report a reproducible defect in PeerTurn.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For security vulnerabilities, use [private reporting](https://github.com/temirlankasen/peerturn/security/advisories/new).
+        Remove secrets, invitation links, private transcripts, and personal paths from reports.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Paste the output of peerturn version, or the source commit.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, architecture, Go version, and agent/runtime version if applicable.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Include a minimal example and exact commands.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior and sanitized evidence
+    validations:
+      required: true

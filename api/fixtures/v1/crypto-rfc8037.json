@@ -1,0 +1,9 @@
+{
+  "source": "https://www.rfc-editor.org/rfc/rfc8037.html#appendix-A.4",
+  "description": "Published RFC8037 Appendix A.1-A.5 test material; not operational keys. The raw RFC header lacks PeerTurn's mandatory typ/kid.",
+  "seed": "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+  "public_key": "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
+  "payload": "Example of Ed25519 signing",
+  "protected": "eyJhbGciOiJFZERTQSJ9",
+  "compact": "eyJhbGciOiJFZERTQSJ9.RXhhbXBsZSBvZiBFZDI1NTE5IHNpZ25pbmc.hgyY0il_MGCjP0JzlnLWG1PPOt7-09PGcvMg3AIbQR6dWbhijcNR4ki4iylGjg5BhVsPt9g7sVvpAr_MuM0KAg"
+}
