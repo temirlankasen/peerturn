@@ -33,6 +33,11 @@ func currentMCPBinding(ctx context.Context, command cliCommand) (string, string,
 		session, err := currentSession(ctx, command)
 		return session, "", err
 	}
+	if os.Getenv("CLAUDE_CODE_MESSAGING_SOCKET") == "" && os.Getenv("CLAUDE_CODE_MESSAGING_TOKEN") == "" {
+		// Codex starts MCP from its app-server environment, not a tool child.
+		// Only a later host tools/call can select its exact native thread.
+		return "", "", nil
+	}
 	dir, err := daemon.DefaultRuntimeDir()
 	if err != nil {
 		return "", "", err

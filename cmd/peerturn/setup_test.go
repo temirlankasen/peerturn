@@ -71,12 +71,20 @@ func TestSetupHostPlansAndActivationLimits(t *testing.T) {
 		invoke := func(_ context.Context, name string, args []string, output io.Writer) error {
 			calls = append(calls, append([]string{name}, args...))
 			switch strings.Join(args, " ") {
+			case "--version":
+				_, err := io.WriteString(output, qualifiedSetupVersion(host))
+				return err
 			case "plugin marketplace list --json":
 				_, err := io.WriteString(output, marketplaces)
 				return err
 			case "plugin list --json":
 				_, err := io.WriteString(output, plugins)
 				return err
+			case "mcp list --json":
+				_, err := io.WriteString(output, "[]")
+				return err
+			case "mcp get peerturn", "mcp get peerturn --json":
+				return absentSetupMCP(host, output)
 			}
 			return nil
 		}
@@ -84,14 +92,14 @@ func TestSetupHostPlansAndActivationLimits(t *testing.T) {
 		if err := installSetup(context.Background(), host, root, &output, invoke); err != nil {
 			t.Fatal(err)
 		}
-		count := 4
+		count := 8
 		if host == "claude" {
-			count = 5
+			count = 9
 		}
-		if len(calls) != count || calls[0][3] != "add" || calls[0][4] != root || calls[2][3] != "peerturn@peerturn" {
+		if len(calls) != count || calls[0][1] != "--version" || calls[2][3] != "add" || !sameSetupPath(calls[2][4], root) || calls[4][3] != "peerturn@peerturn" {
 			t.Fatalf("unexpected host plan: %v", calls)
 		}
-		if host == "claude" && (len(calls[2]) != 6 || calls[2][5] != "peerturn_binary="+filepath.Join(root, "peerturn")) {
+		if host == "claude" && (len(calls[4]) != 6 || calls[4][5] != "peerturn_binary="+filepath.Join(root, "peerturn")) {
 			t.Fatalf("verified helper was not configured as one argument: %v", calls)
 		}
 		if !strings.Contains(output.String(), "hook trust") || !strings.Contains(output.String(), "activation") {

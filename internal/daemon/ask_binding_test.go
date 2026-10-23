@@ -8,6 +8,7 @@ import (
 )
 
 func TestClaudeProjectIsRecordedOnlyAfterNativeChallenge(t *testing.T) {
+	parallelDaemonTest(t)
 	dir := fileAuthorityFixture(t)
 	d, err := Open(t.Context(), Options{StateDir: dir})
 	if err != nil {
@@ -46,6 +47,7 @@ func TestClaudeProjectIsRecordedOnlyAfterNativeChallenge(t *testing.T) {
 }
 
 func TestKeystoreCapabilityDoesNotEnableCodexOrUnboundReceiver(t *testing.T) {
+	parallelDaemonTest(t)
 	dir := fileAuthorityFixture(t)
 	backend := &memoryKeyStore{}
 	if err := MigrateAuthoritySecrets(t.Context(), dir, backend); err != nil {

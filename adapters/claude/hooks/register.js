@@ -1,5 +1,7 @@
 const VERSION = '2.1.306';
 const MAX_FRAME = 262144;
+const STARTUP_FAILURES = new Set(['runtime_unsupported', 'daemon_unavailable',
+  'needs_rebind', 'permission_denied', 'peer_identity_failed', 'auth_failed', 'adapter_unavailable']);
 let runtime = null;
 let working = null;
 let turnGeneration = 0;
@@ -47,6 +49,7 @@ async function request($, state, path, body) {
 }
 
 async function retryLater($, state, error, reason = 'adapter_unavailable') {
+  if (!state.active) return;
   if (error?.message === 'binding_lost') return stop($, state, 'binding_lost');
   // Keep retries within the daemon's 20-second lease and helper inactivity bound.
   state.failures = Math.min(state.failures + 1, 4);
@@ -173,12 +176,30 @@ async function poll($, state) {
 
 async function launch($, state) {
   let buffered = '';
+  let diagnostic = '';
   try {
     for await (const chunk of $.process.spawn({ argv: [
       state.binary, 'adapter', 'claude', '--native-session', state.session,
       '--runtime-version', VERSION, '--provider', state.provider,
     ] })) {
       if (!state.active) return;
+      if (chunk.stream === 'stderr' && !state.url) {
+        if (typeof chunk.text !== 'string' || diagnostic.length + chunk.text.length > 4096) {
+          throw new Error('adapter_protocol_error');
+        }
+        diagnostic += chunk.text;
+        let newline;
+        while ((newline = diagnostic.indexOf('\n')) >= 0) {
+          const line = diagnostic.slice(0, newline);
+          diagnostic = diagnostic.slice(newline + 1);
+          const code = line.startsWith('peerturn: ') ? line.slice(10) : '';
+          if (STARTUP_FAILURES.has(code)) {
+            await stop($, state, code);
+            return;
+          }
+        }
+        continue;
+      }
       if (chunk.stream !== 'stdout') continue;
       if (typeof chunk.text !== 'string' || buffered.length + chunk.text.length > 4096) {
         throw new Error('adapter_protocol_error');
@@ -202,7 +223,7 @@ async function launch($, state) {
       }
       state.timer = $.clock.every(500, async () => poll($, state));
     }
-    if (state.active) await stop($, state, 'adapter_stopped');
+    if (state.active) await stop($, state, state.url ? 'adapter_stopped' : 'adapter_unavailable');
   } catch {
     await stop($, state, 'adapter_unavailable');
   }

@@ -15,6 +15,7 @@ import (
 )
 
 func TestRelayStatusDoesNotPoisonPeer(t *testing.T) {
+	parallelDaemonTest(t)
 	for _, status := range []int{400, 403, 409, 410, 413, 426, 503} {
 		t.Run(http.StatusText(status), func(t *testing.T) {
 			a, b := pairedStores(t)
@@ -76,6 +77,7 @@ func TestRelayStatusDoesNotPoisonPeer(t *testing.T) {
 }
 
 func TestReplyIgnoresCallerPeerWhenParentBindingIsMissing(t *testing.T) {
+	parallelDaemonTest(t)
 	a, b := pairedStores(t)
 	_, c := pairedStores(t)
 	attachPair(t, a, c)
@@ -91,6 +93,7 @@ func TestReplyIgnoresCallerPeerWhenParentBindingIsMissing(t *testing.T) {
 }
 
 func TestLocalRevokeBlocksNewOutgoingData(t *testing.T) {
+	parallelDaemonTest(t)
 	a, b := pairedStores(t)
 	id := peerID(b.state.Chain)
 	g, err := a.incomingGrant(a.state.Peers[id])
@@ -107,6 +110,7 @@ func TestLocalRevokeBlocksNewOutgoingData(t *testing.T) {
 }
 
 func TestExpiredRelaySubmitUsesLocalExpiryWithoutRevokingPeer(t *testing.T) {
+	parallelDaemonTest(t)
 	a, b := pairedStores(t)
 	id := peerID(b.state.Chain)
 	r := incomingData(t, a, b)

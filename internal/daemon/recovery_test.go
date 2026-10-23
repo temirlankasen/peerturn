@@ -64,6 +64,7 @@ func pairedStores(t *testing.T) (*Daemon, *Daemon) {
 }
 
 func TestReservedPacketRecoveryBeforeAndAfterQueueCommit(t *testing.T) {
+	parallelDaemonTest(t)
 	for _, commit := range []bool{false, true} {
 		t.Run(map[bool]string{false: "before", true: "after"}[commit], func(t *testing.T) {
 			a, b := pairedStores(t)
@@ -108,6 +109,7 @@ func TestReservedPacketRecoveryBeforeAndAfterQueueCommit(t *testing.T) {
 }
 
 func TestReceiptJournalRecoveryAfterCustodyCommit(t *testing.T) {
+	parallelDaemonTest(t)
 	a, b := pairedStores(t)
 	aid := peerID(b.state.Chain)
 	bid := peerID(a.state.Chain)
@@ -171,6 +173,7 @@ type failedSealer struct{ store.Sealer }
 func (failedSealer) Seal([]byte, []byte) ([]byte, error) { return nil, fault.New(store.SealingFailed) }
 
 func TestJournalFailureFencesFurtherEffects(t *testing.T) {
+	parallelDaemonTest(t)
 	a, b := pairedStores(t)
 	a.sealer = failedSealer{a.sealer}
 	if _, err := a.Dispatch(t.Context(), localipc.Request{Method: "send", Session: a.state.Label, Peer: peerID(b.state.Chain), Kind: "coauthor", Body: "unsaved"}); err == nil {

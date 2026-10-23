@@ -39,6 +39,17 @@ so they cannot qualify the peer-start detection boundary until revalidated.
 Other integrations may submit indistinguishable root user input: the hook API
 has no general owner-origin proof, so that residual boundary remains unverified.
 
+Owner decision, **23 October 2026**: an eligible owner prompt also hands the
+capability, parsed/normalized with CLI join's strict rules, to existing private
+same-UID IPC. It is bound to the exact root thread selected on MCP calls by
+host-owned `_meta.threadId`. The daemon holds ≤8 pending capabilities/session,
+memory-only for ≤10 minutes, clearing on use, expiry, unbind/rebind, stop/restart.
+MCP `peer_join({})` accepts no invitation text; optional nonsecret `handle`
+selects an entry shown only with relay host and age. No inviter label precedes
+descriptor authentication. Pending secrets never enter disk, logs, status,
+receipts or audit; post-join sealed recovery state is separate. Owner pastes
+still enter provider/native transcripts. See [handoff and typed failures](../../docs/onboarding.md#owner-invitation-handoff--decision-of-23-october-2026).
+
 Codex records hook `additionalContext` as developer context and spills oversized
 context into plaintext temp files. The helper therefore returns only a fixed
 notice with a bounded count and validated fingerprint labels, at most eight
@@ -52,7 +63,10 @@ source evidence, not a claim that its entire HEAD matches the release binary.
 
 The daemon prepares a short-lived notice offer without marking messages offered.
 After writing the notice successfully, the helper acknowledges it using the same
-two-second deadline. A failed or late write gets no acknowledgement; a missing
+20-second helper deadline (22 seconds at the host). Each active-root proof has
+a nine-second cap: metadata two seconds, legacy replay eight seconds within it.
+The pinned server can replay the entire rollout even for one metadata-only turn;
+extremely long histories still fail closed. A failed or late write gets no acknowledgement; a missing
 acknowledgement can produce another notice. This acknowledgement proves only the
 helper's successful output write, not Codex ingestion or model consumption. Hook
 failure returns empty context and never blocks an owner turn.

@@ -7,6 +7,7 @@ import (
 )
 
 func TestAskPeerDailyQuotaSurvivesHourlyCleanupAndRestart(t *testing.T) {
+	parallelDaemonTest(t)
 	a, _ := pairedStores(t)
 	day := unixNow() / secondsPerDay * secondsPerDay
 	for i := range 12 {
@@ -40,6 +41,7 @@ func TestAskPeerDailyQuotaSurvivesHourlyCleanupAndRestart(t *testing.T) {
 }
 
 func TestAskRestartReleasesActiveBudgetWithoutRefundOrReplay(t *testing.T) {
+	parallelDaemonTest(t)
 	a, _ := pairedStores(t)
 	now := unixNow()
 	run, err := a.reserveAskBudget("peer", "parent", "conversation", "old", now)
@@ -70,6 +72,7 @@ func TestAskRestartReleasesActiveBudgetWithoutRefundOrReplay(t *testing.T) {
 }
 
 func TestAskDailyRolloverPreservesRollingHour(t *testing.T) {
+	parallelDaemonTest(t)
 	a, _ := pairedStores(t)
 	day := unixNow() / secondsPerDay * secondsPerDay
 	for range 5 {

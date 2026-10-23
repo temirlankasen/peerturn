@@ -1,15 +1,15 @@
 # Security policy
 
-PeerTurn is **pre-alpha**. The protocol core, HPKE/Ed25519 encryption, directional grants, encrypted client/relay storage and experimental Claude/Codex coauthor adapters are implemented with local acceptance evidence. Ask and the complete peer-turn guard remain unavailable. No independent product security audit or production qualification is claimed.
+PeerTurn is **pre-alpha**. The protocol core, HPKE/Ed25519 encryption, directional grants, encrypted client/relay storage and experimental Claude/Codex coauthor adapters are implemented with local acceptance evidence. Ask receivers remain closed on macOS and Codex; only the [qualified Linux Claude profile](docs/m6-ask.md) can answer. The complete peer-turn guard remains unavailable. No independent product security audit or production qualification is claimed.
 
 ## Supported versions
 
 | Version | Security support |
 | --- | --- |
-| 0.1.0-preview | Best-effort security fixes on the latest preview revision; Claude Code 2.1.306 / Codex CLI 0.163.0 shared daemon only; no production qualification. |
+| 0.1.1-preview (prepared; not yet published) | Best-effort security fixes on the latest preview revision; Claude Code 2.1.306 / Codex CLI 0.163.0 shared daemon only; no production qualification. |
 | Development branch | Best-effort investigation only; no security support SLA. |
 
-Use the latest preview revision. Older preview snapshots and unqualified host versions have no maintenance guarantee. Signed Linux/macOS archives require SHA-256 and Sigstore bundle verification with cosign >=3.1.3; no Windows release or automatic trust/reload is claimed. A published support window begins only with an explicitly published release.
+Use the latest preview revision. Older preview snapshots and unqualified host versions have no maintenance guarantee. Signed Linux/macOS archives require SHA-256 and Sigstore bundle verification with cosign >=3.1.3; no Windows release or automatic trust/reload is claimed. A published support window begins only with an explicitly published release. Setup refuses newer auto-updated Claude/Codex versions before side effects. See the [support matrix](README.md#agent-support-and-laboratory-evidence) for exact Linux/macOS qualification and limits.
 
 ## Report a vulnerability privately
 

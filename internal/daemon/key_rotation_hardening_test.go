@@ -48,6 +48,7 @@ func authorityFixtureKey(t *testing.T, directory string) []byte {
 }
 
 func TestAuthorityMigrationRechecksKeyBeforeWipingFile(t *testing.T) {
+	parallelDaemonTest(t)
 	for _, name := range []string{"unavailable", "changed", "pending recovery"} {
 		t.Run(name, func(t *testing.T) {
 			dir := fileAuthorityFixture(t)
@@ -81,6 +82,7 @@ func TestAuthorityMigrationRechecksKeyBeforeWipingFile(t *testing.T) {
 }
 
 func TestAuthorityMigrationRefusesRunningDaemonBeforeKeyStorage(t *testing.T) {
+	parallelDaemonTest(t)
 	dir := fileAuthorityFixture(t)
 	d, err := Open(t.Context(), Options{StateDir: dir})
 	if err != nil {
@@ -107,6 +109,7 @@ func TestAuthorityMigrationRefusesRunningDaemonBeforeKeyStorage(t *testing.T) {
 }
 
 func TestSystemAuthorityMigrationQualifiesBeforeStateAccess(t *testing.T) {
+	parallelDaemonTest(t)
 	want := "invalid_encoding"
 	if runtime.GOOS == "darwin" {
 		want = "macos_unqualified"

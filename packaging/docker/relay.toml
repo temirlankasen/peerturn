@@ -30,12 +30,15 @@ read_header_seconds = 5
 body_read_seconds = 5
 idle_seconds = 60
 max_connections = 512
-requests_per_ip = 8
+# Budget for ~10 daemons behind one NAT: stream + fetch + spare = 30 sockets.
+requests_per_ip = 32
 ipv6_prefix_bits = 64
 polls_per_key = 4
 polls_per_mailbox = 4
 max_streams = 256
 streams_per_key = 4
 streams_per_mailbox = 4
-rate_per_minute = 120
-rate_burst = 30
+# Ten 2-second onboarding poll lanes use 300/min; leave 300 for other HTTP work.
+# Burst 120 budgets 12 startup requests each; busy/multi-mailbox NATs need tuning.
+rate_per_minute = 600
+rate_burst = 120

@@ -52,6 +52,9 @@
 /research/lab/results/install-by-link/*
 !/research/lab/results/install-by-link/README.md
 !/research/lab/results/install-by-link/evidence-summary.json
+!/research/lab/results/macos-live-7/
+/research/lab/results/macos-live-7/*
+!/research/lab/results/macos-live-7/README.md
 
 # Local briefs, original summaries, run journals, and broker state.
 .run/

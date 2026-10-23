@@ -35,7 +35,7 @@ func runClaudeAdapter(args []string, stdin io.Reader, stdout, stderr io.Writer) 
 		return writeFailure(stdout, stderr, invalidArguments())
 	}
 	values := map[string]string{}
-	for i := 1; i < len(args); i += 2 {
+	for i := 1; i+1 < len(args); i += 2 {
 		if args[i] != "--native-session" && args[i] != "--runtime-version" && args[i] != "--provider" {
 			return writeFailure(stdout, stderr, invalidArguments())
 		}
@@ -46,11 +46,11 @@ func runClaudeAdapter(args []string, stdin io.Reader, stdout, stderr io.Writer) 
 	}
 	dir, err := daemon.DefaultRuntimeDir()
 	if err != nil {
-		return writeMCPFailure(stderr, err)
+		return writeClaudeFailure(stderr, err)
 	}
 	err = claudeipc.Serve(ctx, stdout, claudeipc.Options{NativeSession: values["--native-session"], RuntimeVersion: values["--runtime-version"], Provider: values["--provider"], Client: localipc.Client{RuntimeDir: dir}})
 	if err != nil {
-		return writeMCPFailure(stderr, err)
+		return writeClaudeFailure(stderr, err)
 	}
 	return 0
 }

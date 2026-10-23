@@ -73,17 +73,29 @@ func ClaimHash(raw string) string {
 	return hex.EncodeToString(digest[:])
 }
 
-// PromptHashes returns only bounded digests of explicit invitation links.
-// Ordinary prompt text never crosses the hook's private IPC boundary.
+// PromptLinks exports only complete capabilities explicitly present in an owner
+// prompt. Ordinary prose never crosses the hook's private IPC boundary.
+func PromptLinks(text string) []string {
+	var links []string
+	for _, raw := range CandidateURLs(text) {
+		link, err := ParseLink(raw)
+		if err == nil {
+			links = append(links, link.SecretURL())
+		}
+		if len(links) == 32 {
+			break
+		}
+	}
+	return links
+}
+
+// PromptHashes is retained for non-secret origin comparison fixtures.
 func PromptHashes(text string) []string {
 	var hashes []string
-	for _, raw := range CandidateURLs(text) {
+	for _, raw := range PromptLinks(text) {
 		exact, _, err := OriginHashes(raw)
 		if err == nil {
 			hashes = append(hashes, exact)
-		}
-		if len(hashes) == 32 {
-			break
 		}
 	}
 	return hashes

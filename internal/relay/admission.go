@@ -72,14 +72,20 @@ func (s *Server) admit(next http.Handler) http.Handler {
 			failure(w, 503, "unavailable")
 			return
 		}
+		// Socket/body allowance for shared NATs must not let one source monopolize execution.
+		if !s.reserveExecution(ip) {
+			failure(w, 429, "rate_limit")
+			return
+		}
 		// Slow bodies never own a global execution slot.
 		select {
 		case s.slots <- struct{}{}:
 		default:
+			s.releaseExecution(ip)
 			failure(w, 503, "backpressure")
 			return
 		}
-		lease := &requestLease{release: func() { <-s.slots; ingress.close() }}
+		lease := &requestLease{release: func() { <-s.slots; s.releaseExecution(ip); ingress.close() }}
 		defer lease.close()
 		ctx := context.WithValue(r.Context(), leaseKey{}, lease)
 		ctx = context.WithValue(ctx, admissionKey{}, &admission{body: body})

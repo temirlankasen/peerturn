@@ -44,6 +44,7 @@ func askDailyConfigRoot(t *testing.T, path string) *os.Root {
 }
 
 func TestAskDailyOwnerConfigurationDoesNotRefundUsage(t *testing.T) {
+	parallelDaemonTest(t)
 	dir := stateDir(t)
 	path := filepath.Join(dir, "config.toml")
 	if _, err := Initialize(t.Context(), InitOptions{StateDir: dir, ConfigPath: path, RelayURL: "https://relay.example", SessionLabel: "owner-quota", FilePermissions: true}); err != nil {
@@ -99,6 +100,7 @@ func TestAskDailyOwnerConfigurationDoesNotRefundUsage(t *testing.T) {
 }
 
 func TestAskDailyConfigBoundsAndLegacyDefault(t *testing.T) {
+	parallelDaemonTest(t)
 	for _, value := range []string{"", "1", "4096", "0", "-1", "4097", "true", "'24'", "1.5"} {
 		t.Run("count="+value, func(t *testing.T) {
 			path, state := configFixture(t)
@@ -134,6 +136,7 @@ func TestAskDailyConfigBoundsAndLegacyDefault(t *testing.T) {
 }
 
 func TestAskDailyLegacyStateExhaustsLastUTCday(t *testing.T) {
+	parallelDaemonTest(t)
 	dir := stateDir(t)
 	if _, err := Initialize(t.Context(), InitOptions{StateDir: dir, RelayURL: "https://relay.example", SessionLabel: "legacy-quota", FilePermissions: true}); err != nil {
 		t.Fatal(err)

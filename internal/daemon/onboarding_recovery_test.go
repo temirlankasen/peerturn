@@ -55,6 +55,7 @@ func recoveryRelayOffline(t *testing.T, d *Daemon) {
 }
 
 func TestJoiningRecoveryRestoresReturnGrantBeforeClaimRetry(t *testing.T) {
+	parallelDaemonTest(t)
 	a, b := pairedStores(t)
 	j := recoveryJoin(t, a, b)
 	returned, err := grant.Verify(j.Claim.ReturnGrant, a.cert, b.cert, 1, unixNow())
@@ -82,6 +83,7 @@ func TestJoiningRecoveryRestoresReturnGrantBeforeClaimRetry(t *testing.T) {
 }
 
 func TestJoiningRecoveryRestoresCompletedGrantsAndPreservesRevocation(t *testing.T) {
+	parallelDaemonTest(t)
 	a, b := pairedStores(t)
 	j := recoveryJoin(t, a, b)
 	j.Complete, j.Claimed, j.Enrolled = true, true, true
@@ -120,6 +122,7 @@ func TestJoiningRecoveryRestoresCompletedGrantsAndPreservesRevocation(t *testing
 }
 
 func TestOnboardingExpiredEntryDoesNotHideAnotherJoinOrStorageFailure(t *testing.T) {
+	parallelDaemonTest(t)
 	a, b := pairedStores(t)
 	good := recoveryJoin(t, a, b)
 	a.state.Joining["000-expired"] = &joiningInvite{Descriptor: invite.Descriptor{ExpiresAt: unixNow() - 1}}
@@ -161,6 +164,7 @@ func openRecoveryDaemon(t *testing.T, relay *relayFixture, key ed25519.PrivateKe
 }
 
 func TestIssuedClaimWaitsForJoiningMailboxWithoutBecomingTerminal(t *testing.T) {
+	parallelDaemonTest(t)
 	key := routingKey(t)
 	relay := newRelayFixture(t, key)
 	a := openRecoveryDaemon(t, relay, key)
@@ -197,6 +201,7 @@ func TestIssuedClaimWaitsForJoiningMailboxWithoutBecomingTerminal(t *testing.T) 
 }
 
 func TestJoiningInvalidProofBecomesTerminalWithoutRepeatedSubmission(t *testing.T) {
+	parallelDaemonTest(t)
 	key := routingKey(t)
 	relay := newRelayFixture(t, key)
 	a := openRecoveryDaemon(t, relay, key)
@@ -222,6 +227,7 @@ func TestJoiningInvalidProofBecomesTerminalWithoutRepeatedSubmission(t *testing.
 }
 
 func TestExpiredOnboardingDoesNotBlockConnectedPeerCustody(t *testing.T) {
+	parallelDaemonTest(t)
 	key := routingKey(t)
 	relay := newRelayFixture(t, key)
 	a := newDaemonFixture(t, relay, "a-explicit", key)

@@ -2,13 +2,16 @@ package daemon
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/temirlankasen/peerturn/internal/invite"
 	"github.com/temirlankasen/peerturn/internal/localipc"
 )
 
 func TestCodexJoinRequiresExactNativeThreadAndOwnerLink(t *testing.T) {
+	parallelDaemonTest(t)
 	admin := routingKey(t)
 	relay := newRelayFixture(t, admin)
 	issuer := openRecoveryDaemon(t, relay, admin)
@@ -45,15 +48,48 @@ func TestCodexJoinRequiresExactNativeThreadAndOwnerLink(t *testing.T) {
 		Capability string `json:"capability"`
 	}
 	decodeResult(t, result, &hello)
-	r := textJoinRequest(t, invitation.URL)
+	r := pendingJoinRequest(t, a, hello.Capability, "")
 	r.Session, r.Capability = a.state.Label, hello.Capability
-	if _, err = a.Dispatch(t.Context(), r); localipc.PublicError(err).Code != "owner_invitation_required" {
-		t.Fatalf("unobserved Codex invitation reached onboarding: %v", err)
+	assertCodexOwnerPasteRequired(t, a, r)
+	// A later successful hook with no link cannot attest an earlier paste.
+	nativeCall(t, a, localipc.Request{Method: "codex_inform", MessageID: "later-owner-turn"})
+	if a.hookVerified == 0 {
+		t.Fatal("fixture did not observe the later active hook")
 	}
-	_, err = a.Dispatch(t.Context(), localipc.Request{Method: "codex_inform", Session: a.state.Label, NativeThread: a.state.Codex.ThreadID, MessageID: "owner-turn", OwnerInvites: invite.PromptHashes(invitation.URL)})
+	assertCodexOwnerPasteRequired(t, a, r)
+	_, err = a.Dispatch(t.Context(), localipc.Request{Method: "codex_inform", Session: a.state.Label, NativeThread: a.state.Codex.ThreadID, MessageID: "owner-turn", OwnerInvites: invite.PromptLinks(invitation.URL)})
 	if err != nil {
 		t.Fatal(err)
 	}
+	hash, _, err := invite.OriginHashes(invitation.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	proof := a.joinOrigins.owner[hash]
+	proof.expires = time.Now().Add(-time.Second)
+	a.joinOrigins.owner[hash] = proof
+	assertCodexOwnerExpired(t, a, r)
+	nativeCall(t, a, localipc.Request{Method: "codex_inform", MessageID: "owner-repaste", OwnerInvites: invite.PromptLinks(invitation.URL)})
+	// mac4's first tool call changed two ek characters despite a verbatim paste.
+	// A syntactically valid replacement secret must not inherit owner intent.
+	prefix, secret, ok := strings.Cut(invitation.URL, "&ek=")
+	if !ok || len(secret) < 2 {
+		t.Fatal("fixture lacks an encryption key")
+	}
+	changed := []byte(secret)
+	for i := range 2 {
+		changed[i] = 'A'
+		if secret[i] == 'A' {
+			changed[i] = 'B'
+		}
+	}
+	altered := prefix + "&ek=" + string(changed)
+	if _, err = invite.ParseLink(altered); err != nil {
+		t.Fatal("fixture must change a valid secret without changing link syntax")
+	}
+	mutated := textJoinRequest(t, altered)
+	mutated.Session, mutated.Capability = r.Session, r.Capability
+	assertCodexOwnerPasteRequired(t, a, mutated)
 	result, err = a.Dispatch(t.Context(), r)
 	if err != nil {
 		t.Fatal(err)
@@ -61,5 +97,30 @@ func TestCodexJoinRequiresExactNativeThreadAndOwnerLink(t *testing.T) {
 	raw, err := json.Marshal(result)
 	if err != nil || len(a.state.Joining) != 1 || len(raw) == 0 {
 		t.Fatal("native owner invitation did not join")
+	}
+}
+
+func assertCodexOwnerPasteRequired(t *testing.T, d *Daemon, r localipc.Request) {
+	t.Helper()
+	_, err := d.Dispatch(t.Context(), r)
+	problem := localipc.PublicError(err)
+	if problem.Code != "no_owner_invitation" || problem.State != "rejected" || problem.Retryable {
+		t.Fatalf("unobserved or expired owner invitation acquired authority: %+v", problem)
+	}
+	for _, step := range []string{"unchanged", "daemon", "/hooks", "UserPromptSubmit", "trust", "paste", "same", "10 minutes"} {
+		if !strings.Contains(problem.Message, step) {
+			t.Errorf("owner refusal does not explain recovery step %q: %s", step, problem.Message)
+		}
+	}
+	if r.InvitationText != "" && strings.Contains(problem.Message, r.InvitationText) || len(d.state.Joining) != 0 || len(d.state.Peers) != 0 {
+		t.Fatal("refused join exposed invitation text or changed peer authority")
+	}
+}
+
+func assertCodexOwnerExpired(t *testing.T, d *Daemon, r localipc.Request) {
+	t.Helper()
+	_, err := d.Dispatch(t.Context(), r)
+	if localipc.PublicError(err).Code != "owner_invitation_expired" {
+		t.Fatal("expired owner invitation accepted")
 	}
 }

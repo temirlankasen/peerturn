@@ -15,30 +15,57 @@ const maxInviteHashesPerPeer = 128
 type ownerInvite struct {
 	epoch   string
 	expires time.Time
+	created time.Time
+	handle  string
+	host    string
+	hint    string
+	link    []byte
+	timer   *time.Timer
+	order   uint64
 }
 
-// Only bounded, best-effort peer claim hashes are retained. Owner prompt
-// evidence is checked independently, including after peer hashes are evicted.
+// Pending capabilities are separate from persisted onboarding and peer hashes.
 type joinOrigins struct {
-	owner map[string]ownerInvite
-	peer  peerInviteCache
+	owner        map[string]ownerInvite
+	peer         peerInviteCache
+	expiredEpoch string
+	ownerOrder   uint64
 }
 
-func (d *Daemon) recordOwnerInvites(hashes []string, epoch string) {
+func (d *Daemon) recordOwnerInvites(links []string, epoch string) {
 	now := time.Now()
 	if d.joinOrigins.owner == nil {
 		d.joinOrigins.owner = make(map[string]ownerInvite)
 	}
+	d.expireOwnerInvites(now)
 	for hash, record := range d.joinOrigins.owner {
-		if !now.Before(record.expires) || record.epoch != epoch {
-			delete(d.joinOrigins.owner, hash)
+		if record.epoch != epoch {
+			d.removeOwnerInvite(hash)
 		}
 	}
-	for _, hash := range hashes {
-		if len(d.joinOrigins.owner) >= 128 {
-			break
+	for _, raw := range links {
+		link, err := invite.ParseLink(raw)
+		if err != nil {
+			continue
 		}
-		d.joinOrigins.owner[hash] = ownerInvite{epoch: epoch, expires: now.Add(ownerInviteTTL)}
+		hash, _, err := invite.OriginHashes(raw)
+		if err != nil {
+			continue
+		}
+		if _, exists := d.joinOrigins.owner[hash]; exists {
+			continue
+		}
+		if len(d.joinOrigins.owner) >= 8 {
+			// A batch shares now, so use insertion order rather than timestamp ties.
+			oldest := ""
+			for key, record := range d.joinOrigins.owner {
+				if oldest == "" || record.order < d.joinOrigins.owner[oldest].order {
+					oldest = key
+				}
+			}
+			d.removeOwnerInvite(oldest)
+		}
+		d.addOwnerInvite(hash, epoch, link, now)
 	}
 }
 
@@ -74,9 +101,10 @@ func (d *Daemon) checkInvitationOrigin(raw, capability string) error {
 		return err
 	}
 	binding := d.capabilities[capability]
+	d.expireOwnerInvites(time.Now())
 	owner, ok := d.joinOrigins.owner[exact]
 	if !ok || owner.epoch != binding.nativeEpoch || !time.Now().Before(owner.expires) {
-		return localipc.NewError("owner_invitation_required", "rejected")
+		return d.missingOwnerInvite(binding.nativeEpoch)
 	}
 	return nil
 }

@@ -7,6 +7,7 @@ import (
 )
 
 func TestAskBudgetPersistsReservationsAndClockFloor(t *testing.T) {
+	parallelDaemonTest(t)
 	dir := stateDir(t)
 	if _, err := Initialize(t.Context(), InitOptions{StateDir: dir, RelayURL: "https://relay.example", SessionLabel: "budget", FilePermissions: true}); err != nil {
 		t.Fatal(err)
@@ -47,6 +48,7 @@ func TestAskBudgetPersistsReservationsAndClockFloor(t *testing.T) {
 }
 
 func TestAskBudgetHourlyPeerQuotaDoesNotResetByConversation(t *testing.T) {
+	parallelDaemonTest(t)
 	dir := stateDir(t)
 	if _, err := Initialize(t.Context(), InitOptions{StateDir: dir, RelayURL: "https://relay.example", SessionLabel: "quota", FilePermissions: true}); err != nil {
 		t.Fatal(err)

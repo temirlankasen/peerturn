@@ -10,6 +10,7 @@ import (
 )
 
 func TestUnavailableReturnChannelDoesNotWedgeMailbox(t *testing.T) {
+	parallelDaemonTest(t)
 	for _, reason := range []string{"revoked", "expired", "invalid"} {
 		t.Run(reason, func(t *testing.T) {
 			a, b := pairedStores(t)
@@ -66,6 +67,7 @@ func TestUnavailableReturnChannelDoesNotWedgeMailbox(t *testing.T) {
 }
 
 func TestRejectedAdmissionDoesNotBuildReturnReceipt(t *testing.T) {
+	parallelDaemonTest(t)
 	a, b := pairedStores(t)
 	id := peerID(b.state.Chain)
 	ap := a.state.Peers[id]

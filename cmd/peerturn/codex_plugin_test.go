@@ -7,6 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/temirlankasen/peerturn/internal/adapters/codex"
 )
 
 func checkPluginHookCommand(t *testing.T) {
@@ -20,6 +23,7 @@ func checkPluginHookCommand(t *testing.T) {
 			Hooks []struct {
 				Command string `json:"command"`
 				Limit   int    `json:"additionalContextLimit"`
+				Timeout int    `json:"timeout"`
 			} `json:"hooks"`
 		} `json:"hooks"`
 	}
@@ -29,6 +33,10 @@ func checkPluginHookCommand(t *testing.T) {
 	hook := config.Hooks["UserPromptSubmit"][0].Hooks[0]
 	if hook.Command != `"$PLUGIN_ROOT/scripts/inform.sh"` || hook.Limit != 256 {
 		t.Fatalf("unsafe command or implicit spill limit: %+v", hook)
+	}
+	if codexHookTimeout < 2*codex.OwnerTurnTimeout+time.Second || codexHookTimeout > 20*time.Second ||
+		time.Duration(hook.Timeout)*time.Second <= codexHookTimeout || hook.Timeout > 22 {
+		t.Fatalf("helper/plugin budget does not cover two bounded owner proofs: helper=%s plugin=%d", codexHookTimeout, hook.Timeout)
 	}
 }
 

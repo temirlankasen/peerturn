@@ -159,17 +159,36 @@ to revoke it; already-issued grants remain the receiver's responsibility.
 ## Capacity, recovery and backup
 
 The public listener accepts at most 512 connections before TLS negotiation.
-Each direct source also caps at `requests_per_ip` sockets (default 8), with IPv6
+Each direct source also caps at `requests_per_ip` sockets (default 32), with IPv6
 aggregation applied before TLS. Each immediate trusted proxy caps at
 `max(1, max_connections/2)` sockets (default 256), because client headers are not
 available yet. Excess sockets close before TLS while other sources remain served.
-Per-source concurrency is limited to 8 requests before body reads; bodies have a
-separate five-second deadline and are read before taking one of 64 global execution
-slots. Rate limits apply independently to source addresses and verified routing
-keys; defaults are 120/minute with burst 30. IPv6 sources share a /64 bucket by
+Per-source admission is limited to `requests_per_ip` requests (default 32) before
+body reads; bodies have a separate five-second deadline. After body reads, each
+source can occupy at most one eighth of global execution capacity, with a minimum
+of one slot: currently 8 of the relay's fixed 64 slots. This execution cap is
+independent of the configurable socket and admission allowance, so two busy
+sources cannot exhaust execution capacity.
+Rate limits apply independently to source addresses and verified routing
+keys; defaults are 600/minute with burst 120. IPv6 sources share a /64 bucket by
 default; `ipv6_prefix_bits` supports 48–128. Forwarded client addresses are used
 only from an immediate trusted proxy. `X-Forwarded-For` is evaluated from the
 right, skipping trusted proxy hops; `X-Real-IP` must contain one address.
+
+The defaults budget for about ten daemons behind one office NAT, assuming one
+mailbox per daemon. Allow one notification stream, one fetch/long-poll connection
+and one spare or idle connection each: 30 sockets fit under 32. The daemon's
+healthy ten-second sync costs about 6 fetches/minute; pending onboarding uses a
+two-second interval, or 30 polls/minute each. Ten such polling lanes consume 300
+of the 600 requests/minute, leaving 300 for onboarding operations, sends, ACKs
+and reconnects. A 25-second long poll instead costs about 2.4 requests/minute per
+lane; WebSocket ping frames do not consume HTTP request tokens. Burst 120 allows
+12 initial HTTP requests per daemon when ten reconnect together. This is a
+planning budget, not a guarantee for busy peers, multiple pending invitations or
+rapid reconnects: measure traffic and set explicit limits for larger NAT groups.
+Existing explicit configuration values remain in effect until an operator edits
+them. The rate bound also applies to each verified key; per-key/mailbox poll and
+stream caps remain unchanged.
 
 Long polls are limited to 4 per key and 4 per mailbox, with 32 globally; waiting
 releases the source admission lease and global execution slot. Admitted WebSocket

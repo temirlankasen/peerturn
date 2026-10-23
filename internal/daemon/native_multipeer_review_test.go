@@ -52,6 +52,7 @@ func thirdNativePeer(t *testing.T, b *Daemon) *Daemon {
 }
 
 func TestReviewExpiredPeerAndOutgoingRevokeCannotStarveOtherPeer(t *testing.T) {
+	parallelDaemonTest(t)
 	b, a, _ := nativePair(t)
 	runtime, ok := b.native.(*nativeFixture)
 	if !ok {

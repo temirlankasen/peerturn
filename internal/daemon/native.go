@@ -106,6 +106,7 @@ func (d *Daemon) checkNative(ctx context.Context, thread string) error {
 	err = r.Validate(checkCtx, binding)
 	d.mu.Lock()
 	if err != nil {
+		d.wipeOwnerInvites()
 		return nativeError(err)
 	}
 	return nil
@@ -156,7 +157,7 @@ func (d *Daemon) nativeStatus(ctx context.Context, s *Status) {
 
 func needsLiveBinding(method string) bool {
 	switch method {
-	case "hello", "invite", "join", "join.text", "send", "reply":
+	case "hello", "invite", "join", "join.text", "join.owner", "send", "reply":
 		return true
 	}
 	return false

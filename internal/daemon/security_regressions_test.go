@@ -14,6 +14,7 @@ import (
 )
 
 func TestRevokeSurvivesExpiredReturnGrant(t *testing.T) {
+	parallelDaemonTest(t)
 	a, b := pairedStores(t)
 	aid, bid := peerID(b.state.Chain), peerID(a.state.Chain)
 	ap, bp := a.state.Peers[aid], b.state.Peers[bid]
@@ -88,6 +89,7 @@ func TestRevokeSurvivesExpiredReturnGrant(t *testing.T) {
 }
 
 func TestPreviewRejectsRemoteNonCoauthor(t *testing.T) {
+	parallelDaemonTest(t)
 	for _, kind := range []protocol.Kind{protocol.Ask, protocol.Inform} {
 		t.Run(string(kind), func(t *testing.T) {
 			a, b := pairedStores(t)
@@ -138,6 +140,7 @@ func TestPreviewRejectsRemoteNonCoauthor(t *testing.T) {
 }
 
 func TestOwnerDaemonControlsAcceptBlankSession(t *testing.T) {
+	parallelDaemonTest(t)
 	d, _ := pairedStores(t)
 	f := newRelayFixture(t, routingKey(t))
 	client, err := relayclient.New(relayclient.Options{URL: f.server.URL, Key: routingKey(t), HTTPClient: f.server.Client()})
@@ -161,6 +164,7 @@ func TestOwnerDaemonControlsAcceptBlankSession(t *testing.T) {
 }
 
 func TestMCPCapabilityCannotUseOwnerControls(t *testing.T) {
+	parallelDaemonTest(t)
 	d, _ := pairedStores(t)
 	result, err := d.Dispatch(t.Context(), localipc.Request{Method: "hello", Session: d.state.Label})
 	if err != nil {

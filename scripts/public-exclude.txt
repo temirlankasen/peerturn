@@ -56,6 +56,7 @@ public research/lab/results/m6-ask/m6b/README.md
 public research/lab/results/m6-ask/m6c/README.md
 public research/lab/results/install-by-link/README.md
 public research/lab/results/install-by-link/evidence-summary.json
+public research/lab/results/macos-live-7/README.md
 name __pycache__
 name .env
 name .env.*

@@ -20,7 +20,7 @@ import (
 )
 
 // This is the 0.163.0 live key set (m4-codex/raw/63-join-observe.json), plus
-// optional subagent fields in source c419fd01 hooks/src/schema.rs:563-584.
+// optional ThreadSpawn fields in 83086188 hooks/src/schema.rs:568-583.
 type codexHookInput struct {
 	Event          string          `json:"hook_event_name"`
 	Session        string          `json:"session_id"`
@@ -38,11 +38,19 @@ type codexHookInput struct {
 // 128 KiB. Keep peer-start detection within a bounded allocation for all frames.
 const codexHookInputLimit = 1024 * 1024
 
+// Offer and acknowledgement each revalidate the active root turn. Leave both
+// proofs time to finish while keeping the owner's hook wait bounded.
+const codexHookTimeout = 20 * time.Second
+
 // A hook failure must leave the owner's turn running. The bounded helper only
 // constructs a notice; it never starts or steers a turn or reads transcripts.
 func runCodexHook(stdin io.Reader, stdout io.Writer) int {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), codexHookTimeout)
 	defer cancel()
+	return runCodexHookContext(ctx, stdin, stdout)
+}
+
+func runCodexHookContext(ctx context.Context, stdin io.Reader, stdout io.Writer) int {
 	result := map[string]any{}
 	var acknowledge func()
 	defer func() {
@@ -80,7 +88,7 @@ func runCodexHook(stdin io.Reader, stdout io.Writer) int {
 		}
 		return 0
 	}
-	request.OwnerInvites = invite.PromptHashes(*input.Prompt)
+	request.OwnerInvites = invite.PromptLinks(*input.Prompt)
 	raw, err = client.Call(ctx, request)
 	if err != nil {
 		return 0
@@ -105,6 +113,8 @@ func runCodexHook(stdin io.Reader, stdout io.Writer) int {
 }
 
 func (in codexHookInput) valid(thread string) bool {
+	// Internal Review omits agent fields and shares session_id. The daemon must
+	// prove turn ownership through app-server before recording or offering input.
 	if in.AgentID != nil || in.AgentType != nil || in.Event != "UserPromptSubmit" || in.Prompt == nil || in.Session == "" || len(in.Session) > 128 || thread != "" && in.Session != thread {
 		return false
 	}

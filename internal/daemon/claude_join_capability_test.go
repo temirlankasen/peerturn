@@ -39,6 +39,7 @@ func (c *claudeJoinCaller) Call(ctx context.Context, request localipc.Request) (
 }
 
 func TestClaudeMCPJoinRejectsLostOrReplacedNativeBinding(t *testing.T) {
+	parallelDaemonTest(t)
 	for _, mode := range []string{"close", "expired", "replaced", "unbind", "unbind_status", "unbind_rebind"} {
 		t.Run(mode, func(t *testing.T) {
 			admin := routingKey(t)
@@ -56,7 +57,7 @@ func TestClaudeMCPJoinRejectsLostOrReplacedNativeBinding(t *testing.T) {
 			decodeResult(t, created, &invitation)
 			ownerPastedInvite(t, joiner, invitation.URL)
 			epoch := joiner.claudeBinding.MCPEpoch()
-			caller := &claudeJoinCaller{daemon: joiner, trigger: "join.text"}
+			caller := &claudeJoinCaller{daemon: joiner, trigger: "join.owner"}
 			caller.lose = func() error {
 				switch mode {
 				case "expired":
@@ -109,6 +110,7 @@ func TestClaudeMCPJoinRejectsLostOrReplacedNativeBinding(t *testing.T) {
 }
 
 func TestClaudeExpiredBindingCannotIssueNewMCPCapability(t *testing.T) {
+	parallelDaemonTest(t)
 	d, _ := pairedStores(t)
 	instance := bindClaude(t, d)
 	if err := d.claudeBinding.Touch(instance, time.Now().Add(21*time.Second)); err == nil {
@@ -123,6 +125,7 @@ func TestClaudeExpiredBindingCannotIssueNewMCPCapability(t *testing.T) {
 }
 
 func TestClaudeMCPJoinRechecksLeaseAfterInviteFetch(t *testing.T) {
+	parallelDaemonTest(t)
 	admin := routingKey(t)
 	relay := newRelayFixture(t, admin)
 	issuer := openRecoveryDaemon(t, relay, admin)
@@ -168,7 +171,7 @@ func TestClaudeMCPJoinRechecksLeaseAfterInviteFetch(t *testing.T) {
 
 func claudeJoinInput(t *testing.T, link string) string {
 	t.Helper()
-	arguments, err := json.Marshal(map[string]string{"text": link})
+	arguments, err := json.Marshal(map[string]string{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -177,6 +180,7 @@ func claudeJoinInput(t *testing.T, link string) string {
 }
 
 func TestJoinCapabilityRechecksCapabilityLifetime(t *testing.T) {
+	parallelDaemonTest(t)
 	for _, loss := range []string{"missing", "idle_expired", "absolute_expired", "session_changed"} {
 		t.Run(loss, func(t *testing.T) {
 			d, _ := pairedStores(t)

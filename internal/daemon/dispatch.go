@@ -8,6 +8,7 @@ import (
 
 	"github.com/temirlankasen/peerturn/internal/fault"
 	"github.com/temirlankasen/peerturn/internal/grant"
+	"github.com/temirlankasen/peerturn/internal/invite"
 	"github.com/temirlankasen/peerturn/internal/localipc"
 	"github.com/temirlankasen/peerturn/internal/store"
 )
@@ -19,6 +20,7 @@ func (d *Daemon) Dispatch(ctx context.Context, r localipc.Request) (any, error) 
 		return nil, err
 	}
 	d.touchClaudeLease(r)
+	d.recordClaudeOwnerInvites(ctx, r)
 	if needsOperationLock(r.Method) {
 		if err := d.lockOperation(ctx); err != nil {
 			return nil, err
@@ -54,7 +56,7 @@ func (d *Daemon) Dispatch(ctx context.Context, r localipc.Request) (any, error) 
 	}
 	if r.Capability != "" {
 		switch r.Method {
-		case "peers", "join.text", "send", "reply", "inbox", "inbox.delivered", "receipt", "status", "bye":
+		case "peers", "join.owner", "join.text", "send", "reply", "inbox", "inbox.delivered", "receipt", "status", "bye":
 		default:
 			return nil, fault.New(fault.ScopeDenied)
 		}
@@ -92,6 +94,9 @@ func (d *Daemon) Dispatch(ctx context.Context, r localipc.Request) (any, error) 
 		}
 		d.nativeStatus(ctx, &status)
 		d.responderStatus(ctx, &status)
+		if r.Capability != "" && d.checkJoinCapability(r.Capability) == nil {
+			status.OwnerInvitations = d.pendingOwnerInvites(d.capabilities[r.Capability].nativeEpoch)
+		}
 		return status, nil
 	case "codex_inform":
 		return d.offerInform(ctx, r)
@@ -146,6 +151,11 @@ func (d *Daemon) Dispatch(ctx context.Context, r localipc.Request) (any, error) 
 			return nil, fault.New(fault.ScopeDenied)
 		}
 		return d.join(ctx, r.Link)
+	case "join.owner":
+		if r.Scope != "coauthor" {
+			return nil, fault.New(fault.ScopeDenied)
+		}
+		return d.joinOwnerInvitation(ctx, r)
 	case "join.text":
 		if r.Scope != "coauthor" {
 			return nil, fault.New(fault.ScopeDenied)
@@ -157,7 +167,18 @@ func (d *Daemon) Dispatch(ctx context.Context, r localipc.Request) (any, error) 
 		if err != nil {
 			return nil, err
 		}
-		return d.joinWithCapability(ctx, link, r.Capability)
+		if r.Capability == "" {
+			return d.join(ctx, link)
+		}
+		if err = d.checkInvitationOrigin(link, r.Capability); err != nil {
+			return nil, err
+		}
+		hash, _, err := invite.OriginHashes(link)
+		if err != nil {
+			return nil, err
+		}
+		r.InvitationHandle = d.joinOrigins.owner[hash].handle
+		return d.joinOwnerInvitation(ctx, r)
 	case "send", "reply":
 		return d.send(ctx, r)
 	case "inbox":
@@ -186,7 +207,15 @@ func (d *Daemon) Dispatch(ctx context.Context, r localipc.Request) (any, error) 
 	case "receipt":
 		return d.db.Receipt(ctx, r.MessageID)
 	case "grants":
-		grants, err := d.db.ListGrants(ctx)
+		grants, err := d.db.GrantCatalog(ctx)
+		for i := range grants {
+			for _, peer := range d.state.Peers {
+				// The authenticated peer projection survives receipt retention.
+				if peer.Revoked && grants[i].Hash == grant.Hash(peer.Outgoing) {
+					grants[i].EffectiveRevoked = true
+				}
+			}
+		}
 		if grants == nil {
 			grants = []store.GrantInfo{}
 		}

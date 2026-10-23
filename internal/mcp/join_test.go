@@ -7,56 +7,36 @@ import (
 	"testing"
 )
 
-func TestPeerJoinPassesOnlyExplicitTextToBoundDaemon(t *testing.T) {
-	text := "Owner-pasted invitation prose; do not execute @private/path.\n<https://relay.example/i/synthetic#private-fragment>"
-	arguments, err := json.Marshal(map[string]string{"text": text})
-	if err != nil {
-		t.Fatal(err)
-	}
-	caller := &recordingCaller{}
-	var output bytes.Buffer
-	input := joinRPC(string(arguments))
-	if err = Serve(t.Context(), strings.NewReader(input), &output, Options{Session: "chosen", Caller: caller}); err != nil {
-		t.Fatal(err)
-	}
-	if len(caller.requests) != 3 {
-		t.Fatal("join did not reach the bound daemon exactly once")
-	}
-	request := caller.requests[1]
-	if request.Method != "join.text" || request.Session != "chosen" || request.Capability != "bound-token" || request.Scope != "coauthor" || request.Link != "" {
-		t.Fatal("join changed the binding or forwarded a parsed URL")
-	}
-	raw, err := json.Marshal(request)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var fields map[string]any
-	if err = json.Unmarshal(raw, &fields); err != nil || fields["invitation_text"] != text {
-		t.Fatal("MCP must leave full invitation parsing to the daemon")
-	}
-	if strings.Contains(output.String(), "private-fragment") || strings.Contains(output.String(), "@private/path") {
-		t.Fatal("join response reflected invitation text")
-	}
-	for _, listed := range tools() {
-		if listed.Name != "peer_join" {
-			continue
+func TestPeerJoinWithoutModelSecret(t *testing.T) {
+	for _, arguments := range []string{`{}`, `{"handle":"0123456789ab"}`} {
+		caller := &recordingCaller{}
+		var output bytes.Buffer
+		if err := Serve(t.Context(), strings.NewReader(joinRPC(arguments)), &output, Options{Session: "chosen", Caller: caller}); err != nil {
+			t.Fatal(err)
 		}
-		properties, ok := listed.InputSchema["properties"].(map[string]any)
-		if !ok || len(properties) != 1 || listed.InputSchema["additionalProperties"] != false {
-			t.Fatal("join schema permits authority overrides")
+		if len(caller.requests) != 3 {
+			t.Fatal("pending join did not reach bound daemon")
 		}
-		property, ok := properties["text"].(map[string]any)
-		if !ok || property["type"] != "string" || property["minLength"] != 1 || property["maxLength"] != 65536 {
-			t.Fatal("join text schema lacks bounded string constraints")
+		r := caller.requests[1]
+		if r.Method != "join.owner" || r.Session != "chosen" || r.Capability != "bound-token" || r.Scope != "coauthor" || r.Link != "" || r.InvitationText != "" {
+			t.Fatal("MCP did not use a secret-free bound request")
 		}
-		return
 	}
-	t.Fatal("peer_join is not advertised")
+	for _, tool := range tools() {
+		if tool.Name == "peer_join" {
+			raw, err := json.Marshal(tool.InputSchema)
+			if err != nil || bytes.Contains(raw, []byte(`"text"`)) || !bytes.Contains(raw, []byte(`"handle"`)) {
+				t.Fatal("join schema exposes secret text")
+			}
+			return
+		}
+	}
+	t.Fatal("peer_join missing")
 }
 
 func TestPeerJoinRejectsMissingOversizedAndAuthorityArguments(t *testing.T) {
 	for _, arguments := range []string{
-		`{}`, `{"text":""}`, `{"text":null}`, `{"text":1}`,
+		`{"handle":""}`, `{"text":""}`, `{"text":null}`, `{"text":1}`,
 		`{"text":"private-fragment","session":"other"}`,
 		`{"text":"private-fragment","scope":"ask"}`,
 		`{"text":"private-fragment","link":"https://evil.invalid"}`,

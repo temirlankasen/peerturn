@@ -13,15 +13,34 @@ import (
 
 func stateDir(t *testing.T) string {
 	t.Helper()
-	t.Setenv("TMPDIR", "/tmp")
-	dir, err := filepath.EvalSymlinks(t.TempDir())
+	return filepath.Join(fixtureDir(t), "state")
+}
+
+func fixtureDir(t *testing.T) string {
+	t.Helper()
+	// Keep Unix socket paths short without mutating the process environment.
+	base, err := shortFixtureDirectory()
 	if err != nil {
 		t.Fatal(err)
 	}
-	return filepath.Join(dir, "state")
+	t.Cleanup(func() {
+		if removeErr := os.RemoveAll(base); removeErr != nil {
+			t.Error(removeErr)
+		}
+	})
+	dir, err := filepath.EvalSymlinks(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return dir
+}
+
+func shortFixtureDirectory() (string, error) {
+	return os.MkdirTemp("/tmp", "peerturn-daemon-")
 }
 
 func TestInitializeRequiresExplicitStorageAndSession(t *testing.T) {
+	parallelDaemonTest(t)
 	for _, o := range []InitOptions{
 		{StateDir: stateDir(t), RelayURL: "https://relay.example", SessionLabel: "test"},
 		{StateDir: stateDir(t), RelayURL: "https://relay.example", FilePermissions: true},
@@ -34,6 +53,7 @@ func TestInitializeRequiresExplicitStorageAndSession(t *testing.T) {
 }
 
 func TestInitializeSealsIdentityAndDoesNotReplace(t *testing.T) {
+	parallelDaemonTest(t)
 	dir := stateDir(t)
 	o := InitOptions{StateDir: dir, RelayURL: "https://relay.example", SessionLabel: "private-label-canary", FilePermissions: true}
 	status, err := Initialize(t.Context(), o)

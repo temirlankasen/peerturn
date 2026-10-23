@@ -10,6 +10,7 @@ import (
 	"github.com/temirlankasen/peerturn/internal/identity"
 	"github.com/temirlankasen/peerturn/internal/invite"
 	"github.com/temirlankasen/peerturn/internal/keystore"
+	"github.com/temirlankasen/peerturn/internal/localipc"
 	"github.com/temirlankasen/peerturn/internal/protocol"
 )
 
@@ -50,26 +51,27 @@ type Capabilities struct {
 
 // Status distinguishes preview bindings, native probes and observed hook activation.
 type Status struct {
-	RuntimeVersion   string             `json:"runtime_version,omitempty"`
-	Provider         string             `json:"provider,omitempty"`
-	State            string             `json:"state"`
-	Binding          string             `json:"binding"`
-	Session          string             `json:"session"`
-	Fingerprint      string             `json:"fingerprint"`
-	RoutingKey       string             `json:"routing_key"`
-	SupportedScopes  []string           `json:"supported_scopes"`
-	Capabilities     Capabilities       `json:"capabilities"`
-	LastVerifiedAt   int64              `json:"last_verified_at"`
-	LastError        string             `json:"last_error,omitempty"`
-	Warning          string             `json:"warning"`
-	Notifications    string             `json:"notifications"`
-	NativeThread     string             `json:"native_thread,omitempty"`
-	AdapterReason    string             `json:"adapter_reason,omitempty"`
-	ResponderReason  string             `json:"responder_reason,omitempty"`
-	Responder        ResponderPreflight `json:"responder"`
-	InformPending    int                `json:"inform_pending"`
-	InformBoundary   string             `json:"inform_boundary,omitempty"`
-	OnboardingErrors []string           `json:"onboarding_errors,omitempty"`
+	OwnerInvitations []localipc.OwnerInvitation `json:"owner_invitations,omitempty"`
+	RuntimeVersion   string                     `json:"runtime_version,omitempty"`
+	Provider         string                     `json:"provider,omitempty"`
+	State            string                     `json:"state"`
+	Binding          string                     `json:"binding"`
+	Session          string                     `json:"session"`
+	Fingerprint      string                     `json:"fingerprint"`
+	RoutingKey       string                     `json:"routing_key"`
+	SupportedScopes  []string                   `json:"supported_scopes"`
+	Capabilities     Capabilities               `json:"capabilities"`
+	LastVerifiedAt   int64                      `json:"last_verified_at"`
+	LastError        string                     `json:"last_error,omitempty"`
+	Warning          string                     `json:"warning"`
+	Notifications    string                     `json:"notifications"`
+	NativeThread     string                     `json:"native_thread,omitempty"`
+	AdapterReason    string                     `json:"adapter_reason,omitempty"`
+	ResponderReason  string                     `json:"responder_reason,omitempty"`
+	Responder        ResponderPreflight         `json:"responder"`
+	InformPending    int                        `json:"inform_pending"`
+	InformBoundary   string                     `json:"inform_boundary,omitempty"`
+	OnboardingErrors []string                   `json:"onboarding_errors,omitempty"`
 }
 
 // Peer is the exact attached remote session, never a discovery result.

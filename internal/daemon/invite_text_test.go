@@ -8,6 +8,7 @@ import (
 )
 
 func TestInvitationTextAcceptsOnlyOneUniqueCompleteCapability(t *testing.T) {
+	parallelDaemonTest(t)
 	link := syntheticJoinLink("relay.example", "A")
 	for _, text := range []string{
 		link, "\n" + link + "\n", "[" + link + "](" + link + ")", "<" + link + "><" + link + ">",
@@ -27,7 +28,7 @@ func TestInvitationTextAcceptsOnlyOneUniqueCompleteCapability(t *testing.T) {
 		strings.Repeat(" ", localipc.MaxInvitationTextBytes-len(link)+1) + link,
 	} {
 		selected, err := invitationText(text)
-		if err == nil || selected != "" || localipc.PublicError(err).Code != "invalid_arguments" {
+		if err == nil || selected != "" || localipc.PublicError(err).Code != "malformed_invitation" {
 			t.Fatal("invalid or distinct invitation was accepted or exposed")
 		}
 	}

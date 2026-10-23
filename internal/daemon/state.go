@@ -43,8 +43,19 @@ func DefaultStateDir() (string, error) {
 	return canonicalDefault(filepath.Join(home, ".local", "state", "peerturn"))
 }
 
-// DefaultRuntimeDir is independent of state selection, so the CLI has one uid lock.
+// DefaultRuntimeDir honors explicit runtime selection before the private pointer.
 func DefaultRuntimeDir() (string, error) {
+	if base := os.Getenv("XDG_RUNTIME_DIR"); base != "" {
+		return canonicalDefault(filepath.Join(base, "peerturn", strconv.Itoa(os.Geteuid())))
+	}
+	if dir, found, err := pointedRuntimeDir(); err != nil || found {
+		return dir, err
+	}
+	return daemonRuntimeDir()
+}
+
+// The publisher cannot depend on its own pointer surviving temporary-dir cleanup.
+func daemonRuntimeDir() (string, error) {
 	if base := os.Getenv("XDG_RUNTIME_DIR"); base != "" {
 		return canonicalDefault(filepath.Join(base, "peerturn", strconv.Itoa(os.Geteuid())))
 	}

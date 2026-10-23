@@ -61,6 +61,7 @@ func TestAuthenticatedPeerReconciliationRequiresExactAmbiguousAttempt(t *testing
 			if grantRevoked, checkErr := s.RevokedOutboundGrant(t.Context(), "grant_one"); checkErr != nil || grantRevoked != revoked {
 				t.Fatalf("reconciliation changed revoked authority: %v %v", grantRevoked, checkErr)
 			}
+			assertCatalogRevocation(t, s, "grant_one", false, revoked)
 			if mode == "revoked_sent" {
 				r.Stage, r.EvidenceKind, r.Outcome = "model_input", "native_event", ""
 				if err = s.RecordReceipt(t.Context(), r); err != nil {

@@ -72,25 +72,29 @@ func TestMailboxCustodyCompactionRestoresCapacity(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := s.write(t.Context(), func(tx *sql.Tx) error {
-		// Fast-fill retained metadata to exercise the real production ceiling.
-		_, err := tx.ExecContext(t.Context(), `WITH RECURSIVE n(i) AS (VALUES(2) UNION ALL SELECT i+1 FROM n WHERE i<65536) INSERT INTO dedup(key,message_id,digest,mailbox,mailbox_seq,state,retain_until) SELECT 'fill/'||i,'','', 'mailbox_b',i,'custody',? FROM n`, testNow+1209600)
+		// Use the mailbox bound, rather than the unrelated 65K outbox ceiling.
+		// Every retained slot is still present when the real collector runs.
+		_, err := tx.ExecContext(t.Context(), `WITH RECURSIVE n(i) AS (VALUES(2) UNION ALL SELECT i+1 FROM n WHERE i<?) INSERT INTO dedup(key,message_id,digest,mailbox,mailbox_seq,state,retain_until) SELECT 'fill/'||i,'','', 'mailbox_b',i,'custody',? FROM n`, MaxMailboxRecords, testNow+1209600)
 		if err != nil {
 			return err
 		}
-		_, err = tx.ExecContext(t.Context(), `UPDATE dedup SET sender_seq=65536 WHERE key='frontier/mailbox_b'`)
+		_, err = tx.ExecContext(t.Context(), `UPDATE dedup SET sender_seq=? WHERE key='frontier/mailbox_b'`, MaxMailboxRecords)
 		return err
 	}); err != nil {
 		t.Fatal(err)
 	}
+	var count uint64
+	if err := s.db.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM dedup WHERE mailbox='mailbox_b'`).Scan(&count); err != nil || count != MaxMailboxRecords {
+		t.Fatalf("mailbox fixture did not reach its full retained bound: %d %v", count, err)
+	}
 	if err := s.Expire(t.Context(), retainUntil(f.header.ExpiresAt, testNow)+1); err != nil {
 		t.Fatal(err)
 	}
-	var count int
 	if err := s.db.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM dedup WHERE mailbox='mailbox_b'`).Scan(&count); err != nil || count != 0 {
 		t.Fatalf("contiguous custody was not compacted: %d %v", count, err)
 	}
-	got, err := s.RejectMailbox(t.Context(), "mailbox_b", 65537, []byte("invalid-wire"), fault.InvalidEncoding, testNow+301)
-	if err != nil || got.Frontier != 65537 {
+	got, err := s.RejectMailbox(t.Context(), "mailbox_b", MaxMailboxRecords+1, []byte("invalid-wire"), fault.InvalidEncoding, testNow+301)
+	if err != nil || got.Frontier != MaxMailboxRecords+1 {
 		t.Fatalf("mailbox capacity did not recover: %+v %v", got, err)
 	}
 }

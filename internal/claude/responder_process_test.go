@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 )
 
 // TestMain turns this test binary into a native-process fixture only for the
@@ -78,7 +77,10 @@ func responderProcess() int {
 		return 2
 	}
 	if mode == "sleep" {
-		time.Sleep(10 * time.Second)
+		// The supervisor owns cancellation; the fixture waits for input/EOF
+		// rather than depending on how quickly the host schedules this child.
+		input.Scan()
+		return 1
 	}
 	if mode == "malformed" {
 		fmt.Print("tool or debug output before result")

@@ -9,6 +9,7 @@ import (
 )
 
 func TestPendingAskWithFullControlLaneDoesNotBlockFlushOrLive(t *testing.T) {
+	parallelDaemonTest(t)
 	a, b, runtime := nativePair(t)
 	id := peerID(b.state.Chain)
 	live := incomingData(t, a, b)

@@ -7,6 +7,7 @@ import (
 )
 
 func TestIntegrationCodexInboxRequiresOutputAcknowledgement(t *testing.T) {
+	parallelDaemonTest(t)
 	a, b, _ := nativePair(t)
 	r := nativeReceipt(t, a, localipc.Request{Method: "send", Peer: a.peers()[0].ID, Kind: "inform", Body: "explicit body"})
 	if err := b.Sync(t.Context()); err != nil {
@@ -32,6 +33,7 @@ func TestIntegrationCodexInboxRequiresOutputAcknowledgement(t *testing.T) {
 }
 
 func TestIntegrationCodexBindingCannotAcquireClaudeHelper(t *testing.T) {
+	parallelDaemonTest(t)
 	_, b, _ := nativePair(t)
 	_, err := b.Dispatch(t.Context(), localipc.Request{Method: "adapter.open", NativeSession: "11111111-1111-4111-8111-111111111111", NativeSocket: "/tmp/claude.sock", RuntimeVersion: "2.1.306", Provider: "gateway"})
 	if err == nil || b.claudeBinding != nil {
@@ -40,6 +42,7 @@ func TestIntegrationCodexBindingCannotAcquireClaudeHelper(t *testing.T) {
 }
 
 func TestIntegrationCodexNeverAuthorizedRecoveryUsesFreshAttempt(t *testing.T) {
+	parallelDaemonTest(t)
 	a, b, runtime := nativePair(t)
 	runtime.failure = "stale"
 	r := nativeReceipt(t, a, localipc.Request{Method: "send", Peer: a.peers()[0].ID, Kind: "coauthor", Body: "recover before submit"})

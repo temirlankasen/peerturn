@@ -9,11 +9,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/temirlankasen/peerturn/internal/invite"
 	"github.com/temirlankasen/peerturn/internal/localipc"
 )
 
-func TestClaudeBoundaryReducesOwnerLinksToHashes(t *testing.T) {
+func TestClaudeBoundaryCarriesOwnerCapability(t *testing.T) {
 	dir, err := shortRuntimeDirectory()
 	if err != nil {
 		t.Fatal(err)
@@ -59,7 +58,7 @@ func TestClaudeBoundaryReducesOwnerLinksToHashes(t *testing.T) {
 		t.Fatal(w.Code)
 	}
 	request := <-requests
-	want := invite.PromptHashes(link)
+	want := []string{link}
 	if request.Method != "adapter.boundary" || request.Instance != "helper" || request.NativeSession != "native" || len(request.OwnerInvites) != 1 || request.OwnerInvites[0] != want[0] || request.Body != "" || request.Link != "" {
 		t.Fatal("owner link or provenance lost at the private helper boundary")
 	}

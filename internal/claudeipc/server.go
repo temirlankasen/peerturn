@@ -159,7 +159,7 @@ func (b *bridge) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					http.Error(w, `{"error":"invalid_arguments"}`, 400)
 					return
 				}
-				request.OwnerInvites = append(request.OwnerInvites, invite.PromptHashes(link)...)
+				request.OwnerInvites = append(request.OwnerInvites, invite.PromptLinks(link)...)
 			}
 			request.Method = "adapter.boundary"
 			request.NativeSocket = os.Getenv("CLAUDE_CODE_MESSAGING_SOCKET")

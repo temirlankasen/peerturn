@@ -55,7 +55,7 @@ func TestResourceDefaultsAndExplicitLimits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.ClientIPHeader != "X-Forwarded-For" || cfg.Limits.IPv6PrefixBits != 64 || cfg.Limits.RequestsPerIP != 8 || cfg.Limits.BodyReadSeconds != 5 || cfg.Limits.PollsPerKey != 4 || cfg.Limits.PollsPerMailbox != 4 || cfg.Limits.StreamsPerMailbox != 4 || cfg.Limits.MaxConnections != 512 {
+	if cfg.ClientIPHeader != "X-Forwarded-For" || cfg.Limits.IPv6PrefixBits != 64 || cfg.Limits.RequestsPerIP != 32 || cfg.Limits.BodyReadSeconds != 5 || cfg.Limits.PollsPerKey != 4 || cfg.Limits.PollsPerMailbox != 4 || cfg.Limits.StreamsPerMailbox != 4 || cfg.Limits.MaxConnections != 512 {
 		t.Fatalf("unexpected resource defaults: %#v", cfg)
 	}
 	input := validTOML() + "client_ip_header = 'X-Real-IP'\n[limits]\nipv6_prefix_bits = 48\nrequests_per_ip = 3\nbody_read_seconds = 2\npolls_per_key = 2\npolls_per_mailbox = 3\nstreams_per_mailbox = 5\nmax_connections = 100\n"

@@ -13,6 +13,7 @@ import (
 )
 
 func TestOfflineBacklogBeyondReplayWindowKeepsChannelOrder(t *testing.T) {
+	parallelDaemonTest(t)
 	a, b := pairedStores(t)
 	f := newRelayFixture(t, ed25519.NewKeyFromSeed(a.state.RoutingSeed))
 	var err error

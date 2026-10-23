@@ -7,6 +7,7 @@ import (
 )
 
 func TestCodexSessionUnbindRefusesWithoutChangingAuthority(t *testing.T) {
+	parallelDaemonTest(t)
 	a, b, runtime := nativePair(t)
 	r := nativeReceipt(t, a, localipc.Request{Method: "send", Peer: a.peers()[0].ID, Kind: "coauthor", Body: "queued while owner busy"})
 	if err := b.Sync(t.Context()); err != nil {
@@ -50,6 +51,7 @@ func revokeNativePeer(t *testing.T, receiver, sender *Daemon) {
 }
 
 func TestMutualRevokeCannotStarveThirdNativePeer(t *testing.T) {
+	parallelDaemonTest(t)
 	b, a, _ := nativePair(t)
 	runtime, ok := b.native.(*nativeFixture)
 	if !ok {

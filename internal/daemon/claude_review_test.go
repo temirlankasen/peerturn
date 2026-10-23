@@ -13,6 +13,7 @@ import (
 
 // The sender revoked our outbound grant while its own inbound items remain pending.
 func TestClaudePeerOutboundRevokeDoesNotWedgeOtherPeers(t *testing.T) {
+	parallelDaemonTest(t)
 	for _, kind := range []protocol.Kind{protocol.Coauthor, protocol.Inform} {
 		t.Run(string(kind), func(t *testing.T) {
 			admin := routingKey(t)
@@ -63,6 +64,7 @@ func TestClaudePeerOutboundRevokeDoesNotWedgeOtherPeers(t *testing.T) {
 }
 
 func TestClaudeExpiredOutgoingIsOnlyItsOwnFailure(t *testing.T) {
+	parallelDaemonTest(t)
 	admin := routingKey(t)
 	f := newRelayFixture(t, admin)
 	a, b, c := openRecoveryDaemon(t, f, admin), openRecoveryDaemon(t, f, routingKey(t)), openRecoveryDaemon(t, f, routingKey(t))
@@ -102,6 +104,7 @@ func boundaryRequest(d *Daemon, instance string) localipc.Request {
 }
 
 func TestClaudeUnauthorizedPendingReopensWithoutAmbiguity(t *testing.T) {
+	parallelDaemonTest(t)
 	admin := routingKey(t)
 	f := newRelayFixture(t, admin)
 	a, b := openRecoveryDaemon(t, f, admin), openRecoveryDaemon(t, f, routingKey(t))
@@ -130,6 +133,7 @@ func TestClaudeUnauthorizedPendingReopensWithoutAmbiguity(t *testing.T) {
 }
 
 func TestClaudeAcceptedDigestAndMismatchFence(t *testing.T) {
+	parallelDaemonTest(t)
 	for _, match := range []bool{true, false} {
 		t.Run(map[bool]string{true: "match", false: "mismatch"}[match], func(t *testing.T) {
 			admin := routingKey(t)

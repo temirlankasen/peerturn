@@ -10,6 +10,7 @@ import (
 )
 
 func TestMacOSPendingAuthorityMigrationRefusesBeforeRecovery(t *testing.T) {
+	parallelDaemonTest(t)
 	dir := fileAuthorityFixture(t)
 	backend := &memoryKeyStore{}
 	metadata, _, err := newWrappingKey(t.Context(), backend)

@@ -26,6 +26,7 @@ func (b *heldAskKeyStore) Load(ctx context.Context, id string) ([]byte, error) {
 }
 
 func TestAskInputKeyringWaitAllowsRevokeAndRechecksAuthority(t *testing.T) {
+	parallelDaemonTest(t)
 	a, b, run, _, instance := askLifecycleFixture(t)
 	if err := a.observeAsk(t.Context(), run, claude.ResponderStarted, "22222222-2222-4222-8222-222222222222", instance); err != nil {
 		t.Fatal(err)

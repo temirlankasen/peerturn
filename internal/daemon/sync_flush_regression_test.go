@@ -15,6 +15,7 @@ import (
 )
 
 func TestSyncFlushFailureStillDeliversAndFlushesNativeOutcome(t *testing.T) {
+	parallelDaemonTest(t)
 	for _, ambiguity := range []bool{false, true} {
 		t.Run(map[bool]string{false: "accepted", true: "in_doubt"}[ambiguity], func(t *testing.T) {
 			a, b, runtime := nativePair(t)

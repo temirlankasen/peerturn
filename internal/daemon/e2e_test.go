@@ -13,6 +13,7 @@ import (
 )
 
 func TestTwoDaemonsInviteJoinTransportRecoveryAndRevoke(t *testing.T) {
+	parallelDaemonTest(t)
 	admin := routingKey(t)
 	f := newRelayFixture(t, admin)
 	a := newDaemonFixture(t, f, "owner-explicit-test-session", admin)

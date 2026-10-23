@@ -11,6 +11,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/temirlankasen/peerturn/internal/fault"
+	"github.com/temirlankasen/peerturn/internal/invite"
 )
 
 // SocketName is the fixed private daemon endpoint.
@@ -32,6 +33,7 @@ type Request struct {
 	MessageID           string          `json:"message_id,omitempty"`
 	GrantID             string          `json:"grant_id,omitempty"`
 	Link                string          `json:"link,omitempty"`
+	InvitationHandle    string          `json:"invitation_handle,omitempty"`
 	InvitationText      string          `json:"invitation_text,omitempty"`
 	Scope               string          `json:"scope,omitempty"`
 	Capability          string          `json:"capability,omitempty"`
@@ -54,10 +56,11 @@ type Request struct {
 
 // Error is the stable, sanitized public failure representation.
 type Error struct {
-	Code      string `json:"code"`
-	Message   string `json:"message"`
-	Retryable bool   `json:"retryable"`
-	State     string `json:"state"`
+	Code        string            `json:"code"`
+	Message     string            `json:"message"`
+	Retryable   bool              `json:"retryable"`
+	State       string            `json:"state"`
+	Invitations []OwnerInvitation `json:"invitations,omitempty"`
 }
 
 func (e *Error) Error() string { return e.Code }
@@ -125,8 +128,8 @@ func (r Request) Validate() error {
 	if len(r.OwnerInvites) > 32 || len(r.OwnerInvites) > 0 && r.Method != "adapter.boundary" && r.Method != "codex_inform" {
 		return NewError("invalid_arguments", "rejected")
 	}
-	for _, digest := range r.OwnerInvites {
-		if len(digest) != 64 || strings.Trim(digest, "0123456789abcdef") != "" {
+	for _, raw := range r.OwnerInvites {
+		if _, err := invite.ParseLink(raw); err != nil {
 			return NewError("invalid_arguments", "rejected")
 		}
 	}
@@ -142,11 +145,18 @@ func (r Request) Validate() error {
 	if (r.InvitationText != "" && r.Method != "join.text") || (r.Method == "join.text" && (strings.TrimSpace(r.InvitationText) == "" || r.Link != "")) {
 		return NewError("invalid_arguments", "rejected")
 	}
-	for _, value := range []string{r.Method, r.Session, r.Peer, r.Kind, r.MessageID, r.GrantID, r.Scope, r.Capability, r.Cursor, r.NativeSession, r.NativeSocket, r.RuntimeVersion, r.Provider, r.Instance, r.Nonce, r.AttemptID, r.Outcome, r.NativeThread, r.BindingEpoch} {
+	for _, value := range []string{r.InvitationHandle, r.Method, r.Session, r.Peer, r.Kind, r.MessageID, r.GrantID, r.Scope, r.Capability, r.Cursor, r.NativeSession, r.NativeSocket, r.RuntimeVersion, r.Provider, r.Instance, r.Nonce, r.AttemptID, r.Outcome, r.NativeThread, r.BindingEpoch} {
 		if len(value) > 512 || !utf8.ValidString(value) || strings.ContainsAny(value, "\x00\r\n") {
 			return NewError("invalid_encoding", "rejected")
 		}
 	}
+	if r.InvitationHandle != "" && (r.Method != "join.owner" || len(r.InvitationHandle) != 12 || strings.Trim(r.InvitationHandle, "0123456789abcdef") != "") {
+		return NewError("invalid_arguments", "rejected")
+	}
+	if r.Method == "join.owner" && (r.Link != "" || r.InvitationText != "") {
+		return NewError("invalid_arguments", "rejected")
+	}
+
 	if r.Method == "" || (r.Lease && (r.Method != "hello" || r.Capability != "")) {
 		return NewError("invalid_encoding", "rejected")
 	}

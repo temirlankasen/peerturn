@@ -80,7 +80,7 @@ func supportedAgent(response initializeResponse) bool {
 
 func allowedRPCMethod(method string) bool {
 	switch method {
-	case "initialize", "thread/loaded/list", "thread/read", "thread/queue/list", "thread/queue/add", "thread/queue/delete":
+	case "initialize", "thread/loaded/list", "thread/read", "thread/turns/list", "thread/queue/list", "thread/queue/add", "thread/queue/delete":
 		return true
 	default:
 		return false
@@ -97,7 +97,11 @@ func (r *socketRPC) Call(ctx context.Context, method string, params, result any)
 	if closed {
 		return failure("unavailable")
 	}
-	ctx, cancel := context.WithTimeout(ctx, rpcTimeout)
+	timeout := rpcTimeout
+	if method == "thread/turns/list" {
+		timeout = ownerTurnHistoryTimeout
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	conn, err := r.connect(ctx)
 	if err != nil {

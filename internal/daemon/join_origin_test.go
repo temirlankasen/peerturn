@@ -14,6 +14,7 @@ import (
 )
 
 func TestJoinRequiresNativeProofAndOwnerPrompt(t *testing.T) {
+	parallelDaemonTest(t)
 	d, _ := pairedStores(t)
 	bindClaude(t, d)
 	link := syntheticJoinLink("foreign.invalid", "A")
@@ -46,12 +47,13 @@ func TestJoinRequiresNativeProofAndOwnerPrompt(t *testing.T) {
 	decodeResult(t, result, &hello)
 	r = textJoinRequest(t, link)
 	r.Session, r.Capability = d.state.Label, hello.Capability
-	if _, err = d.Dispatch(t.Context(), r); localipc.PublicError(err).Code != "owner_invitation_required" {
+	if _, err = d.Dispatch(t.Context(), r); localipc.PublicError(err).Code != "no_owner_invitation" {
 		t.Fatalf("invitation absent from owner prompt reached onboarding: %v", err)
 	}
 }
 
 func TestMCPBindingEpochCannotAuthorizeAdapterIPC(t *testing.T) {
+	parallelDaemonTest(t)
 	d, _ := pairedStores(t)
 	instance := bindClaude(t, d)
 	resolved, err := d.Dispatch(t.Context(), localipc.Request{Method: "adapter.resolve", NativeSocket: d.claudeBinding.Socket, Nonce: d.claudeBinding.ConfirmedNonce})
@@ -71,6 +73,7 @@ func TestMCPBindingEpochCannotAuthorizeAdapterIPC(t *testing.T) {
 }
 
 func TestDeliveredPeerInvitationsCannotCreateAuthority(t *testing.T) {
+	parallelDaemonTest(t)
 	for _, kind := range []protocol.Kind{protocol.Coauthor, protocol.Inform, protocol.Reply} {
 		t.Run(string(kind), func(t *testing.T) {
 			a, b := pairedStores(t)
@@ -159,13 +162,14 @@ func provenJoinCapability(t *testing.T, d *Daemon) string {
 func ownerPastedInvite(t *testing.T, d *Daemon, text string) {
 	t.Helper()
 	b := d.claudeBinding
-	_, err := d.Dispatch(t.Context(), localipc.Request{Method: "adapter.boundary", NativeSession: b.NativeSessionID, NativeSocket: b.Socket, Instance: b.Instance, OwnerInvites: invite.PromptHashes(text)})
+	_, err := d.Dispatch(t.Context(), localipc.Request{Method: "adapter.boundary", NativeSession: b.NativeSessionID, NativeSocket: b.Socket, Instance: b.Instance, OwnerInvites: invite.PromptLinks(text)})
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestOwnerInvitationExpiresAndCannotFollowNewIncarnation(t *testing.T) {
+	parallelDaemonTest(t)
 	d, _ := pairedStores(t)
 	capability := provenJoinCapability(t, d)
 	link := syntheticJoinLink("foreign.invalid", "A")
@@ -180,7 +184,7 @@ func TestOwnerInvitationExpiresAndCannotFollowNewIncarnation(t *testing.T) {
 	record := d.joinOrigins.owner[hash]
 	record.expires = time.Now().Add(-time.Second)
 	d.joinOrigins.owner[hash] = record
-	if err = d.checkInvitationOrigin(link, capability); localipc.PublicError(err).Code != "owner_invitation_required" {
+	if err = d.checkInvitationOrigin(link, capability); localipc.PublicError(err).Code != "owner_invitation_expired" {
 		t.Fatalf("expired owner input retained authority: %v", err)
 	}
 	ownerPastedInvite(t, d, link)
@@ -188,12 +192,13 @@ func TestOwnerInvitationExpiresAndCannotFollowNewIncarnation(t *testing.T) {
 		t.Fatal(err)
 	}
 	bindClaude(t, d)
-	if err = d.checkInvitationOrigin(link, provenJoinCapability(t, d)); localipc.PublicError(err).Code != "owner_invitation_required" {
+	if err = d.checkInvitationOrigin(link, provenJoinCapability(t, d)); localipc.PublicError(err).Code != "no_owner_invitation" {
 		t.Fatalf("new native incarnation inherited owner authority: %v", err)
 	}
 }
 
 func TestPeerInvitationVolumeDoesNotBlockOwner(t *testing.T) {
+	parallelDaemonTest(t)
 	d, _ := pairedStores(t)
 	capability := provenJoinCapability(t, d)
 	for i := range 1100 {
@@ -209,6 +214,7 @@ func TestPeerInvitationVolumeDoesNotBlockOwner(t *testing.T) {
 }
 
 func TestPeerPageLinkStillBlocksInvitationClaim(t *testing.T) {
+	parallelDaemonTest(t)
 	d, _ := pairedStores(t)
 	link := syntheticJoinLink("relay.example", "A")
 	page, _, _ := strings.Cut(link, "#")
@@ -219,6 +225,7 @@ func TestPeerPageLinkStillBlocksInvitationClaim(t *testing.T) {
 }
 
 func TestPeerCaseVariantLinkBlocksClaim(t *testing.T) {
+	parallelDaemonTest(t)
 	for _, prefix := range []string{"HTTPS://relay.example", "https://RELAY.EXAMPLE", "relay.example"} {
 		t.Run(prefix, func(t *testing.T) {
 			d, _ := pairedStores(t)
@@ -232,6 +239,7 @@ func TestPeerCaseVariantLinkBlocksClaim(t *testing.T) {
 }
 
 func TestEncodedPeerLinkBlocksCanonicalClaim(t *testing.T) {
+	parallelDaemonTest(t)
 	link := syntheticJoinLink("relay.example", "A")
 	page, _, _ := strings.Cut(link, "#")
 	for _, text := range []string{

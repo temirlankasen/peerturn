@@ -8,6 +8,7 @@ import (
 )
 
 func TestClaudeLivePeerLinkCannotAuthorizeJoin(t *testing.T) {
+	parallelDaemonTest(t)
 	a, b := pairedStores(t)
 	instance := bindClaude(t, a)
 	link := syntheticJoinLink("foreign.invalid", "A")
@@ -32,6 +33,7 @@ func TestClaudeLivePeerLinkCannotAuthorizeJoin(t *testing.T) {
 }
 
 func TestCodexQueuedPeerLinkCannotAuthorizeJoin(t *testing.T) {
+	parallelDaemonTest(t)
 	a, b, runtime := nativePair(t)
 	link := syntheticJoinLink("foreign.invalid", "A")
 	nativeReceipt(t, a, localipc.Request{Method: "send", Peer: a.peers()[0].ID, Kind: "coauthor", Body: link})

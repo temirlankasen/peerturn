@@ -2,6 +2,15 @@
 
 PeerTurn is pre-alpha with an approved design. The [M1a pure core](core-m1a.md), [M1b client store](store-m1b.md), [M2 relay](operators/relay.md) and [M2.5 installed preview](m25.md) provide protocol, encrypted custody, transport and local CLI/MCP. The partial [Claude M3](m3.md) and [Codex M4](m4.md) previews add exact native-session binding, coauthor delivery and no-wake inform notices with explicit inbox body reads. [M6](m6-ask.md) qualifies Linux Claude ask with verified Secret Service and a narrow provider profile. Codex/macOS ask, broader fault recovery, Internet/self-host and performance qualification remain acceptance work.
 
+**0.1.1-preview is prepared for release, pending owner approval.** The first
+published release was [v0.1.0-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.0-preview).
+Linux/macOS archives cover amd64/arm64; qualification is specific to the evidence below.
+Setup refuses newer auto-updated Claude/Codex versions before side effects.
+
+| Environment | Live qualification | Limits |
+| --- | --- | --- |
+| macOS 27.0 arm64; Claude Code 2.1.306 and Codex CLI 0.163.0 shared daemon | [macOS live7](../research/lab/results/macos-live-7/README.md), source b2fab52: setup, owner-pasted link join into Codex and selected-handle join into Claude, coauthor both ways, no-wake inform, signed ask refusal and effective revoke. | Ask receivers remain closed on macOS and Codex. Overall six-scenario verdict remains FAIL: reverse first-paste join reused an already connected pair and returned conflict; a fresh reverse pair was not tested. Harness/cleanup limits remain; 9075a9a hardening has no new live qualification. |
+
 ## Start here
 
 | Document | Purpose |
@@ -29,7 +38,7 @@ PeerTurn is pre-alpha with an approved design. The [M1a pure core](core-m1a.md),
 | [Support](../SUPPORT.md) | Questions and reproducible bug reports. |
 | [Governance](../GOVERNANCE.md) | Maintainer responsibilities and decision process. |
 | [Code of Conduct](../CODE_OF_CONDUCT.md) | Community standards and enforcement. |
-| [Changelog](../CHANGELOG.md) | User-facing changes; no published releases yet. |
+| [Changelog](../CHANGELOG.md) | User-facing changes for the published preview. |
 | [Agent instructions](../AGENTS.md) | Repository invariants and verification rules. |
 
 ## Specification

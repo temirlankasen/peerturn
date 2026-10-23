@@ -16,6 +16,12 @@ import (
 // Sync retries immutable ciphertext and resumes only from committed M1b custody.
 // WSS is a wake hint; this function is the sole transport/custody authority.
 func (d *Daemon) Sync(ctx context.Context) error {
+	return d.syncWithBudget(ctx, 2*time.Second)
+}
+
+// A separate phase budget lets local fixtures exercise custody under disk
+// contention without changing the public Sync deadline or skipping the handshake.
+func (d *Daemon) syncWithBudget(ctx context.Context, phaseBudget time.Duration) error {
 	d.opMu.Lock()
 	defer d.opMu.Unlock()
 	ctx = context.WithValue(ctx, operationLockKey{}, d)
@@ -33,13 +39,13 @@ func (d *Daemon) Sync(ctx context.Context) error {
 	if err := d.maintain(ctx); err != nil {
 		return err
 	}
-	revokeCtx, revokeCancel := context.WithTimeout(ctx, 2*time.Second)
+	revokeCtx, revokeCancel := context.WithTimeout(ctx, phaseBudget)
 	revokeErr := d.syncRevokes(revokeCtx)
 	revokeCancel()
 	if retryCustody(revokeErr) {
 		return revokeErr
 	}
-	onboardingCtx, onboardingCancel := context.WithTimeout(ctx, 2*time.Second)
+	onboardingCtx, onboardingCancel := context.WithTimeout(ctx, phaseBudget)
 	onboardingErr := d.syncJoins(onboardingCtx)
 	if retryCustody(onboardingErr) {
 		onboardingCancel()

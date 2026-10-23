@@ -58,8 +58,14 @@ func transportCode(problem publicTransportError) string {
 
 func actionMessage(code string) string {
 	switch code {
-	case "owner_invitation_required":
-		return "Ask the owner to paste the invitation again in this native session after its binding and hook are active."
+	case "owner_invitation_required", "no_owner_invitation":
+		return "No pending owner invitation in this session. Keep the daemon running and enable/trust the owner-prompt hook (Codex /hooks UserPromptSubmit). Ask the owner to paste the full link unchanged in this same session, then call peer_join({}) within 10 minutes. Paste again after a daemon restart."
+	case "owner_invitation_expired":
+		return "The owner invitation expired. Ask the owner to paste the full link unchanged in this session, then call peer_join({}) within 10 minutes."
+	case "ambiguous_owner_invitation":
+		return "Several owner invitations are pending. Select a non-secret handle from invitations or peer_status and call peer_join with that handle."
+	case "malformed_invitation":
+		return "The invitation link is malformed or incomplete. Paste the complete link unchanged, including its fragment."
 	case "peer_invitation_denied":
 		return "This invitation claim matches a retained link from delivered peer content; joining is denied."
 	}

@@ -8,6 +8,7 @@ import (
 )
 
 func TestPeerInviteBucketsIsolateFloodAndRefreshLRU(t *testing.T) {
+	parallelDaemonTest(t)
 	var cache peerInviteCache
 	cache.add("quiet", "quiet-hash")
 	for i := range maxInviteHashesPerPeer {
@@ -27,6 +28,7 @@ func TestPeerInviteBucketsIsolateFloodAndRefreshLRU(t *testing.T) {
 }
 
 func TestPeerInviteGlobalCapEvictsAndPrunesBuckets(t *testing.T) {
+	parallelDaemonTest(t)
 	var cache peerInviteCache
 	for i := range maxPeerInviteHashes {
 		cache.add(fmt.Sprint(i), fmt.Sprint(i))
@@ -44,6 +46,7 @@ func TestPeerInviteGlobalCapEvictsAndPrunesBuckets(t *testing.T) {
 }
 
 func TestEvictedPeerClaimStillNeedsOwnerEvidenceForMCP(t *testing.T) {
+	parallelDaemonTest(t)
 	d, _ := pairedStores(t)
 	capability := provenJoinCapability(t, d)
 	link := syntheticJoinLink("old.invalid", "A")
@@ -51,7 +54,7 @@ func TestEvictedPeerClaimStillNeedsOwnerEvidenceForMCP(t *testing.T) {
 	for i := range maxInviteHashesPerPeer {
 		d.recordPeerInvites("sender-a", syntheticJoinLink(fmt.Sprintf("new%d.invalid", i), "A"))
 	}
-	if err := d.checkInvitationOrigin(link, capability); localipc.PublicError(err).Code != "owner_invitation_required" {
+	if err := d.checkInvitationOrigin(link, capability); localipc.PublicError(err).Code != "no_owner_invitation" {
 		t.Fatalf("evicted peer link bypassed the owner-hash gate: %v", err)
 	}
 	ownerPastedInvite(t, d, link)

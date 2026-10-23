@@ -9,6 +9,7 @@ import (
 )
 
 func TestTerminalInvitesDoNotExhaustLifetimeBudgetOrRetainSecretURLs(t *testing.T) {
+	parallelDaemonTest(t)
 	a, _ := pairedStores(t)
 	for n := range 32 {
 		id := strings.Repeat("a", n+1)

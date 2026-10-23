@@ -22,10 +22,12 @@ class InstallerTests(unittest.TestCase):
         self.home.mkdir()
         self.tools = self.root / "tools"
         self.tools.mkdir()
+        self.downloads = self.root / "downloads"
+        self.downloads.mkdir()
         os_name = {"Darwin": "darwin", "Linux": "linux"}[platform.system()]
         arch = {"arm64": "arm64", "aarch64": "arm64", "x86_64": "amd64"}[platform.machine()]
-        self.artifact = f"peerturn_0.1.0-preview_{os_name}_{arch}.tar.gz"
-        self.manifest = self.root / "peerturn_0.1.0-preview_checksums.txt"
+        self.artifact = f"peerturn_0.1.1-preview_{os_name}_{arch}.tar.gz"
+        self.manifest = self.root / "peerturn_0.1.1-preview_checksums.txt"
         self.log = self.root / "calls"
         self.helper("cosign", '''#!/bin/sh
 if [ "$1" = version ]; then printf '{"gitVersion": "v3.1.3"}\n'; exit; fi
@@ -39,15 +41,42 @@ printf '%s\n' "curl-first $1" >> "$FIXTURE_LOG"
 grep -q '^Release source:' "$FIXTURE_ROOT/stderr" || exit 78
 grep -q '^Publisher trust:' "$FIXTURE_ROOT/stderr" || exit 78
 [ ! -f "$FIXTURE_ROOT/warning-required" ] || grep -q '^WARNING: LABORATORY MODE' "$FIXTURE_ROOT/stderr" || exit 78
+printf '%s\n' "$@" > "$FIXTURE_ROOT/curl-args"
+max_time=0
+speed_limit=0
+speed_time=0
 while [ "$#" -gt 0 ]; do
-    if [ "$1" = --output ]; then output=$2; shift 2; else url=$1; shift; fi
+    case $1 in
+        --output) output=$2; shift 2 ;;
+        --max-time) max_time=$2; shift 2 ;;
+        --speed-limit) speed_limit=$2; shift 2 ;;
+        --speed-time) speed_time=$2; shift 2 ;;
+        *) url=$1; shift ;;
+    esac
 done
+cp "$FIXTURE_ROOT/curl-args" "$FIXTURE_ROOT/curl-args.${url##*/}"
 printf '%s\n' "download ${url##*/}" >> "$FIXTURE_LOG"
+if [ "${PROGRESS_SECONDS:-0}" -gt "$max_time" ]; then
+    printf partial > "$output"
+    printf '%s\n' 'curl: (28) fixture transfer exceeded overall timeout' >&2
+    exit 28
+fi
+if [ "${STALLED_DOWNLOAD:-0}" = 1 ]; then
+    printf partial > "$output"
+    [ "$speed_limit" -gt 0 ] && [ "$speed_time" -gt 0 ] && [ "$speed_time" -le 120 ] || exit 79
+    printf '%s\n' 'curl: (28) fixture transfer stalled' >&2
+    exit 28
+fi
 cp "$FIXTURE_ROOT/${url##*/}" "$output"
+''')
+        self.helper("tar", '''#!/bin/sh
+printf '%s\n' "tar $*" >> "$FIXTURE_LOG"
+exec /usr/bin/tar "$@"
 ''')
         self.environment = dict(os.environ, HOME=str(self.home),
                                 PATH=str(self.tools) + os.pathsep + os.environ["PATH"],
-                                FIXTURE_ROOT=str(self.root), FIXTURE_LOG=str(self.log))
+                                FIXTURE_ROOT=str(self.root), FIXTURE_LOG=str(self.log),
+                                TMPDIR=str(self.downloads))
         self.environment.pop("PEERTURN_RELEASE_BASE_URL", None)
         self.package()
 
@@ -83,6 +112,7 @@ cp "$FIXTURE_ROOT/${url##*/}" "$output"
             stderr.seek(0)
             result.stderr = stderr.read()
         self.assertEqual(result.returncode == 0, success, result.stdout + result.stderr)
+        self.assertEqual(list(self.downloads.iterdir()), [], "download workdir leaked")
         if not success:
             self.assertFalse((self.home / ".local/bin/peerturn").exists())
         return result
@@ -91,12 +121,12 @@ cp "$FIXTURE_ROOT/${url##*/}" "$output"
         result = self.install(success=True)
         calls = self.log.read_text()
         self.assertIn("--certificate-oidc-issuer https://token.actions.githubusercontent.com", calls)
-        self.assertIn("release.yml@refs/tags/v0.1.0-preview", calls)
+        self.assertIn("release.yml@refs/tags/v0.1.1-preview", calls)
         self.assertNotIn("--insecure-ignore-tlog", calls)
         self.assertIn("curl-first -q", calls)
         self.assertIn("Release source: https://github.com/temirlankasen/peerturn/releases/download", result.stderr)
         self.assertIn("Publisher trust: GitHub OIDC", result.stderr)
-        package = self.home / ".local/share/peerturn/0.1.0-preview"
+        package = self.home / ".local/share/peerturn/0.1.1-preview"
         inventory = (package / ".peerturn-files.sha256").read_bytes()
         self.assertEqual((package / ".peerturn-verified").read_text().strip(),
                          hashlib.sha256(inventory).hexdigest())
@@ -108,10 +138,34 @@ cp "$FIXTURE_ROOT/${url##*/}" "$output"
         self.install()
         self.assertNotIn("download " + self.artifact, self.log.read_text())
 
+    def test_progressing_download_can_exceed_five_minutes(self):
+        self.environment["PROGRESS_SECONDS"] = "301"
+        self.install(success=True)
+        for asset in (self.manifest.name, self.manifest.name + ".sigstore.json", self.artifact):
+            with self.subTest(asset=asset):
+                args = (self.root / ("curl-args." + asset)).read_text().splitlines()
+                self.assertEqual(args[0], "-q")
+                for flag, value in (("--proto", "=https"), ("--proto-redir", "=https"),
+                                    ("--connect-timeout", "15"), ("--max-filesize", "134217728")):
+                    self.assertEqual(args[args.index(flag) + 1], value)
+                self.assertGreater(int(args[args.index("--speed-limit") + 1]), 0)
+                self.assertLessEqual(int(args[args.index("--speed-time") + 1]), 120)
+                self.assertGreater(int(args[args.index("--speed-time") + 1]), 0)
+                self.assertGreaterEqual(int(args[args.index("--max-time") + 1]), 1800)
+                self.assertLessEqual(int(args[args.index("--max-time") + 1]), 7200)
+                self.assertIn("--location", args)
+                self.assertIn("--fail", args)
+
+    def test_stalled_download_fails_and_removes_partial_workdir(self):
+        self.environment["STALLED_DOWNLOAD"] = "1"
+        self.assertIn("fixture transfer stalled", self.install().stderr)
+        self.assertNotIn("tar ", self.log.read_text())
+
     def test_tampered_archive(self):
         with (self.root / self.artifact).open("ab") as file:
             file.write(b"tampered")
         self.assertIn("checksum mismatch", self.install().stderr)
+        self.assertNotIn("tar ", self.log.read_text())
 
     def test_duplicate_manifest_entry(self):
         self.manifest.write_text(self.manifest.read_text() * 2)

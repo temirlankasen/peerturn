@@ -9,6 +9,7 @@ import (
 )
 
 func TestInboxSurfaceReturnsContinuationWithoutOmissions(t *testing.T) {
+	parallelDaemonTest(t)
 	a, b := pairedStores(t)
 	aid, bid := peerID(b.state.Chain), peerID(a.state.Chain)
 	limits := grant.DefaultLimits()

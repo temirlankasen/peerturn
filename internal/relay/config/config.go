@@ -71,9 +71,10 @@ func Defaults() Config {
 			MetadataItems: 100000, BodyBytes: 135168, CiphertextBytes: 96 << 10,
 			BatchItems: 100, LongPollSeconds: 25, RequestTimeoutSeconds: 35,
 			ReadHeaderSeconds: 5, BodyReadSeconds: 5, IdleSeconds: 60, MaxStreams: 256,
-			MaxConnections: 512, RequestsPerIP: 8, IPv6PrefixBits: 64,
+			// Ten daemons sharing a NAT need notification, fetch and spare sockets.
+			MaxConnections: 512, RequestsPerIP: 32, IPv6PrefixBits: 64,
 			PollsPerKey: 4, PollsPerMailbox: 4,
-			StreamsPerKey: 4, StreamsPerMailbox: 4, RatePerMinute: 120, RateBurst: 30,
+			StreamsPerKey: 4, StreamsPerMailbox: 4, RatePerMinute: 600, RateBurst: 120,
 		},
 	}
 }

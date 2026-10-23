@@ -74,6 +74,7 @@ func askLifecycleFixture(t *testing.T) (*Daemon, *Daemon, store.AskRun, store.In
 }
 
 func TestAskDaemonObserveAdmitAndCommit(t *testing.T) {
+	parallelDaemonTest(t)
 	a, _, run, parent, instance := askLifecycleFixture(t)
 	native := "22222222-2222-4222-8222-222222222222"
 	if err := a.observeAsk(t.Context(), run, claude.ResponderStarted, native, instance); err != nil {
@@ -101,6 +102,7 @@ func TestAskDaemonObserveAdmitAndCommit(t *testing.T) {
 }
 
 func TestAskDaemonAdmitRejectsLostAuthorityAndRebind(t *testing.T) {
+	parallelDaemonTest(t)
 	for _, change := range []string{"key", "rebind", "cancel", "revoke"} {
 		t.Run(change, func(t *testing.T) {
 			a, b, run, _, instance := askLifecycleFixture(t)
@@ -137,6 +139,7 @@ func TestAskDaemonAdmitRejectsLostAuthorityAndRebind(t *testing.T) {
 }
 
 func TestAskDaemonFinishSettlesWhenNoticeCannotBeCreated(t *testing.T) {
+	parallelDaemonTest(t)
 	a, b, run, parent, instance := askLifecycleFixture(t)
 	a.state.Peers[peerID(b.state.Chain)].Revoked = true
 	a.finishClaudeAsk(t.Context(), run, parent, a.state.NativeSessionID, instance, claude.AskResult{},
@@ -151,6 +154,7 @@ func TestAskDaemonFinishSettlesWhenNoticeCannotBeCreated(t *testing.T) {
 }
 
 func TestAskDaemonFailureNoticeHasOnlyCoarseReason(t *testing.T) {
+	parallelDaemonTest(t)
 	a, _, run, _, _ := askLifecycleFixture(t)
 	for _, reason := range []string{"needs_rebind", "provider_mismatch", "profile_mismatch", "revoked", "budget_exceeded", "runtime_timeout"} {
 		r := protocol.ReceiptPayload{MessageID: run.MessageID, AttemptID: run.AttemptID, Stage: "responder_failed",
@@ -176,6 +180,7 @@ func TestAskDaemonFailureNoticeHasOnlyCoarseReason(t *testing.T) {
 }
 
 func TestAskDaemonStartChecksBudgetBeforeFileAuthority(t *testing.T) {
+	parallelDaemonTest(t)
 	a, b := pairedStores(t)
 	bindClaude(t, a)
 	p, err := b.makePacket(peerID(a.state.Chain), b.state.Peers[peerID(a.state.Chain)], protocol.Ask, "question", nil)

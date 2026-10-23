@@ -1,0 +1,4 @@
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{"elicitation":{}},"clientInfo":{"name":"codex-mcp-client","title":"Codex","version":"0.163.0"}}}
+{"jsonrpc":"2.0","method":"notifications/initialized"}
+{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}
+{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"peer_status","arguments":{},"_meta":{"callId":"call_fixture","threadId":"019edaa1-1111-7111-8111-111111111111","sessionId":"019edaa1-2222-7222-8222-222222222222","x-codex-turn-metadata":{"thread_id":"019edaa1-1111-7111-8111-111111111111","session_id":"019edaa1-2222-7222-8222-222222222222","turn_id":"019edaa1-3333-7333-8333-333333333333","codex_version":"0.163.0"}}}}

@@ -43,6 +43,7 @@ func fillAskControlLane(t *testing.T, a, b *Daemon) {
 }
 
 func TestAskDaemonFinishSettlesUnderControlBackpressure(t *testing.T) {
+	parallelDaemonTest(t)
 	a, b, run, parent, instance := askLifecycleFixture(t)
 	fillAskControlLane(t, a, b)
 	a.finishClaudeAsk(t.Context(), run, parent, a.state.NativeSessionID, instance, claude.AskResult{},
@@ -60,6 +61,7 @@ func TestAskDaemonFinishSettlesUnderControlBackpressure(t *testing.T) {
 }
 
 func TestAskDaemonStartChecksControlCapacityBeforeKeystore(t *testing.T) {
+	parallelDaemonTest(t)
 	a, b := pairedStores(t)
 	bindClaude(t, a)
 	packet, err := b.makePacket(peerID(a.state.Chain), b.state.Peers[peerID(a.state.Chain)], protocol.Ask, "question", nil)
@@ -87,6 +89,7 @@ func TestAskDaemonStartChecksControlCapacityBeforeKeystore(t *testing.T) {
 }
 
 func TestAskDaemonPreflightRaceClosesIntentDespiteFullLane(t *testing.T) {
+	parallelDaemonTest(t)
 	a, b := pairedStores(t)
 	bindClaude(t, a)
 	packet, err := b.makePacket(peerID(a.state.Chain), b.state.Peers[peerID(a.state.Chain)], protocol.Ask, "question", nil)
@@ -120,6 +123,7 @@ func TestAskDaemonPreflightRaceClosesIntentDespiteFullLane(t *testing.T) {
 }
 
 func TestAskDaemonCancelledCleanupFailureClosesFurtherAsk(t *testing.T) {
+	parallelDaemonTest(t)
 	a, _, run, parent, instance := askLifecycleFixture(t)
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()

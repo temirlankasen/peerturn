@@ -26,6 +26,9 @@ type Options struct {
 	Session              string
 	Caller               Caller
 	ExpectedBindingEpoch string
+	CodexThread          string
+	// ResolveCodex selects a caller, never authority; hello verifies the native binding.
+	ResolveCodex func(string) (Caller, error)
 }
 
 type rpcRequest struct {
@@ -49,10 +52,7 @@ type rpcResponse struct {
 
 // Serve implements newline-delimited JSON-RPC with session-scoped tools.
 func Serve(ctx context.Context, reader io.Reader, writer io.Writer, options Options) (result error) {
-	if options.Session == "" || options.Caller == nil {
-		return localipc.NewError("unbound", "unbound")
-	}
-	binding, err := bindCapability(ctx, options)
+	binding, err := newSessionBinding(ctx, options)
 	if err != nil {
 		return err
 	}
@@ -92,7 +92,7 @@ func Serve(ctx context.Context, reader io.Reader, writer io.Writer, options Opti
 			return localipc.NewError("unavailable", "unavailable")
 		}
 		for _, id := range response.delivered {
-			if _, err := binding.Call(ctx, localipc.Request{Method: "inbox.delivered", MessageID: id}); err != nil {
+			if _, err := binding.bound.Call(ctx, localipc.Request{Method: "inbox.delivered", MessageID: id}); err != nil {
 				return localipc.NewError("unavailable", "pending")
 			}
 		}
@@ -125,7 +125,7 @@ func requestLine(reader *bufio.Reader) ([]byte, bool, error) {
 	}
 }
 
-func dispatch(ctx context.Context, data []byte, binding *capabilitySession, initialized *bool) *rpcResponse {
+func dispatch(ctx context.Context, data []byte, binding *sessionBinding, initialized *bool) *rpcResponse {
 	var request rpcRequest
 	if err := codec.Decode(data, maxLine, &request); err != nil {
 		return failure(nil, -32700, "Invalid JSON-RPC request")
@@ -146,6 +146,7 @@ func dispatch(ctx context.Context, data []byte, binding *capabilitySession, init
 			return failure(request.ID, -32602, "Invalid initialize parameters")
 		}
 		*initialized = true
+		binding.codexClient = qualifiedCodexClient(request.Params)
 		return success(request.ID, map[string]any{"protocolVersion": version, "capabilities": map[string]any{"tools": map[string]bool{"listChanged": false}}, "serverInfo": map[string]string{"name": "peerturn", "version": "0.0.0"}, "instructions": "Session-scoped proxy. The daemon checks binding; peer_status reports actual capabilities. peer_join accepts explicit owner-pasted invitation text. coauthor is strong trust with normal agent capabilities; peer text can influence later owner turns."})
 	}
 	if !*initialized {
@@ -153,12 +154,12 @@ func dispatch(ctx context.Context, data []byte, binding *capabilitySession, init
 	}
 	switch request.Method {
 	case "ping":
-		if !emptyParams(request.Params) {
+		if !basicParams(request.Params) {
 			return failure(request.ID, -32602, "Invalid parameters")
 		}
 		return success(request.ID, struct{}{})
 	case "tools/list":
-		if !emptyParams(request.Params) {
+		if !listParams(request.Params) {
 			return failure(request.ID, -32602, "Invalid parameters")
 		}
 		return success(request.ID, map[string]any{"tools": tools()})
@@ -166,15 +167,17 @@ func dispatch(ctx context.Context, data []byte, binding *capabilitySession, init
 		var params struct {
 			Name      string          `json:"name"`
 			Arguments json.RawMessage `json:"arguments"`
+			Meta      json.RawMessage `json:"_meta,omitempty"`
+			Task      json.RawMessage `json:"task,omitempty"`
 		}
-		if err := codec.Decode(request.Params, maxLine, &params); err != nil {
+		if err := codec.Decode(request.Params, maxLine, &params); err != nil || !validRequestMeta(params.Meta) || !validTask(params.Task) {
 			return failure(request.ID, -32602, "Invalid tool parameters")
 		}
 		command, err := toolRequest(params.Name, params.Arguments)
 		if err != nil {
 			return failure(request.ID, -32602, "Invalid tool arguments")
 		}
-		result, err := binding.Call(ctx, command)
+		result, err := binding.Call(ctx, command, params.Meta)
 		if err != nil {
 			encoded, marshalErr := json.Marshal(localipc.PublicError(err))
 			if marshalErr != nil {
@@ -203,16 +206,13 @@ func initialize(params json.RawMessage) (string, error) {
 	var input struct {
 		ProtocolVersion string                     `json:"protocolVersion"`
 		Capabilities    map[string]json.RawMessage `json:"capabilities"`
-		ClientInfo      struct {
-			Name    string `json:"name"`
-			Version string `json:"version"`
-			Title   string `json:"title,omitempty"`
-		} `json:"clientInfo"`
+		ClientInfo      json.RawMessage            `json:"clientInfo"`
+		Meta            json.RawMessage            `json:"_meta,omitempty"`
 	}
-	if err := codec.Decode(params, maxLine, &input); err != nil {
+	if err := codec.Decode(params, maxInitialize, &input); err != nil {
 		return "", err
 	}
-	if len(input.ProtocolVersion) > 32 || input.ProtocolVersion == "" || len(input.ClientInfo.Name) > 256 || len(input.ClientInfo.Version) > 256 || len(input.ClientInfo.Title) > 256 {
+	if len(input.ProtocolVersion) > 32 || input.ProtocolVersion == "" || input.Capabilities == nil || !validImplementation(input.ClientInfo) || !validClientCapabilities(input.Capabilities) || !validRequestMeta(input.Meta) {
 		return "", localipc.NewError("invalid_encoding", "rejected")
 	}
 	switch input.ProtocolVersion {
@@ -241,10 +241,6 @@ func validID(id json.RawMessage) bool {
 	default:
 		return false
 	}
-}
-
-func emptyParams(params json.RawMessage) bool {
-	return len(params) == 0 || codec.Decode(params, maxLine, &struct{}{}) == nil
 }
 
 func success(id json.RawMessage, result any) *rpcResponse {

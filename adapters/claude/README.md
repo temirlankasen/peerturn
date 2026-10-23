@@ -16,7 +16,9 @@ The mod starts `peerturn adapter claude --native-session UUID --runtime-version
 records whether `ANTHROPIC_BASE_URL` is present; it is not a provider qualification.
 The helper inherits its own native child socket environment. Stdout supplies one
 bounded NDJSON `ready` object containing a strict `http://127.0.0.1:PORT` URL and
-a 64-character lowercase hexadecimal capability. No helper stderr is displayed.
+a 64-character lowercase hexadecimal capability. Before readiness, only bounded
+allowlisted stderr codes reach `ui.status`; raw diagnostics are never displayed.
+See [first-run failures and MCP verification](../../docs/onboarding.md).
 
 All loopback calls use `Authorization: Bearer CAPABILITY`:
 
@@ -54,8 +56,18 @@ The mod enriches `prompt.submit.context` only for host-provided `composer` and
 `bridge` origin kinds. It obtains typed inform context from the helper; plugin,
 peer, SDK, slash-command and unknown origins never consume it. This context is a
 fixed-format count and verified sender labels with `peer_inbox` / `peerturn inbox`
-instructions; it contains no peer bodies. The helper receives no owner prompt
-text. The classic `UserPromptSubmit`
+instructions; it contains no peer bodies. Eligible human composer input also
+hands extracted invitation capabilities to private same-UID IPC, bound to the
+verified native epoch; the helper receives no complete owner prompt text.
+The same strict parser/normalization as CLI join applies. The daemon retains
+≤8 pending capabilities/session in memory for ≤10 minutes, clearing on use,
+expiry, unbind/rebind, stop or restart. Pending secrets are absent from disk,
+logs, status, receipts and audit; post-join sealed recovery state is separate.
+MCP `peer_join({})` accepts no text; an optional nonsecret `handle` selects an
+entry shown with only relay host and age. No inviter label precedes descriptor
+authentication. The owner's paste remains in provider/native transcripts.
+See [the 23 October owner decision and typed failures](../../docs/onboarding.md#owner-invitation-handoff--decision-of-23-october-2026).
+The classic `UserPromptSubmit`
 command invokes `peerturn adapter claude owner-boundary` as a no-op fallback
 until a separately verified owner permit exists. Inform notifications show
 counts only and never call prompt submit.

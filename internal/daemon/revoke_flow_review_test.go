@@ -9,6 +9,7 @@ import (
 )
 
 func TestRevokeFlowKeepsOtherPeerMailboxFlowing(t *testing.T) {
+	parallelDaemonTest(t)
 	admin := routingKey(t)
 	relay := newRelayFixture(t, admin)
 	a := newDaemonFixture(t, relay, "a", admin)

@@ -24,13 +24,12 @@ func TestMCPCurrentCodexJoinUsesExactNativeBinding(t *testing.T) {
 	t.Setenv("CODEX_THREAD_ID", hookThread)
 	t.Setenv("CLAUDE_CODE_MESSAGING_SOCKET", "")
 	t.Setenv("CLAUDE_CODE_MESSAGING_TOKEN", "")
-	text := "private-prose-marker\n<" + testInvitationLink() + ">"
-	arguments, err := json.Marshal(map[string]string{"text": text})
+	arguments, err := json.Marshal(map[string]string{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	input := `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"fixture","version":"1"}}}` + "\n" +
-		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"peer_join","arguments":` + string(arguments) + "}}\n"
+		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"_meta":{"threadId":"` + hookThread + `"},"name":"peer_join","arguments":` + string(arguments) + "}}\n"
 	var stdout, stderr bytes.Buffer
 	code := runInput([]string{"mcp", "--current"}, strings.NewReader(input), &stdout, &stderr)
 	requests := calls()
@@ -42,7 +41,7 @@ func TestMCPCurrentCodexJoinUsesExactNativeBinding(t *testing.T) {
 			t.Fatal("MCP lost the inherited exact native thread")
 		}
 	}
-	if requests[0].Method != "hello" || requests[1].Method != "join.text" || requests[1].InvitationText != text || requests[1].Capability != "synthetic-bound-capability" || requests[2].Method != "bye" {
+	if requests[0].Method != "hello" || requests[1].Method != "join.owner" || requests[1].InvitationText != "" || requests[1].Capability != "synthetic-bound-capability" || requests[2].Method != "bye" {
 		t.Fatal("MCP join bypassed the daemon capability handshake")
 	}
 	if strings.Contains(stdout.String()+stderr.String(), "private-prose-marker") || strings.Contains(stdout.String()+stderr.String(), "#v=1") {
@@ -50,7 +49,7 @@ func TestMCPCurrentCodexJoinUsesExactNativeBinding(t *testing.T) {
 	}
 }
 
-func TestMCPCurrentClaudeEpochGap(t *testing.T) {
+func TestMCPClaudeHostEpoch(t *testing.T) {
 	for _, mode := range []string{"same", "replaced", "missing"} {
 		t.Run(mode, func(t *testing.T) { checkMCPCurrentClaudeEpoch(t, mode) })
 	}
@@ -123,8 +122,20 @@ func checkMCPCurrentClaudeEpoch(t *testing.T, mode string) {
 		}
 		nativeDone <- acceptErr
 	}()
+	// macos-live-2 captured these messaging variables in the host MCP process.
+	// Synthetic sockets exercise its nonce path, not native runtime qualification.
+	raw, err := os.ReadFile("../../internal/mcp/testdata/claude-2.1.306-initialize.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var compact bytes.Buffer
+	if err = json.Compact(&compact, raw); err != nil {
+		t.Fatal(err)
+	}
+	input := compact.String() + "\n" + `{"jsonrpc":"2.0","id":1,"method":"tools/list"}` + "\n" +
+		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"peer_status","arguments":{}}}` + "\n"
 	var stdout, stderr bytes.Buffer
-	code := runInput([]string{"mcp", "--current"}, strings.NewReader(""), &stdout, &stderr)
+	code := runInput([]string{"mcp", "--current"}, strings.NewReader(input), &stdout, &stderr)
 	timer := time.NewTimer(time.Second)
 	defer timer.Stop()
 	select {
@@ -137,8 +148,20 @@ func checkMCPCurrentClaudeEpoch(t *testing.T, mode string) {
 	}
 	requests := calls()
 	if mode == "same" {
-		if code != 0 || stdout.Len() != 0 || stderr.Len() != 0 || len(requests) != 4 || requests[3].Method != "bye" {
+		if code != 0 || stderr.Len() != 0 || len(requests) != 5 || requests[3].Method != "status" || requests[3].Session != "chosen" || requests[3].Capability != "synthetic-new-capability" || requests[4].Method != "bye" {
 			t.Fatalf("verified incarnation could not initialize: code=%d requests=%d stderr=%s", code, len(requests), stderr.String())
+		}
+		var responses []rpcCurrentResponse
+		decoder := json.NewDecoder(&stdout)
+		for range 3 {
+			var response rpcCurrentResponse
+			if err = decoder.Decode(&response); err != nil || response.Error != nil {
+				t.Fatalf("captured host initialize/tool failed: %v %+v", err, response)
+			}
+			responses = append(responses, response)
+		}
+		if !bytes.Contains(responses[1].Result, []byte(`"peer_join"`)) {
+			t.Fatal("Claude host MCP did not expose peer_join")
 		}
 		return
 	}
@@ -151,8 +174,13 @@ func checkMCPCurrentClaudeEpoch(t *testing.T, mode string) {
 	}
 }
 
+type rpcCurrentResponse struct {
+	Error  json.RawMessage `json:"error"`
+	Result json.RawMessage `json:"result"`
+}
+
 func TestMCPCurrentBindingFailures(t *testing.T) {
-	for _, mode := range []string{"ambiguous", "foreign", "missing", "claude_missing"} {
+	for _, mode := range []string{"ambiguous", "foreign", "claude_missing"} {
 		t.Run(mode, func(t *testing.T) {
 			calls := serveHook(t, func(localipc.Request) (any, error) {
 				return map[string]string{"state": "unexpected"}, nil
@@ -166,8 +194,6 @@ func TestMCPCurrentBindingFailures(t *testing.T) {
 				t.Setenv("CLAUDE_CODE_MESSAGING_SOCKET", "/synthetic/native.sock")
 			case "foreign":
 				args = append(args, "--session", "foreign")
-			case "missing":
-				t.Setenv("CODEX_THREAD_ID", "")
 			case "claude_missing":
 				t.Setenv("CODEX_THREAD_ID", "")
 				t.Setenv("CLAUDE_CODE_MESSAGING_SOCKET", "/synthetic/native.sock")

@@ -8,6 +8,7 @@ import (
 )
 
 func TestCapabilityActivityCannotExtendAbsoluteLifetime(t *testing.T) {
+	parallelDaemonTest(t)
 	d, _ := pairedStores(t)
 	result, err := d.Dispatch(t.Context(), localipc.Request{Method: "hello", Session: d.state.Label})
 	if err != nil {

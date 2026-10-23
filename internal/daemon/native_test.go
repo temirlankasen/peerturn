@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/temirlankasen/peerturn/internal/adapters/codex"
 	"github.com/temirlankasen/peerturn/internal/localipc"
@@ -30,6 +31,10 @@ func (f *nativeFixture) Validate(_ context.Context, b codex.Binding) error {
 		return &codex.Error{Code: "needs_rebind"}
 	}
 	return nil
+}
+
+func (f *nativeFixture) ValidateOwnerTurn(ctx context.Context, b codex.Binding, _ string) error {
+	return f.Validate(ctx, b)
 }
 func (f *nativeFixture) Queue(_ context.Context, b codex.Binding, id, frame string) (codex.QueueResult, error) {
 	if err := f.Validate(context.Background(), b); err != nil {
@@ -57,11 +62,11 @@ func nativePair(t *testing.T) (*Daemon, *Daemon, *nativeFixture) {
 			o.RoutingKey = key
 		}
 		if _, err := Initialize(t.Context(), o); err != nil {
-			t.Fatal(err)
+			t.Fatal("initialize native fixture:", err)
 		}
 		d, err := Open(t.Context(), Options{StateDir: o.StateDir, HTTPClient: relay.server.Client(), Native: runtime})
 		if err != nil {
-			t.Fatal(err)
+			t.Fatal("open native fixture:", err)
 		}
 		t.Cleanup(func() {
 			if closeErr := d.Close(); closeErr != nil {
@@ -74,7 +79,7 @@ func nativePair(t *testing.T) (*Daemon, *Daemon, *nativeFixture) {
 	b, runtime := open("019edaa1-2222-7222-8222-222222222222", false)
 	invitation, err := a.createInvite(t.Context())
 	if err != nil {
-		t.Fatal(err)
+		t.Fatal("create native fixture invitation:", err)
 	}
 	fields, ok := invitation.(map[string]any)
 	if !ok {
@@ -85,15 +90,20 @@ func nativePair(t *testing.T) (*Daemon, *Daemon, *nativeFixture) {
 		t.Fatal("invite URL type")
 	}
 	if _, err = b.join(t.Context(), url); err != nil {
-		t.Fatal(err)
+		t.Fatal("join native fixture invitation:", err)
 	}
-	for range 4 {
-		if err = a.Sync(t.Context()); err != nil {
-			t.Fatal(err)
-		}
-		if err = b.Sync(t.Context()); err != nil {
-			t.Fatal(err)
-		}
+	ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
+	defer cancel()
+	connected := func() bool {
+		ap, bp := a.peers(), b.peers()
+		return len(ap) == 1 && len(bp) == 1 && ap[0].State == "connected" && bp[0].State == "connected"
+	}
+	// Setup exercises the real durable handshake, with scheduling headroom for
+	// FULL fsync. Production Sync retains its independent two-second phase cap.
+	if err = syncFixturePair(ctx, connected,
+		func(ctx context.Context) error { return a.syncWithBudget(ctx, 30*time.Second) },
+		func(ctx context.Context) error { return b.syncWithBudget(ctx, 30*time.Second) }); err != nil {
+		t.Fatal("connect native fixtures:", err)
 	}
 	return a, b, runtime
 }
@@ -118,6 +128,7 @@ func nativeReceipt(t *testing.T, d *Daemon, r localipc.Request) protocol.Receipt
 }
 
 func TestNativeDeliveryReceiptsInformAndRevoke(t *testing.T) {
+	parallelDaemonTest(t)
 	a, b, runtime := nativePair(t)
 	peer := a.peers()[0].ID
 	var ids []string
@@ -195,6 +206,7 @@ func TestNativeDeliveryReceiptsInformAndRevoke(t *testing.T) {
 }
 
 func TestNativeAmbiguityNeverResubmitsAndStaleCannotRebind(t *testing.T) {
+	parallelDaemonTest(t)
 	a, b, runtime := nativePair(t)
 	runtime.failure = "in_doubt"
 	r := nativeReceipt(t, a, localipc.Request{Method: "send", Peer: a.peers()[0].ID, Kind: "coauthor", Body: "ambiguous"})
@@ -229,6 +241,7 @@ func TestNativeAmbiguityNeverResubmitsAndStaleCannotRebind(t *testing.T) {
 }
 
 func TestUnsupportedNativeInitializationCreatesNoKeys(t *testing.T) {
+	parallelDaemonTest(t)
 	dir := stateDir(t)
 	_, err := Initialize(t.Context(), InitOptions{StateDir: dir, RelayURL: "https://relay.example", SessionLabel: "thread", FilePermissions: true, CodexThreadID: "foreign", Native: &nativeFixture{thread: "exact"}})
 	if err == nil {

@@ -14,7 +14,7 @@ Security guarantees require reproducible evidence. A roadmap target, source read
 
 Changes to security, cryptography, access, money, database schema/migrations, CI, and releases require one independent review of the finished diff. Critical findings block merging. Database schema and migration work additionally requires explicit project-owner approval before implementation. Routine documentation, tests, and small fixes do not automatically require a separate review pass.
 
-The maintainer controls merge and release permissions. Release approval follows passing gates, required evidence, and an honest compatibility statement. Future releases are intended to use signed artifacts and published checksums/SBOMs; none have been published yet. No contributor gains release or account access merely by contributing code.
+The maintainer controls merge and release permissions. Release approval follows passing gates, required evidence, and an honest compatibility statement. Version **0.1.1-preview is prepared for release, pending explicit owner approval**; [installation](docs/install.md) requires publisher-signature and archive-checksum verification. No contributor gains release or account access merely by contributing code.
 
 ## Participation and conflicts
 
@@ -22,4 +22,4 @@ Anyone may propose a change under the [contribution guide](CONTRIBUTING.md) and 
 
 Discuss technical disagreements with concrete examples and evidence. A contributor may request reconsideration by presenting new information on the existing issue or pull request. The maintainer should explain final decisions and disclose relevant conflicts of interest. Conduct concerns use the private route in the Code of Conduct; vulnerabilities use [SECURITY.md](SECURITY.md).
 
-Governance changes use the same public proposal process when the repository is published. During the current unpublished phase, decisions must still be captured in the repository so future contributors can review them.
+Governance changes use the same public proposal process. Decisions must be captured in the repository so contributors can review them.

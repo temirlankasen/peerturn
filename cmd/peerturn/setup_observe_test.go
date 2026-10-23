@@ -13,6 +13,7 @@ import (
 
 func setupObservedFixture(t *testing.T, host string) (string, string, string) {
 	t.Helper()
+	setupMCPHome(t)
 	root := filepath.Join(t.TempDir(), "release with spaces")
 	prefix, manifest := "adapters/claude", ".claude-plugin/marketplace.json"
 	if host == "codex" {
@@ -34,7 +35,7 @@ func setupObservedFixture(t *testing.T, host string) (string, string, string) {
 		t.Fatal(err)
 	}
 	bin := t.TempDir()
-	program := "#!/bin/sh\ncase \"$*\" in\n'plugin marketplace list --json') printf '%s' \"$SETUP_MARKETPLACES\";;\n'plugin list --json') printf '%s' \"$SETUP_PLUGINS\";;\nesac\n"
+	program := "#!/bin/sh\n[ -z \"$SETUP_CALLS\" ] || printf '%s\\n' \"$*\" >> \"$SETUP_CALLS\"\ncase \"$*\" in\n--version) printf '%s' \"$SETUP_VERSION\"; printf '%s' \"$SETUP_VERSION_STDERR\" >&2; exit \"${SETUP_VERSION_EXIT:-0}\";;\n'plugin marketplace list --json') printf '%s' \"$SETUP_MARKETPLACES\";;\n'plugin list --json') printf '%s' \"$SETUP_PLUGINS\";;\n'mcp list --json') printf '%s' \"${SETUP_MCP_LIST_OUTPUT:-[]}\"; exit \"${SETUP_MCP_LIST_EXIT:-0}\";;\n'mcp get peerturn'|'mcp get peerturn --json') printf '%s' \"$SETUP_MCP_GET_OUTPUT\"; exit \"${SETUP_MCP_GET_EXIT:-1}\";;\nesac\nif [ \"$1 $2\" = 'mcp add' ]; then exit \"${SETUP_MCP_EXIT:-0}\"; fi\n"
 	directory, err := os.OpenRoot(bin)
 	if err != nil {
 		t.Fatal(err)
@@ -55,9 +56,19 @@ func setupObservedFixture(t *testing.T, host string) (string, string, string) {
 		t.Fatalf("setup host fixture: write=%v mode=%v close=%v", writeErr, modeErr, closeErr)
 	}
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	root, err = filepath.EvalSymlinks(root)
+	if err != nil {
+		t.Fatal(err)
+	}
 	marketplaces, plugins := observedSetupJSON(t, host, root, filepath.Join(root, prefix))
 	t.Setenv("SETUP_MARKETPLACES", marketplaces)
 	t.Setenv("SETUP_PLUGINS", plugins)
+	nativeVersion := "2.1.306 (Claude Code)"
+	if host == "codex" {
+		nativeVersion = "codex-cli 0.163.0"
+	}
+	t.Setenv("SETUP_VERSION", nativeVersion)
+	t.Setenv("SETUP_MCP_GET_OUTPUT", absentSetupMCPMessage(host))
 	return root, fmt.Sprintf("%x", sha256.Sum256([]byte(inventory.String()))), prefix
 }
 

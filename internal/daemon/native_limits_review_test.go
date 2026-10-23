@@ -10,6 +10,7 @@ import (
 )
 
 func TestReviewInformReservationCannotBeOverwrittenOrPublishUnreturnedOffer(t *testing.T) {
+	parallelDaemonTest(t)
 	a, b, _ := nativePair(t)
 	r := nativeReceipt(t, a, localipc.Request{Method: "send", Peer: a.peers()[0].ID, Kind: "inform", Body: "pending"})
 	if err := b.Sync(t.Context()); err != nil {
@@ -45,6 +46,7 @@ func TestReviewInformReservationCannotBeOverwrittenOrPublishUnreturnedOffer(t *t
 }
 
 func TestReviewRevokeMixedNativeOutcomesWhileBindingStale(t *testing.T) {
+	parallelDaemonTest(t)
 	a, b, runtime := nativePair(t)
 	var ids []string
 	for _, body := range []string{"queued one", "already starting two"} {
@@ -79,6 +81,7 @@ func TestReviewRevokeMixedNativeOutcomesWhileBindingStale(t *testing.T) {
 }
 
 func TestReviewDaemonIdentityAndVersionCannotDrift(t *testing.T) {
+	parallelDaemonTest(t)
 	_, b, _ := nativePair(t)
 	original := *b.state.Codex
 	for _, field := range []string{"daemon", "version"} {
@@ -97,6 +100,7 @@ func TestReviewDaemonIdentityAndVersionCannotDrift(t *testing.T) {
 }
 
 func TestReviewOfferedInformRetainsTrueStageOnRevoke(t *testing.T) {
+	parallelDaemonTest(t)
 	a, b, _ := nativePair(t)
 	r := nativeReceipt(t, a, localipc.Request{Method: "send", Peer: a.peers()[0].ID, Kind: "inform", Body: "offered only"})
 	if err := b.Sync(t.Context()); err != nil {

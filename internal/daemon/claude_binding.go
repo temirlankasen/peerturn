@@ -30,6 +30,21 @@ func (d *Daemon) touchClaudeLease(r localipc.Request) {
 	}
 }
 
+// Recording owner input must survive a relay operation outlasting the hook.
+// Inform delivery still uses operation serialization and rechecks the binding.
+func (d *Daemon) recordClaudeOwnerInvites(ctx context.Context, r localipc.Request) {
+	if r.Method != "adapter.boundary" || r.Capability != "" || len(r.OwnerInvites) == 0 {
+		return
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	b := d.claudeBinding
+	if ctx.Err() != nil || d.persistenceFailed || b == nil || r.NativeSession != b.NativeSessionID || r.NativeSocket != b.Socket || r.Instance != b.Instance || !b.Ready(time.Now()) {
+		return
+	}
+	d.recordOwnerInvites(r.OwnerInvites, b.MCPEpoch())
+}
+
 func (d *Daemon) claudeDispatch(ctx context.Context, r localipc.Request) (any, error) {
 	now := time.Now()
 	if r.Method == "adapter.open" {
@@ -69,6 +84,7 @@ func (d *Daemon) claudeDispatch(ctx context.Context, r localipc.Request) (any, e
 		if err = d.db.RecoverInDoubt(ctx, unixNow()); err != nil {
 			return nil, err
 		}
+		d.wipeOwnerInvites()
 		d.claudeBinding, d.claudeAttempt = binding, nil
 		d.claudeNotice = nil
 		return map[string]string{"instance": binding.Instance}, nil
@@ -115,7 +131,6 @@ func (d *Daemon) claudeDispatch(ctx context.Context, r localipc.Request) (any, e
 		if r.Method == "adapter.boundary-attached" {
 			return d.claudeBoundaryAttached(ctx, r)
 		}
-		d.recordOwnerInvites(r.OwnerInvites, b.MCPEpoch())
 		return d.claudeBoundary(ctx)
 	}
 	if err := b.Touch(r.Instance, now); err != nil {
@@ -126,6 +141,7 @@ func (d *Daemon) claudeDispatch(ctx context.Context, r localipc.Request) (any, e
 		if err := d.db.RecoverInDoubt(ctx, unixNow()); err != nil {
 			return nil, err
 		}
+		d.wipeOwnerInvites()
 		d.claudeBinding = nil
 		d.claudeAttempt, d.claudeNotice = nil, nil
 		return map[string]bool{"closed": true}, nil

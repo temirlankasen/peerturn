@@ -38,6 +38,7 @@ type Server struct {
 	rateMu         sync.Mutex
 	bucketOrder    list.List
 	ipActive       map[string]int
+	ipExecuting    map[string]int
 	now            func() time.Time
 	readNonces     map[string]time.Time
 	readNonceOrder []readNonce
@@ -74,7 +75,8 @@ func newWithClock(cfg config.Config, now func() time.Time) (*Server, error) {
 	s := &Server{cfg: cfg, db: db, ctx: ctx, cancel: cancel, now: now,
 		mailChanges: make(map[string]*mailWatch),
 		streams:     make(map[string]int), mailStreams: make(map[string]int), keyPolls: make(map[string]int), mailPolls: make(map[string]int),
-		buckets: make(map[string]bucket), ipActive: make(map[string]int), readNonces: make(map[string]time.Time), readNonceKeys: make(map[string]int),
+		buckets: make(map[string]bucket), ipActive: make(map[string]int), ipExecuting: make(map[string]int),
+		readNonces: make(map[string]time.Time), readNonceKeys: make(map[string]int),
 		slots: make(chan struct{}, 64), polls: make(chan struct{}, 32)}
 	s.verifier, err = auth.NewVerifier(auth.Options{Now: now, PublicAuthority: cfg.PublicAuthority,
 		TrustedProxies: cfg.TrustedProxyPrefixes(), Authorize: s.authorizeRequest, Replay: s.replay})

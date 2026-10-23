@@ -5,6 +5,7 @@ import (
 )
 
 func TestInviteUsesAdminEnrollmentAndEncryptedDescriptor(t *testing.T) {
+	parallelDaemonTest(t)
 	key := routingKey(t)
 	f := newRelayFixture(t, key)
 	dir := stateDir(t)

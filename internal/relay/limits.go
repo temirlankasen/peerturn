@@ -125,3 +125,22 @@ func (s *Server) releaseIP(ip string) {
 		delete(s.ipActive, ip)
 	}
 }
+
+func (s *Server) reserveExecution(ip string) bool {
+	s.rateMu.Lock()
+	defer s.rateMu.Unlock()
+	if s.ipExecuting[ip] >= max(1, cap(s.slots)/8) {
+		return false
+	}
+	s.ipExecuting[ip]++
+	return true
+}
+
+func (s *Server) releaseExecution(ip string) {
+	s.rateMu.Lock()
+	defer s.rateMu.Unlock()
+	s.ipExecuting[ip]--
+	if s.ipExecuting[ip] == 0 {
+		delete(s.ipExecuting, ip)
+	}
+}

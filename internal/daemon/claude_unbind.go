@@ -10,6 +10,7 @@ import (
 // claudeUnbind invalidates old authority before clearing the native UUID. A new
 // native session must establish new grants, even though the local identity remains.
 func (d *Daemon) claudeUnbind(ctx context.Context) (any, error) {
+	d.wipeOwnerInvites()
 	if d.state.Codex != nil {
 		return nil, localipc.NewError("unsupported", "unsupported")
 	}

@@ -6,7 +6,9 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/temirlankasen/peerturn/internal/adapters/codex"
 	"github.com/temirlankasen/peerturn/internal/envelope"
 	"github.com/temirlankasen/peerturn/internal/localipc"
 )
@@ -26,10 +28,7 @@ func (d *Daemon) hookBinding(r localipc.Request) error {
 }
 
 func (d *Daemon) offerInform(ctx context.Context, r localipc.Request) (any, error) {
-	if err := d.hookBinding(r); err != nil {
-		return nil, err
-	}
-	if err := d.checkNative(ctx, r.NativeThread); err != nil {
+	if err := d.checkOwnerTurn(ctx, r); err != nil {
 		return nil, err
 	}
 	d.recordOwnerInvites(r.OwnerInvites, "codex:"+r.NativeThread)
@@ -67,11 +66,13 @@ func (d *Daemon) offerInform(ctx context.Context, r localipc.Request) (any, erro
 }
 
 func (d *Daemon) acknowledgeInform(ctx context.Context, r localipc.Request) (any, error) {
-	if err := d.hookBinding(r); err != nil {
+	if err := d.checkOwnerTurn(ctx, r); err != nil {
 		return nil, err
 	}
 	offer := d.informOffer
-	if offer == nil || offer.token != r.Cursor || offer.turn != r.MessageID || unixNow()-offer.at > 3 {
+	// ACK replays the active-turn proof before reaching this check. Its bounded
+	// native history read must fit inside the short-lived offer's lifetime.
+	if offer == nil || offer.token != r.Cursor || offer.turn != r.MessageID || unixNow()-offer.at > int64(codex.OwnerTurnTimeout/time.Second)+1 {
 		return nil, localipc.NewError("invalid_state", "pending")
 	}
 	if err := ctx.Err(); err != nil {

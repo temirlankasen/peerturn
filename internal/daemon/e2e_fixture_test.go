@@ -117,16 +117,12 @@ type daemonFixture struct {
 
 func newDaemonFixture(t *testing.T, f *relayFixture, label string, key ed25519.PrivateKey) *daemonFixture {
 	t.Helper()
-	runtimeDir, err := filepath.EvalSymlinks(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	runtimeDir = filepath.Join(runtimeDir, "r")
-	if err = os.Mkdir(runtimeDir, 0700); err != nil {
+	runtimeDir := filepath.Join(fixtureDir(t), "r")
+	if err := os.Mkdir(runtimeDir, 0700); err != nil {
 		t.Fatal(err)
 	}
 	d := &daemonFixture{dir: stateDir(t), runtime: runtimeDir, label: label, relay: f, client: localipc.Client{RuntimeDir: runtimeDir}}
-	if _, err = Initialize(t.Context(), InitOptions{StateDir: d.dir, RelayURL: f.server.URL, SessionLabel: label, FilePermissions: true, RoutingKey: key}); err != nil {
+	if _, err := Initialize(t.Context(), InitOptions{StateDir: d.dir, RelayURL: f.server.URL, SessionLabel: label, FilePermissions: true, RoutingKey: key}); err != nil {
 		t.Fatal(err)
 	}
 	d.start(t)

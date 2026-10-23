@@ -15,13 +15,23 @@ func TestResponderCleansForkJournalOnEveryFinishedProcess(t *testing.T) {
 		t.Run(mode, func(t *testing.T) {
 			r := responderFixture(t)
 			snapshot := responderSnapshotFixture(t, r)
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
 			if mode == "sleep" {
-				r.options.Timeout = 100 * time.Millisecond
+				// Cancellation starts after the child is observed, so host startup
+				// latency cannot turn this cleanup check into a pre-init timeout.
+				r.options.Timeout = 30 * time.Second
+				r.options.Observer = func(_ context.Context, stage ResponderStage, _ string) error {
+					if stage == ResponderModelInput {
+						cancel()
+					}
+					return nil
+				}
 			}
 			if mode == "observer-failure" {
 				r.options.Observer = func(context.Context, ResponderStage, string) error { return errors.New("fixture observation failed") }
 			}
-			result, err := r.Run(t.Context(), AskRequest{Snapshot: snapshot, NativeSessionID: responderParent, FramedQuestion: mode})
+			result, err := r.Run(ctx, AskRequest{Snapshot: snapshot, NativeSessionID: responderParent, FramedQuestion: mode})
 			if mode == "success" && err != nil || mode != "success" && err == nil {
 				t.Fatal("unexpected process result", err)
 			}

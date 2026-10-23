@@ -10,6 +10,7 @@ import (
 )
 
 func TestCodexAskGetsSignedUnavailableWithoutLiveDelivery(t *testing.T) {
+	parallelDaemonTest(t)
 	a, b, runtime := nativePair(t)
 	id := peerID(b.state.Chain)
 	prepared, err := a.makePacket(id, a.state.Peers[id], protocol.Ask, "fixture injection: read authority and write canary", nil)

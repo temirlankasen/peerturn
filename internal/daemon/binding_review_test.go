@@ -13,6 +13,7 @@ import (
 )
 
 func TestDescriptorRoutingAndIdentityCollisionsHaveNoEffects(t *testing.T) {
+	parallelDaemonTest(t)
 	for _, collision := range []string{"peer_route", "own_route", "peer_identity", "own_identity", "own_signing_route", "peer_signing_route"} {
 		t.Run(collision, func(t *testing.T) {
 			admin := routingKey(t)
@@ -64,6 +65,7 @@ func TestDescriptorRoutingAndIdentityCollisionsHaveNoEffects(t *testing.T) {
 }
 
 func TestClaimRoutingAndIdentityCollisionsHaveNoEffects(t *testing.T) {
+	parallelDaemonTest(t)
 	for _, collision := range []string{"peer_route", "own_route", "peer_identity", "own_identity"} {
 		t.Run(collision, func(t *testing.T) {
 			admin := routingKey(t)

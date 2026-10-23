@@ -10,7 +10,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/temirlankasen/peerturn/internal/adapters/codex"
 	"github.com/temirlankasen/peerturn/internal/daemon"
@@ -240,22 +239,34 @@ func TestCodexHookRejectsUnsafeOfferMetadata(t *testing.T) {
 	}
 }
 
-type hookWriter struct{ delay time.Duration }
+type hookWriter struct{ cancel context.CancelFunc }
 
 func (w hookWriter) Write(p []byte) (int, error) {
-	if w.delay == 0 {
+	if w.cancel == nil {
 		return 0, errors.New("synthetic output failure")
 	}
-	time.Sleep(w.delay)
+	w.cancel()
 	return len(p), nil
 }
 
 func TestCodexHookWriteFailureAndDeadline(t *testing.T) {
 	runtime := hookRuntime(t)
-	for _, delay := range []time.Duration{0, 2100 * time.Millisecond} {
-		t.Run(delay.String(), func(t *testing.T) {
+	for _, expire := range []bool{false, true} {
+		t.Run(fmt.Sprint(expire), func(t *testing.T) {
 			calls := serveHook(t, func(localipc.Request) (any, error) { return hookOffer(), nil }, runtime)
-			executeHook(t, hookInput(), hookWriter{delay: delay})
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			var out hookWriter
+			if expire {
+				out.cancel = cancel
+			}
+			raw, err := json.Marshal(hookInput())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if code := runCodexHookContext(ctx, strings.NewReader(string(raw)), out); code != 0 {
+				t.Fatalf("hook blocked owner: %d", code)
+			}
 			if requests := calls(); len(requests) != 1 {
 				t.Fatalf("unwritten/expired notice acknowledged: %+v", requests)
 			}

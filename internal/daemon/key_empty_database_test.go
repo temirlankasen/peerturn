@@ -7,6 +7,7 @@ import (
 )
 
 func TestAuthorityMigrationRefusesTruncatedDatabaseWithoutReplacingKey(t *testing.T) {
+	parallelDaemonTest(t)
 	dir := fileAuthorityFixture(t)
 	if err := os.WriteFile(filepath.Join(dir, "state.db"), nil, 0600); err != nil {
 		t.Fatal(err)
@@ -22,6 +23,7 @@ func TestAuthorityMigrationRefusesTruncatedDatabaseWithoutReplacingKey(t *testin
 }
 
 func TestAuthorityMigrationRepeatRefusesMissingDatabase(t *testing.T) {
+	parallelDaemonTest(t)
 	dir := fileAuthorityFixture(t)
 	backend := &memoryKeyStore{}
 	if err := MigrateAuthoritySecrets(t.Context(), dir, backend); err != nil {

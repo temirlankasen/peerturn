@@ -14,6 +14,7 @@ import (
 )
 
 func TestPeerJoinParsesAndDeduplicatesPastedTextInDaemon(t *testing.T) {
+	parallelDaemonTest(t)
 	admin := routingKey(t)
 	relay := newRelayFixture(t, admin)
 	issuer := openRecoveryDaemon(t, relay, admin)
@@ -35,6 +36,7 @@ func TestPeerJoinParsesAndDeduplicatesPastedTextInDaemon(t *testing.T) {
 		"private-prose-marker\n[" + link + "](" + link + ")",
 		"private-prose-marker\n[Join](" + link + ").\n<" + link + ">",
 	} {
+		ownerPastedInvite(t, joiner, invitation.URL)
 		request := textJoinRequest(t, text)
 		request.Session, request.Capability = joiner.state.Label, capability
 		result, callErr := joiner.Dispatch(t.Context(), request)
@@ -80,6 +82,7 @@ func TestPeerJoinParsesAndDeduplicatesPastedTextInDaemon(t *testing.T) {
 }
 
 func TestPeerJoinRejectsAmbiguousInvalidAndForeignTextWithoutEffects(t *testing.T) {
+	parallelDaemonTest(t)
 	d, _ := pairedStores(t)
 	capability := provenJoinCapability(t, d)
 	link := syntheticJoinLink("relay.example", "A")
@@ -87,9 +90,9 @@ func TestPeerJoinRejectsAmbiguousInvalidAndForeignTextWithoutEffects(t *testing.
 		text, code string
 	}{
 		{"", "invalid_arguments"},
-		{"private-prose-marker", "invalid_arguments"},
-		{link + "\n" + syntheticJoinLink("relay.example", "B"), "invalid_arguments"},
-		{"[" + link + "](" + syntheticJoinLink("relay.example", "B") + ")", "invalid_arguments"},
+		{"private-prose-marker", "malformed_invitation"},
+		{link + "\n" + syntheticJoinLink("relay.example", "B"), "malformed_invitation"},
+		{"[" + link + "](" + syntheticJoinLink("relay.example", "B") + ")", "malformed_invitation"},
 		{link + "\x00private-prose-marker", "invalid_encoding"},
 		{strings.Repeat("a", 65537), "too_large"},
 		{syntheticJoinLink("foreign.invalid", "A"), "audience_mismatch"},
@@ -117,6 +120,7 @@ func TestPeerJoinRejectsAmbiguousInvalidAndForeignTextWithoutEffects(t *testing.
 }
 
 func TestPeerJoinCannotEscapeSessionCapabilityOrStaleNativeBinding(t *testing.T) {
+	parallelDaemonTest(t)
 	d, _ := pairedStores(t)
 	capability := joinCapability(t, d)
 	for _, binding := range []struct{ session, capability string }{

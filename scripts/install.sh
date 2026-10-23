@@ -3,7 +3,7 @@
 set -eu
 umask 077
 
-version=0.1.0-preview
+version=0.1.1-preview
 repository=https://github.com/temirlankasen/peerturn
 base=$repository/releases/download
 verify_key=
@@ -79,8 +79,9 @@ printf '%s\n' "$cosign_version" | awk '
 artifact=peerturn_${version}_${os}_${arch}.tar.gz
 manifest=peerturn_${version}_checksums.txt
 download() {
+    # Allow slow progress, but bound stalled transfers and the total download time.
     curl -q --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
-        --connect-timeout 15 --max-time 300 --max-filesize 134217728 \
+        --connect-timeout 15 --speed-limit 1024 --speed-time 60 --max-time 3600 --max-filesize 134217728 \
         --output "$work/$1" "${base%/}/v$version/$1"
 }
 download "$manifest"

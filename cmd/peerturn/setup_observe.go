@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"path/filepath"
+
+	"github.com/temirlankasen/peerturn/internal/store"
 )
 
 // These are observations exposed by the pinned hosts, not attestations about
@@ -14,13 +16,27 @@ type setupMarketplaceSource struct {
 	Source     string `json:"source"`
 }
 
-type setupOutput struct{ bytes.Buffer }
+type setupOutput struct {
+	buffer   bytes.Buffer
+	overflow bool
+}
 
 func (b *setupOutput) Write(data []byte) (int, error) {
-	if b.Len()+len(data) > 64*1024 {
+	if b.overflow || b.buffer.Len()+len(data) > 64*1024 {
+		b.overflow = true
 		return 0, invalidArguments()
 	}
-	return b.Buffer.Write(data)
+	return b.buffer.Write(data)
+}
+
+// Expose only observations: embedding Buffer would let io.Copy use ReadFrom
+// and bypass Write's bound when collecting a host subprocess's output.
+func (b *setupOutput) Bytes() []byte {
+	return b.buffer.Bytes()
+}
+
+func (b *setupOutput) String() string {
+	return b.buffer.String()
 }
 
 func querySetup(ctx context.Context, host string, args []string, invoke setupInvoke, output any) error {
@@ -35,46 +51,70 @@ func querySetup(ctx context.Context, host string, args []string, invoke setupInv
 }
 
 func sameSetupPath(got, want string) bool {
-	return filepath.IsAbs(got) && filepath.Clean(got) == filepath.Clean(want)
+	if !filepath.IsAbs(got) || !filepath.IsAbs(want) {
+		return false
+	}
+	if _, err := resolveSetupRoot(got); err != nil {
+		return false
+	}
+	if _, err := resolveSetupRoot(want); err != nil {
+		return false
+	}
+	canonicalGot, err := store.ResolveTrustedPath(got)
+	if err != nil {
+		return false
+	}
+	canonicalWant, err := store.ResolveTrustedPath(want)
+	return err == nil && canonicalGot == canonicalWant
 }
 
 func observeSetupMarketplace(ctx context.Context, host, root string, invoke setupInvoke) error {
+	return inspectSetupMarketplace(ctx, host, root, invoke, false)
+}
+
+func inspectSetupMarketplace(ctx context.Context, host, root string, invoke setupInvoke, allowAbsent bool) error {
 	args := []string{"plugin", "marketplace", "list", "--json"}
 	count := 0
 	if host == "claude" {
-		var entries []struct{ Name, Source, Path, InstallLocation string }
-		if err := querySetup(ctx, host, args, invoke, &entries); err != nil {
-			return err
+		var entries []*struct{ Name, Source, Path, InstallLocation string }
+		if err := querySetup(ctx, host, args, invoke, &entries); err != nil || entries == nil {
+			return setupMarketplaceFailure(host)
 		}
 		for _, entry := range entries {
+			if entry == nil || entry.Name == "" {
+				return setupMarketplaceFailure(host)
+			}
 			if entry.Name == "peerturn" {
 				count++
 				if entry.Source != "directory" || !sameSetupPath(entry.Path, root) || !sameSetupPath(entry.InstallLocation, root) {
-					return invalidArguments()
+					return setupMarketplaceFailure(host)
 				}
 			}
 		}
 	} else {
 		var listing struct {
-			Marketplaces []struct {
+			Marketplaces []*struct {
 				Name, Root        string
 				MarketplaceSource setupMarketplaceSource `json:"marketplaceSource"`
 			}
 		}
-		if err := querySetup(ctx, host, args, invoke, &listing); err != nil {
-			return err
+		if err := querySetup(ctx, host, args, invoke, &listing); err != nil || listing.Marketplaces == nil {
+			return setupMarketplaceFailure(host)
 		}
 		for _, entry := range listing.Marketplaces {
+			if entry == nil || entry.Name == "" {
+				return setupMarketplaceFailure(host)
+			}
 			if entry.Name == "peerturn" {
 				count++
 				if !sameSetupPath(entry.Root, root) || entry.MarketplaceSource.SourceType != "local" || !sameSetupPath(entry.MarketplaceSource.Source, root) {
-					return invalidArguments()
+					return setupMarketplaceFailure(host)
 				}
 			}
 		}
 	}
-	if count != 1 {
-		return invalidArguments()
+	if count != 1 && (!allowAbsent || count != 0) {
+		return setupMarketplaceFailure(host)
 	}
 	return nil
 }

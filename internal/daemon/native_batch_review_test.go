@@ -9,6 +9,7 @@ import (
 )
 
 func TestReviewFailedBatchCleanupCannotSpendSequenceTwice(t *testing.T) {
+	parallelDaemonTest(t)
 	_, b, _ := nativePair(t)
 	peer := b.peers()[0].ID
 	start := b.state.Sequences[peer]

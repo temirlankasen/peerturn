@@ -7,6 +7,7 @@ import (
 )
 
 func TestCodexNotSentCannotReplayAmbiguousNativeSubmission(t *testing.T) {
+	parallelDaemonTest(t)
 	a, b, runtime := nativePair(t)
 	runtime.failure = "in_doubt"
 	r := nativeReceipt(t, a, localipc.Request{Method: "send", Peer: a.peers()[0].ID, Kind: "coauthor", Body: "may already have started"})

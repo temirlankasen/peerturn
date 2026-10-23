@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
-
-	"github.com/temirlankasen/peerturn/internal/localipc"
 )
 
 func TestMCPJoinEscapingAndOversizeDoNotTerminateProxy(t *testing.T) {
@@ -14,13 +12,13 @@ func TestMCPJoinEscapingAndOversizeDoNotTerminateProxy(t *testing.T) {
 		name, text string
 		accepted   bool
 	}{
-		{"escaped-byte-limit", strings.Repeat("\x01", localipc.MaxInvitationTextBytes), true},
-		{"escaped-over-byte-limit", strings.Repeat("\x01", localipc.MaxInvitationTextBytes+1), false},
-		{"multibyte-over-byte-limit", strings.Repeat("界", localipc.MaxInvitationTextBytes/3+1), false},
+		{"escaped-byte-limit", strings.Repeat("a", 12), true},
+		{"escaped-over-byte-limit", strings.Repeat("\x01", 12+1), false},
+		{"multibyte-over-byte-limit", strings.Repeat("界", 12/3+1), false},
 		{"over-frame-limit", strings.Repeat("x", 1024*1024), false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			arguments, err := json.Marshal(map[string]string{"text": tc.text})
+			arguments, err := json.Marshal(map[string]string{"handle": tc.text})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -45,7 +43,7 @@ func TestMCPJoinEscapingAndOversizeDoNotTerminateProxy(t *testing.T) {
 				t.Fatal("proxy did not process later ping")
 			}
 			if tc.accepted {
-				if join.Error != nil || len(caller.requests) != 3 || caller.requests[1].Method != "join.text" || caller.requests[1].InvitationText != tc.text {
+				if join.Error != nil || len(caller.requests) != 3 || caller.requests[1].Method != "join.owner" || caller.requests[1].InvitationHandle != tc.text {
 					t.Fatal("escaped text within the byte limit did not reach daemon")
 				}
 			} else if join.Error == nil || join.Error.Code != -32602 || len(caller.requests) != 2 {

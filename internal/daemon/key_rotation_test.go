@@ -45,6 +45,7 @@ func fileAuthorityFixture(t *testing.T) string {
 }
 
 func TestAuthorityMigrationUsesFreshKeyAndRefusesStaleFileKey(t *testing.T) {
+	parallelDaemonTest(t)
 	dir := fileAuthorityFixture(t)
 	root, err := store.OpenPrivateDirectory(dir, false)
 	if err != nil {
@@ -112,6 +113,7 @@ func TestAuthorityMigrationUsesFreshKeyAndRefusesStaleFileKey(t *testing.T) {
 }
 
 func TestAuthorityMigrationRecoversEveryDurableBoundary(t *testing.T) {
+	parallelDaemonTest(t)
 	for _, boundary := range []string{"prepared", "database", "journal", "verified", "wiped", "removed"} {
 		t.Run(boundary, func(t *testing.T) {
 			dir := fileAuthorityFixture(t)
@@ -158,6 +160,7 @@ func TestAuthorityMigrationRecoversEveryDurableBoundary(t *testing.T) {
 }
 
 func TestAuthorityMigrationFailureRetainsFileKey(t *testing.T) {
+	parallelDaemonTest(t)
 	dir := fileAuthorityFixture(t)
 	backend := &memoryKeyStore{unavailable: true}
 	if err := MigrateAuthoritySecrets(t.Context(), dir, backend); err == nil {
@@ -181,6 +184,7 @@ func TestAuthorityMigrationFailureRetainsFileKey(t *testing.T) {
 }
 
 func TestInitializeOSAuthorityNeverWritesFileKey(t *testing.T) {
+	parallelDaemonTest(t)
 	dir := stateDir(t)
 	backend := &memoryKeyStore{}
 	if _, err := Initialize(t.Context(), InitOptions{StateDir: dir, RelayURL: "https://relay.example", SessionLabel: "system", KeyStore: backend}); err != nil {
@@ -199,6 +203,7 @@ func TestInitializeOSAuthorityNeverWritesFileKey(t *testing.T) {
 }
 
 func TestAuthorityMigrationCorruptDatabaseNeverDeletesFallbackKey(t *testing.T) {
+	parallelDaemonTest(t)
 	dir := fileAuthorityFixture(t)
 	path := filepath.Join(dir, "state.db")
 	if err := os.WriteFile(path, []byte("corrupt database"), 0600); err != nil {

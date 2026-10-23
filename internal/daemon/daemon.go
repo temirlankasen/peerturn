@@ -140,6 +140,9 @@ func Open(ctx context.Context, o Options) (_ *Daemon, result error) {
 // Close releases custody only after the caller has stopped sync/IPC workers.
 func (d *Daemon) Close() error {
 	d.closeOnce.Do(func() {
+		d.mu.Lock()
+		d.wipeOwnerInvites()
+		d.mu.Unlock()
 		if d.askCancel != nil {
 			d.askCancel()
 		}
@@ -156,7 +159,7 @@ func (d *Daemon) Close() error {
 func Run(ctx context.Context, o Options) (result error) {
 	if o.RuntimeDir == "" {
 		var err error
-		o.RuntimeDir, err = DefaultRuntimeDir()
+		o.RuntimeDir, err = daemonRuntimeDir()
 		if err != nil {
 			return err
 		}
@@ -174,6 +177,13 @@ func Run(ctx context.Context, o Options) (result error) {
 	}
 	defer func() {
 		result = errors.Join(result, d.Close())
+	}()
+	pointer, err := publishRuntimePointer(o.StateDir, o.RuntimeDir)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		result = errors.Join(result, pointer.Close())
 	}()
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()

@@ -8,6 +8,7 @@ import (
 )
 
 func TestClaudeLostPollResponseReoffersOnlyBeforeAuthorization(t *testing.T) {
+	parallelDaemonTest(t)
 	admin := routingKey(t)
 	f := newRelayFixture(t, admin)
 	a, b := openRecoveryDaemon(t, f, admin), openRecoveryDaemon(t, f, routingKey(t))
@@ -42,6 +43,7 @@ func TestClaudeLostPollResponseReoffersOnlyBeforeAuthorization(t *testing.T) {
 }
 
 func TestClaudeOversizedEscapedFrameIsRejectedBeforeIntent(t *testing.T) {
+	parallelDaemonTest(t)
 	admin := routingKey(t)
 	f := newRelayFixture(t, admin)
 	a, b, c := openRecoveryDaemon(t, f, admin), openRecoveryDaemon(t, f, routingKey(t)), openRecoveryDaemon(t, f, routingKey(t))
@@ -71,6 +73,7 @@ func TestClaudeOversizedEscapedFrameIsRejectedBeforeIntent(t *testing.T) {
 }
 
 func TestClaudeUnconfirmedBoundaryPermitsBootstrap(t *testing.T) {
+	parallelDaemonTest(t)
 	admin := routingKey(t)
 	d := openRecoveryDaemon(t, newRelayFixture(t, admin), admin)
 	r := localipc.Request{Method: "adapter.open", NativeSession: "11111111-1111-4111-8111-111111111111", NativeSocket: "/tmp/unconfirmed.sock", RuntimeVersion: "2.1.306", Provider: "gateway"}
@@ -89,6 +92,7 @@ func TestClaudeUnconfirmedBoundaryPermitsBootstrap(t *testing.T) {
 }
 
 func TestClaudeOwnerRevokePendingDoesNotStarveOtherPeers(t *testing.T) {
+	parallelDaemonTest(t)
 	admin := routingKey(t)
 	f := newRelayFixture(t, admin)
 	a, b, c := openRecoveryDaemon(t, f, admin), openRecoveryDaemon(t, f, routingKey(t)), openRecoveryDaemon(t, f, routingKey(t))

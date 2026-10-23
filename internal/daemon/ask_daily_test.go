@@ -7,6 +7,7 @@ import (
 )
 
 func TestAskDailyQuotaAcrossPeersCleanupAndRestart(t *testing.T) {
+	parallelDaemonTest(t)
 	dir := stateDir(t)
 	if _, err := Initialize(t.Context(), InitOptions{StateDir: dir, RelayURL: "https://relay.example", SessionLabel: "daily", FilePermissions: true}); err != nil {
 		t.Fatal(err)
@@ -56,6 +57,7 @@ func TestAskDailyQuotaAcrossPeersCleanupAndRestart(t *testing.T) {
 }
 
 func TestAskDailyMalformedCounterBlocksOnlyAsk(t *testing.T) {
+	parallelDaemonTest(t)
 	dir := stateDir(t)
 	if _, err := Initialize(t.Context(), InitOptions{StateDir: dir, RelayURL: "https://relay.example", SessionLabel: "malformed-quota", FilePermissions: true}); err != nil {
 		t.Fatal(err)

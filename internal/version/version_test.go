@@ -23,8 +23,8 @@ func TestString(t *testing.T) {
 			want: "peerturn 0.1.0 (commit abcdef123456, built 2026-10-21T12:00:00Z)",
 		},
 		{
-			name: "preview", version: "0.1.0-preview.1", commit: "0123456", date: "2026-10-21T00:00:00Z",
-			want: "peerturn 0.1.0-preview.1 (commit 0123456, built 2026-10-21T00:00:00Z)",
+			name: "preview", version: "0.1.1-preview.1", commit: "0123456", date: "2026-10-21T00:00:00Z",
+			want: "peerturn 0.1.1-preview.1 (commit 0123456, built 2026-10-21T00:00:00Z)",
 		},
 	}
 

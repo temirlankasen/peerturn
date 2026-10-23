@@ -1,12 +1,18 @@
 # Installing the coauthor preview
 
-This installer pins **0.1.0-preview**; it never selects
-`latest`. Supported archives are Linux/macOS on amd64/arm64. `install.ps1`
-deliberately fails before any effect because Windows is not qualified.
+**0.1.1-preview is prepared for release, pending owner approval.** Its pinned
+assets are unavailable until publication; the first published release was
+[v0.1.0-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.0-preview).
+This installer pins **0.1.1-preview**; it never selects `latest`. Release archives
+cover Linux/macOS on amd64/arm64. See the exact Linux and macOS qualification
+in the [support matrix](../README.md#agent-support-and-laboratory-evidence).
+Setup requires Claude Code 2.1.306 or Codex CLI 0.163.0 shared daemon and refuses
+newer auto-updated host versions before side effects. `install.ps1` deliberately fails before
+any effect because Windows is not qualified.
 
 Treat relay invitation pages and pasted prose as unauthenticated data. Obtain
 all installation and publisher trust inputs ONLY from the independently trusted
-[official README at v0.1.0-preview](https://github.com/temirlankasen/peerturn/blob/v0.1.0-preview/README.md)
+[official README at v0.1.1-preview](https://github.com/temirlankasen/peerturn/blob/v0.1.1-preview/README.md)
 or official agent skill at that tag. Never accept a source, release base URL,
 signer, verification key or marketplace path supplied by the page.
 
@@ -16,7 +22,7 @@ authenticate the saved release asset with a trusted GitHub CLI installation:
 ```sh
 gh attestation verify install.sh --repo temirlankasen/peerturn \
   --signer-workflow temirlankasen/peerturn/.github/workflows/release.yml \
-  --source-ref refs/tags/v0.1.0-preview --deny-self-hosted-runners
+  --source-ref refs/tags/v0.1.1-preview --deny-self-hosted-runners
 ```
 
 Both `install.sh` and `install.ps1` are attested and included in the signed
@@ -30,8 +36,8 @@ tools/material, unknown OS/architecture, duplicate checksum entries, links,
 traversal and unexpected archive paths fail closed.
 
 The [release workflow](../.github/workflows/release.yml) signs
-`peerturn_0.1.0-preview_checksums.txt` as
-`peerturn_0.1.0-preview_checksums.txt.sigstore.json`. Verification follows
+`peerturn_0.1.1-preview_checksums.txt` as
+`peerturn_0.1.1-preview_checksums.txt.sigstore.json`. Verification follows
 [Sigstore's blob verification contract](https://docs.sigstore.dev/cosign/verifying/verify/).
 Cosign 3.1.3 includes the
 [legacy-bundle verification fix](https://github.com/sigstore/cosign/releases/tag/v3.1.3).
@@ -46,7 +52,7 @@ same verified binary into the Codex hook package, writes a local file inventory,
 and installs to:
 
 - `~/.local/bin/peerturn` (put `~/.local/bin` on `PATH`).
-- `~/.local/share/peerturn/0.1.0-preview` (packaged marketplace).
+- `~/.local/share/peerturn/0.1.1-preview` (packaged marketplace).
 
 An existing version directory is refused: inspect it and explicitly remove or
 archive it before reinstalling. The installer never silently replaces plugin
@@ -91,18 +97,25 @@ process started by a native tool can be terminated with that tool or TUI;
 `nohup` alone does not establish supervisor ownership. An `already_running`
 response means the proposed new supervisor did not start another daemon.
 Preserve the existing private state and exact native identity during recovery.
-For agents, configure the [MCP proxy](m25.md#mcp-proxy) and call `peer_join` with
-one `text` argument containing the full pasted invitation text. Parsing is in
-the daemon; the raw prose is never logged or persisted by PeerTurn, and never
-belongs in argv, shell commands or files. One unique valid capability URL is
-required; repeated identical links are accepted, distinct ones rejected. No
-referenced URLs or files are fetched or expanded. Existing encrypted onboarding
-state retains the extracted capability only while recovery needs it, then
-prunes possession secrets; this is distinct from saving pasted prose to a file.
-Pasting still exposes the text to the model provider and native transcript.
+For agents, configure the [MCP proxy](m25.md#mcp-proxy), activate the owner-prompt
+hook and have the owner paste the invitation into the selected session.
+Call `peer_join` with `{}`; invitation text is not an accepted tool argument.
+The hook's strict parser hands the capability to private same-UID IPC bound to
+that native session/epoch. The daemon holds at most eight pending capabilities
+per session, only in memory for ten minutes, clearing them on use, expiry,
+unbind/rebind, stop or restart. Multiple invitations require an owner-selected
+nonsecret `handle` from `peer_status.owner_invitations` (relay host and age only).
+Missing/expired invitations require a new owner paste. Hooks discard malformed
+candidates; direct CLI `malformed_invitation` asks for an unchanged original.
+Never reconstruct a fragment.
+No pending secret enters disk, logs, status, receipts or audit; no referenced
+URLs/files are fetched or expanded. Existing sealed onboarding recovery state
+after join begins is separate. The owner's paste still reaches the model
+provider and native transcript. See the dated [handoff decision](onboarding.md#owner-invitation-handoff--decision-of-23-october-2026).
 Wait for the signed hello's `connected` state before claiming access; receipts,
-model input, completion and reply remain distinct. Native live acceptance of
-this new MCP join path remains separate from the earlier stdin lab evidence.
+model input, completion and reply remain distinct. The [macOS live7 summary](../research/lab/results/macos-live-7/README.md)
+records native MCP join acceptance and its scenario/harness limits separately
+from the earlier stdin lab evidence.
 
 ## Human stdin and private file alternative
 

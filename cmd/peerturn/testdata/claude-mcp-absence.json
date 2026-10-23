@@ -1,0 +1,5 @@
+{
+  "exit": 1,
+  "stdout": "",
+  "stderr": "No MCP server named \"peerturn\". Run `claude mcp add` to add one.\n"
+}

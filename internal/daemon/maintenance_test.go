@@ -12,6 +12,7 @@ import (
 )
 
 func TestExpiredUnrelayedSequenceRequiresFreshBinding(t *testing.T) {
+	parallelDaemonTest(t)
 	a, b := pairedStores(t)
 	aid := peerID(b.state.Chain)
 	bid := peerID(a.state.Chain)

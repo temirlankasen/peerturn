@@ -10,6 +10,7 @@ import (
 )
 
 func TestReviewInformNoticeRequiresWrittenAcknowledgementAndInboxRead(t *testing.T) {
+	parallelDaemonTest(t)
 	a, b, _ := nativePair(t)
 	body := strings.Repeat("PRIVATE_BODY_MUST_NOT_ENTER_DEVELOPER_CONTEXT", 300)
 	r := nativeReceipt(t, a, localipc.Request{Method: "send", Peer: a.peers()[0].ID, Kind: "inform", Body: body})
@@ -83,6 +84,7 @@ func nativeValue[T any](t *testing.T, d *Daemon, r localipc.Request) T {
 }
 
 func TestReviewRevokedOutgoingGrantDoesNotWedgeNativeItems(t *testing.T) {
+	parallelDaemonTest(t)
 	a, b, runtime := nativePair(t)
 	for _, kind := range []string{"inform", "coauthor"} {
 		nativeReceipt(t, a, localipc.Request{Method: "send", Peer: a.peers()[0].ID, Kind: kind, Body: "retained " + kind})
@@ -107,6 +109,7 @@ func TestReviewRevokedOutgoingGrantDoesNotWedgeNativeItems(t *testing.T) {
 }
 
 func TestReviewRevokeDeletesAcceptedNativeItemsAndFencesLateStart(t *testing.T) {
+	parallelDaemonTest(t)
 	a, b, runtime := nativePair(t)
 	r := nativeReceipt(t, a, localipc.Request{Method: "send", Peer: a.peers()[0].ID, Kind: "coauthor", Body: "busy queued"})
 	if err := b.Sync(t.Context()); err != nil {

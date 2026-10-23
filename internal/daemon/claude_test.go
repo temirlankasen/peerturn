@@ -36,6 +36,7 @@ func bindClaude(t *testing.T, d *Daemon) string {
 }
 
 func TestClaudeDeliveryIntentAndDropAreNotRetried(t *testing.T) {
+	parallelDaemonTest(t)
 	admin := routingKey(t)
 	f := newRelayFixture(t, admin)
 	a, b := openRecoveryDaemon(t, f, admin), openRecoveryDaemon(t, f, routingKey(t))
@@ -77,6 +78,7 @@ func TestClaudeDeliveryIntentAndDropAreNotRetried(t *testing.T) {
 }
 
 func TestClaudeInformNoticeOnlyAndInboxBodyDelivery(t *testing.T) {
+	parallelDaemonTest(t)
 	admin := routingKey(t)
 	f := newRelayFixture(t, admin)
 	a, b := openRecoveryDaemon(t, f, admin), openRecoveryDaemon(t, f, routingKey(t))
@@ -146,6 +148,7 @@ func TestClaudeInformNoticeOnlyAndInboxBodyDelivery(t *testing.T) {
 }
 
 func TestClaudeAskFailsClosedAndBindingDoesNotMove(t *testing.T) {
+	parallelDaemonTest(t)
 	admin := routingKey(t)
 	f := newRelayFixture(t, admin)
 	a, b := openRecoveryDaemon(t, f, admin), openRecoveryDaemon(t, f, routingKey(t))
@@ -180,6 +183,7 @@ func TestClaudeAskFailsClosedAndBindingDoesNotMove(t *testing.T) {
 }
 
 func TestClaudeRevokeClosesPendingAdmission(t *testing.T) {
+	parallelDaemonTest(t)
 	admin := routingKey(t)
 	f := newRelayFixture(t, admin)
 	a, b := openRecoveryDaemon(t, f, admin), openRecoveryDaemon(t, f, routingKey(t))
@@ -213,6 +217,7 @@ func TestClaudeRevokeClosesPendingAdmission(t *testing.T) {
 }
 
 func TestClaudeUncertainOutcomeFencesFollowingAdmission(t *testing.T) {
+	parallelDaemonTest(t)
 	admin := routingKey(t)
 	f := newRelayFixture(t, admin)
 	a, b := openRecoveryDaemon(t, f, admin), openRecoveryDaemon(t, f, routingKey(t))

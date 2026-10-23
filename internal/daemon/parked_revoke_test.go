@@ -8,6 +8,7 @@ import (
 )
 
 func TestParkedRevokeAndStaleJournalRestorePeerRevocation(t *testing.T) {
+	parallelDaemonTest(t)
 	a, b := pairedStores(t)
 	aid, bid := peerID(b.state.Chain), peerID(a.state.Chain)
 	outbound := incomingData(t, a, b)
@@ -47,6 +48,7 @@ func TestParkedRevokeAndStaleJournalRestorePeerRevocation(t *testing.T) {
 	if a.state.Peers[aid].Revoked {
 		t.Fatal("future receipt was not parked")
 	}
+	assertDaemonCatalogRevoked(t, a, outbound.Message.GrantID, false)
 	if err = a.receive(t.Context(), first, 2); err != nil {
 		t.Fatal(err)
 	}
@@ -54,6 +56,7 @@ func TestParkedRevokeAndStaleJournalRestorePeerRevocation(t *testing.T) {
 	if err != nil || receipt.Stage != "revoked" || !a.state.Peers[aid].Revoked {
 		t.Fatalf("promoted revoke left peer active: %+v %v", receipt, err)
 	}
+	assertDaemonCatalogRevoked(t, a, outbound.Message.GrantID, true)
 	// Model a crash after receipt commit but before its peer flag was journaled.
 	a.state.Peers[aid].Revoked = false
 	if err = a.save(); err != nil {
@@ -74,4 +77,5 @@ func TestParkedRevokeAndStaleJournalRestorePeerRevocation(t *testing.T) {
 	if !reopened.state.Peers[aid].Revoked {
 		t.Fatal("stale journal lost durable peer revocation")
 	}
+	assertDaemonCatalogRevoked(t, reopened, outbound.Message.GrantID, true)
 }

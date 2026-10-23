@@ -31,16 +31,18 @@ type InboxEntry struct {
 }
 
 // GrantInfo is a catalog entry, not permission to enqueue or admit a message.
-// Epoch and Revoked report live policy; the other fields describe the installed grant.
+// Epoch and Revoked report local policy; GrantCatalog fills EffectiveRevoked
+// with authenticated outbound receipt evidence for owner inspection.
 type GrantInfo struct {
-	Hash      string           `json:"hash"`
-	GrantID   string           `json:"grant_id"`
-	Epoch     uint64           `json:"epoch"`
-	Revoked   bool             `json:"revoked"`
-	ExpiresAt int64            `json:"expires_at"`
-	Issuer    identity.Binding `json:"issuer"`
-	Subject   identity.Binding `json:"subject"`
-	Scope     grant.Scope      `json:"scope"`
+	Hash             string           `json:"hash"`
+	GrantID          string           `json:"grant_id"`
+	Epoch            uint64           `json:"epoch"`
+	Revoked          bool             `json:"revoked"`
+	EffectiveRevoked bool             `json:"effective_revoked"`
+	ExpiresAt        int64            `json:"expires_at"`
+	Issuer           identity.Binding `json:"issuer"`
+	Subject          identity.Binding `json:"subject"`
+	Scope            grant.Scope      `json:"scope"`
 }
 
 // PendingOutbox lists live sender custody with the independent control lane first.
@@ -113,7 +115,7 @@ func (s *Store) ListInboxAfter(ctx context.Context, after string, limit int) ([]
 	return items, nil
 }
 
-// ListGrants includes expired and revoked installations for owner inspection.
+// ListGrants includes expired and revoked installations without reading receipts.
 // Live authorization always goes through the transactional admission APIs.
 func (s *Store) ListGrants(ctx context.Context) ([]GrantInfo, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT id,epoch,revoked,expires_at,signed,hash,issuer,subject FROM grants ORDER BY id`)
@@ -150,6 +152,25 @@ func (s *Store) ListGrants(ctx context.Context) ([]GrantInfo, error) {
 		record.info.Issuer, record.info.Subject, record.info.Scope = g.Issuer, g.Subject, g.Scope
 		record.info.Hash = record.hash
 		items = append(items, record.info)
+	}
+	return items, nil
+}
+
+// GrantCatalog adds receipt-derived display state without making local control
+// operations depend on decoding unrelated delivery evidence.
+func (s *Store) GrantCatalog(ctx context.Context) ([]GrantInfo, error) {
+	items, err := s.ListGrants(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for i := range items {
+		items[i].EffectiveRevoked = items[i].Revoked
+		if !items[i].EffectiveRevoked {
+			items[i].EffectiveRevoked, err = s.RevokedOutboundGrant(ctx, items[i].GrantID)
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 	return items, nil
 }
