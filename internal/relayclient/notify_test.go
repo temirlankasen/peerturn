@@ -43,10 +43,12 @@ func TestNotifyReconnectUsesDurableFrontierAndFreshSignature(t *testing.T) {
 			t.Error(acceptErr)
 			return
 		}
+		// Count before the event: the client may cancel as soon as it reads the
+		// second event, before this handler would otherwise reach the counter.
+		connections.Add(1)
 		if writeErr := conn.Write(r.Context(), websocket.MessageText, []byte(`{"mailbox":"box","high_seq":7}`)); writeErr != nil {
 			t.Error(writeErr)
 		}
-		connections.Add(1)
 		if closeErr := conn.Close(websocket.StatusGoingAway, "restart"); closeErr != nil {
 			return
 		}
