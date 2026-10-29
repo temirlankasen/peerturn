@@ -14,7 +14,7 @@ Security guarantees require reproducible evidence. A roadmap target, source read
 
 Changes to security, cryptography, access, money, database schema/migrations, CI, and releases require one independent review of the finished diff. Critical findings block merging. Database schema and migration work additionally requires explicit project-owner approval before implementation. Routine documentation, tests, and small fixes do not automatically require a separate review pass.
 
-The maintainer controls merge and release permissions. Release approval follows passing gates, required evidence, and an honest compatibility statement. Version **0.1.1-preview is prepared for release, pending explicit owner approval**; [installation](docs/install.md) requires publisher-signature and archive-checksum verification. No contributor gains release or account access merely by contributing code.
+The maintainer controls merge and release permissions. Release approval follows passing gates, required evidence, and an honest compatibility statement. Version **0.1.2-preview is the current experimental release**; [installation](docs/install.md) requires publisher-signature and archive-checksum verification. No contributor gains release or account access merely by contributing code.
 
 ## Participation and conflicts
 

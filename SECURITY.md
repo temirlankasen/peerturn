@@ -6,10 +6,10 @@ PeerTurn is **pre-alpha**. The protocol core, HPKE/Ed25519 encryption, direction
 
 | Version | Security support |
 | --- | --- |
-| 0.1.1-preview (prepared; not yet published) | Best-effort security fixes on the latest preview revision; Claude Code 2.1.306 / Codex CLI 0.163.0 shared daemon only; no production qualification. |
+| 0.1.2-preview | Best-effort security fixes on the latest preview revision; baseline evidence for Claude Code 2.1.306 / Codex CLI 0.163.0 shared daemon; no production qualification. The [version policy](docs/spec/versions.md) admits all versions at or above these minima with the accepted semantic risk. |
 | Development branch | Best-effort investigation only; no security support SLA. |
 
-Use the latest preview revision. Older preview snapshots and unqualified host versions have no maintenance guarantee. Signed Linux/macOS archives require SHA-256 and Sigstore bundle verification with cosign >=3.1.3; no Windows release or automatic trust/reload is claimed. A published support window begins only with an explicitly published release. Setup refuses newer auto-updated Claude/Codex versions before side effects. See the [support matrix](README.md#agent-support-and-laboratory-evidence) for exact Linux/macOS qualification and limits.
+Use the latest preview revision. Older preview snapshots and unqualified host versions have no maintenance guarantee. Signed Linux/macOS archives require SHA-256 and Sigstore bundle verification with cosign >=3.1.3; no Windows release or automatic trust/reload is claimed. A published support window begins only with an explicitly published release. Setup refuses below-minimum or unknown runtime versions before side effects; newer unverified versions retain full existing functionality, with separately verified-only ask. See the [support matrix](README.md#agent-support-and-laboratory-evidence) for exact Linux/macOS qualification and limits.
 
 ## Report a vulnerability privately
 
@@ -46,6 +46,15 @@ MCP `peer_join` creates coauthor authority and is only for links the owner paste
 It requires a Claude helper-bound native session or an exact Codex native thread-ID
 match under the same uid, plus an unexpired invitation hash from the supported
 human/root prompt boundary (ten minutes, bound to that helper/thread).
+Claude's epoch is an incarnation identifier. Its resolution requires either the
+confirmed native nonce or daemon-verified caller ancestry: the daemon pins the
+native socket's kernel UID/PID/start time and inode at open, rechecks at confirm,
+and obtains the caller PID from IPC kernel credentials (`SO_PEERCRED` on Linux,
+`LOCAL_PEERPID` on macOS). It rechecks the same-UID ancestor chain, process start
+times and native socket/process continuity before returning an epoch. Missing
+credentials or inaccessible process metadata close this read-only route with
+`needs_rebind`; other platforms cannot establish this proof. This establishes process ancestry, not human
+origin or executable authenticity; the native helper and OS account remain trusted.
 The Codex match is a selector, not independent proof of human origin: a same-uid
 caller can supply the thread ID and invoke the hook IPC. Label-only MCP sessions
 cannot join. The daemon also recognizes common invitation link forms in delivered

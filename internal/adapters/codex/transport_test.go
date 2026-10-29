@@ -9,7 +9,7 @@ import (
 func queueFixture(t *testing.T) (*Transport, *fakeRPC, Binding, string) {
 	t.Helper()
 	rpc := newFakeRPC()
-	tr := NewTransport(rpc, SupportedVersion)
+	tr := NewTransport(rpc, testVersion)
 	b, err := tr.Bind(t.Context(), testThread)
 	if err != nil {
 		t.Fatal(err)

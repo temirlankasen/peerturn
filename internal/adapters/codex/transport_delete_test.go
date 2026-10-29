@@ -55,7 +55,7 @@ func transportDeleter(t *testing.T, tr *Transport) interface {
 
 func TestDeleteQueueEntryIsIdempotentAndWorksWhenUnloaded(t *testing.T) {
 	rpc := &deleteRPC{fakeRPC: newFakeRPC(), deleted: true}
-	tr := NewTransport(rpc, SupportedVersion)
+	tr := NewTransport(rpc, testVersion)
 	b, err := tr.Bind(t.Context(), testThread)
 	if err != nil {
 		t.Fatal(err)
@@ -77,7 +77,7 @@ func TestDeleteQueueEntryIsIdempotentAndWorksWhenUnloaded(t *testing.T) {
 
 func TestDeleteRejectsForeignIdentityAndInvalidItemBeforeRPC(t *testing.T) {
 	rpc := &deleteRPC{fakeRPC: newFakeRPC()}
-	tr := NewTransport(rpc, SupportedVersion)
+	tr := NewTransport(rpc, testVersion)
 	b, err := tr.Bind(t.Context(), testThread)
 	if err != nil {
 		t.Fatal(err)
@@ -112,7 +112,7 @@ func TestDeleteFailureNeverClaimsDequeue(t *testing.T) {
 		{reply: `{}`},
 	} {
 		rpc := &deleteRPC{fakeRPC: newFakeRPC(), err: tc.err, reply: tc.reply}
-		tr := NewTransport(rpc, SupportedVersion)
+		tr := NewTransport(rpc, testVersion)
 		b, err := tr.Bind(t.Context(), testThread)
 		if err != nil {
 			t.Fatal(err)

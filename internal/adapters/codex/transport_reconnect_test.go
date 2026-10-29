@@ -11,7 +11,7 @@ import (
 )
 
 func TestUnixSocketDeleteTargetsExactQueueItem(t *testing.T) {
-	path, requests := nativeSocketFixture(t, SupportedVersion, false)
+	path, requests := nativeSocketFixture(t, testVersion, false)
 	tr, err := Open(t.Context(), path)
 	if err != nil {
 		t.Fatal(err)
@@ -42,7 +42,7 @@ func TestUnixSocketDeleteTargetsExactQueueItem(t *testing.T) {
 }
 
 func TestUnixSocketDeleteRefusesReplacedSocket(t *testing.T) {
-	path, requests := nativeSocketFixture(t, SupportedVersion, false)
+	path, requests := nativeSocketFixture(t, testVersion, false)
 	tr, err := Open(t.Context(), path)
 	if err != nil {
 		t.Fatal(err)
@@ -85,7 +85,7 @@ func TestUnixSocketRechecksVersionBeforeEveryEffect(t *testing.T) {
 		}
 		return false
 	}
-	path, requests := nativeSocketWithHook(t, SupportedVersion, false, hook, nil)
+	path, requests := nativeSocketWithHook(t, testVersion, false, hook, nil)
 	tr, err := Open(t.Context(), path)
 	if err != nil {
 		t.Fatal(err)
@@ -98,6 +98,9 @@ func TestUnixSocketRechecksVersionBeforeEveryEffect(t *testing.T) {
 	versionChanged.Store(true)
 	if deleted, deleteErr := tr.Delete(t.Context(), b, "native-queue-item"); deleted || deleteErr == nil {
 		t.Fatalf("changed version: deleted=%v, error=%v", deleted, deleteErr)
+	}
+	if tr.RuntimeVersion() != "0.163.1" || b.Version != testVersion {
+		t.Fatal("runtime version drift was hidden or silently migrated the binding")
 	}
 	for len(requests) > 0 {
 		if (<-requests).Method == "thread/queue/delete" {

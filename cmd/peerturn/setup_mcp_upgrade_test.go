@@ -16,7 +16,7 @@ import (
 
 func TestSetupMCPUpgradeRequiresExplicitOwnerRemoval(t *testing.T) {
 	for _, host := range []string{"codex", "claude"} {
-		for _, change := range []string{"older", "preview_upgrade", "prerelease", "prerelease_numeric", "prerelease_newer", "same", "newer", "numeric_newer", "foreign_parent", "custom_layout", "relative", "unclean", "invalid_version", "args", "env", "policy", "query_failed"} {
+		for _, change := range []string{"older", "preview_upgrade", "previous_preview", "prerelease", "prerelease_numeric", "prerelease_newer", "same", "newer", "numeric_newer", "foreign_parent", "custom_layout", "relative", "unclean", "invalid_version", "args", "env", "policy", "query_failed"} {
 			t.Run(host+"/"+change, func(t *testing.T) {
 				config := setupMCPHome(t)
 				packages := filepath.Join(filepath.Dir(config), ".local", "share", "peerturn")
@@ -25,7 +25,10 @@ func TestSetupMCPUpgradeRequiresExplicitOwnerRemoval(t *testing.T) {
 				want := "mcp_upgrade_required"
 				switch change {
 				case "preview_upgrade":
-					root = filepath.Join(packages, "0.1.1-preview")
+					root = filepath.Join(packages, "0.1.2-preview")
+				case "previous_preview":
+					root = filepath.Join(packages, "0.1.2-preview")
+					command = filepath.Join(packages, "0.1.1-preview", "peerturn")
 				case "prerelease":
 					command = filepath.Join(packages, "0.2.0-preview.1", "peerturn")
 				case "prerelease_numeric":

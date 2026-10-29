@@ -10,16 +10,19 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/temirlankasen/peerturn/internal/runtimepolicy"
 )
 
 const rpcTimeout = 5 * time.Second
 
 type socketRPC struct {
-	socketPath string
-	daemonID   string
-	mu         sync.Mutex
-	next       uint64
-	closed     bool
+	socketPath      string
+	daemonID        string
+	mu              sync.Mutex
+	next            uint64
+	closed          bool
+	version         string
+	observedVersion string
 }
 
 // Open qualifies an existing shared daemon over WebSocket on a private UDS.
@@ -50,8 +53,11 @@ func (t *Transport) initialize(ctx context.Context) error {
 	if err := t.rpc.Call(ctx, "initialize", initializeParams(), &response); err != nil {
 		return err
 	}
-	t.version = SupportedVersion
-	return nil
+	version, err := agentVersion(response)
+	if err == nil {
+		t.version = version
+	}
+	return err
 }
 
 type initializeResponse struct {
@@ -72,10 +78,14 @@ func initializeParams() map[string]any {
 	}
 }
 
-func supportedAgent(response initializeResponse) bool {
+func agentVersion(response initializeResponse) (string, error) {
 	ua, _, _ := strings.Cut(response.UserAgent, " (")
 	pos := strings.LastIndexByte(ua, '/')
-	return len(response.UserAgent) <= 1024 && pos >= 1 && ua[pos+1:] == SupportedVersion
+	version := ""
+	if len(response.UserAgent) <= 1024 && pos >= 1 {
+		version = ua[pos+1:]
+	}
+	return runtimepolicy.Evaluate(runtimepolicy.Codex, version).Version, runtimepolicy.Check(runtimepolicy.Codex, version)
 }
 
 func allowedRPCMethod(method string) bool {
@@ -114,10 +124,23 @@ func (r *socketRPC) Call(ctx context.Context, method string, params, result any)
 	}
 	var initialized initializeResponse
 	if err = json.Unmarshal(data, &initialized); err != nil {
-		return failure("unavailable")
+		return r.contractFailure("initialize", "connect")
 	}
-	if !supportedAgent(initialized) {
-		return failure("unsupported_version")
+	version, err := agentVersion(initialized)
+	r.mu.Lock()
+	r.observedVersion = version
+	r.mu.Unlock()
+	if err != nil {
+		return err
+	}
+	r.mu.Lock()
+	if r.version == "" {
+		r.version = version
+	}
+	changed := r.version != version
+	r.mu.Unlock()
+	if changed {
+		return failure("needs_rebind")
 	}
 	if err = conn.Write(ctx, websocket.MessageText, []byte(`{"jsonrpc":"2.0","method":"initialized"}`)); err != nil {
 		return failure("unavailable")
@@ -129,9 +152,20 @@ func (r *socketRPC) Call(ctx context.Context, method string, params, result any)
 		}
 	}
 	if err = json.Unmarshal(data, result); err != nil {
-		return failure("unavailable")
+		return r.contractFailure(method, "response")
 	}
 	return nil
+}
+
+// RuntimeVersion reports the last initialized server without changing the bound
+// incarnation version. A different report still requires an explicit rebind.
+func (t *Transport) RuntimeVersion() string {
+	if rpc, ok := t.rpc.(*socketRPC); ok {
+		rpc.mu.Lock()
+		defer rpc.mu.Unlock()
+		return rpc.observedVersion
+	}
+	return t.version
 }
 
 func (r *socketRPC) connect(ctx context.Context) (*websocket.Conn, error) {
@@ -195,7 +229,7 @@ func (r *socketRPC) exchange(ctx context.Context, conn *websocket.Conn, method s
 			Error  *RPCError       `json:"error"`
 		}
 		if err = json.Unmarshal(message, &response); err != nil {
-			return nil, failure("unavailable")
+			return nil, r.contractFailure(method, "response")
 		}
 		if response.Method != "" {
 			if err = refuseServerRequest(ctx, conn, response.ID); err != nil {
@@ -211,7 +245,7 @@ func (r *socketRPC) exchange(ctx context.Context, conn *websocket.Conn, method s
 			return nil, response.Error
 		}
 		if len(response.Result) == 0 || string(response.Result) == "null" {
-			return nil, failure("unavailable")
+			return nil, r.contractFailure(method, "response")
 		}
 		return response.Result, nil
 	}

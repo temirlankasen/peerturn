@@ -1,9 +1,8 @@
-// Package claudeipc connects the pinned mod to private same-uid daemon IPC.
+// Package claudeipc connects the Claude mod to private same-uid daemon IPC.
 package claudeipc
 
 import (
 	"context"
-	"encoding/hex"
 	"encoding/json"
 	"os"
 	"time"
@@ -11,7 +10,8 @@ import (
 	"github.com/temirlankasen/peerturn/internal/localipc"
 )
 
-// BindCurrent proves that the Bash child and mod address the same native session.
+// BindCurrent is the explicit owner-requested native challenge operation.
+// Startup and diagnostics use ResolveCurrentEvidence, which never writes frames.
 // The exported token is used only on its native socket, never returned or logged.
 func BindCurrent(ctx context.Context, client localipc.Client) (string, error) {
 	evidence, err := bindCurrent(ctx, client)
@@ -22,20 +22,6 @@ func BindCurrent(ctx context.Context, client localipc.Client) (string, error) {
 type CurrentEvidence struct {
 	Session      string `json:"session"`
 	BindingEpoch string `json:"binding_epoch,omitempty"`
-}
-
-// BindCurrentEvidence preserves the native proof through a later MCP handshake.
-// The owner CLI wrapper keeps its existing session-only contract.
-func BindCurrentEvidence(ctx context.Context, client localipc.Client) (CurrentEvidence, error) {
-	evidence, err := bindCurrent(ctx, client)
-	if err != nil {
-		return CurrentEvidence{}, err
-	}
-	epoch, err := hex.DecodeString(evidence.BindingEpoch)
-	if err != nil || len(epoch) != 16 || hex.EncodeToString(epoch) != evidence.BindingEpoch {
-		return CurrentEvidence{}, rebind()
-	}
-	return evidence, nil
 }
 
 func bindCurrent(ctx context.Context, client localipc.Client) (CurrentEvidence, error) {

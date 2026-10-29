@@ -13,6 +13,8 @@ func writeClaudeFailure(stderr io.Writer, err error) int {
 	switch localipc.PublicError(err).Code {
 	case "unsupported_version":
 		code = "runtime_unsupported"
+	case "runtime_version_unknown", "runtime_contract_changed":
+		code = localipc.PublicError(err).Code
 	case "unavailable", "runtime_unavailable", "timeout", "store_unavailable", "storage_unavailable":
 		if _, ok := errors.AsType[*localipc.Error](err); ok {
 			code = "daemon_unavailable"

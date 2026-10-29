@@ -73,7 +73,7 @@ func mcpRuntimeDaemon(t *testing.T) (string, func() []localipc.Request) {
 	})
 	calls := serveHook(t, func(request localipc.Request) (any, error) {
 		if request.Method == "hello" {
-			return map[string]string{"capability": "synthetic-late-runtime-capability"}, nil
+			return map[string]string{"capability": "synthetic-late-runtime-capability", "runtime_version": "0.163.0"}, nil
 		}
 		return map[string]string{"state": "late_runtime_active"}, nil
 	}, base)

@@ -14,9 +14,10 @@ import (
 	"time"
 
 	"github.com/temirlankasen/peerturn/internal/codec"
+	"github.com/temirlankasen/peerturn/internal/runtimepolicy"
 )
 
-// CheckResponderProfile checks the pinned binary and every qualified managed
+// CheckResponderProfile requires verified-only ask qualification and every managed
 // policy source before a process receives either a probe or peer-derived input.
 // macOS remains closed until a native managed-preferences probe is qualified.
 func CheckResponderProfile(ctx context.Context, options ResponderOptions) error {
@@ -38,7 +39,9 @@ func CheckResponderProfile(ctx context.Context, options ResponderOptions) error 
 	command.Dir, command.Env, command.Stderr = options.WorkingDirectory, responderEnvironment(options), io.Discard
 	var output bytes.Buffer
 	command.Stdout = &versionOutput{buffer: &output}
-	if command.Run() != nil || strings.TrimSpace(output.String()) != "2.1.306 (Claude Code)" {
+	runErr := command.Run()
+	version := runtimepolicy.Evaluate(runtimepolicy.Claude, output.String())
+	if runErr != nil || version.Status != runtimepolicy.Verified || strings.TrimSpace(output.String()) != version.Version+" (Claude Code)" {
 		return &ResponderError{Code: ResponderUnavailable}
 	}
 	return nil

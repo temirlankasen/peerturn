@@ -94,6 +94,7 @@ func (d *Daemon) Dispatch(ctx context.Context, r localipc.Request) (any, error) 
 		}
 		d.nativeStatus(ctx, &status)
 		d.responderStatus(ctx, &status)
+		finishRuntimeReport(&status)
 		if r.Capability != "" && d.checkJoinCapability(r.Capability) == nil {
 			status.OwnerInvitations = d.pendingOwnerInvites(d.capabilities[r.Capability].nativeEpoch)
 		}
@@ -118,23 +119,27 @@ func (d *Daemon) Dispatch(ctx context.Context, r localipc.Request) (any, error) 
 				return nil, statusErr
 			}
 			d.responderStatus(ctx, &status)
+			finishRuntimeReport(&status)
+			diagnostic["runtime_policy"] = status.RuntimePolicy
 			diagnostic["binding"], diagnostic["capabilities"], diagnostic["runtime_version"], diagnostic["provider"] = status.Binding, status.Capabilities, status.RuntimeVersion, status.Provider
 			diagnostic["inform"], diagnostic["ask"] = "owner_boundary", "responder_unavailable"
 			if status.Capabilities.ForkResponder {
 				diagnostic["ask"] = "qualified_claude_fork"
 			}
 			if status.Binding == "native_claude" {
-				diagnostic["native_adapters"] = "claude_pinned"
+				diagnostic["native_adapters"] = "claude"
 			}
 		}
 		if d.state.Codex != nil {
 			status := statusFor(d.state, "active", d.verified, d.lastError)
 			d.nativeStatus(ctx, &status)
+			finishRuntimeReport(&status)
+			diagnostic["runtime_policy"], diagnostic["runtime_version"] = status.RuntimePolicy, status.RuntimeVersion
 			diagnostic["binding"], diagnostic["capabilities"] = status.Binding, status.Capabilities
 			diagnostic["adapter_reason"], diagnostic["inform_boundary"] = status.AdapterReason, status.InformBoundary
 			diagnostic["inform"], diagnostic["ask"] = "owner_boundary", "responder_unavailable"
 			if status.Capabilities.AttachExisting {
-				diagnostic["native_adapters"] = "codex_pinned"
+				diagnostic["native_adapters"] = "codex_shared_daemon"
 			}
 		}
 		diagnostic["responder"], diagnostic["storage"] = d.responderPreflight, d.responderPreflight.StorageMode

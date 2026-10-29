@@ -25,7 +25,12 @@ func currentSession(ctx context.Context, command cliCommand) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return claudeipc.BindCurrent(ctx, localipc.Client{RuntimeDir: dir})
+	client := localipc.Client{RuntimeDir: dir}
+	if command.name == "session bind" {
+		return claudeipc.BindCurrent(ctx, client)
+	}
+	evidence, err := claudeipc.ResolveCurrentEvidence(ctx, client)
+	return evidence.Session, err
 }
 
 func currentMCPBinding(ctx context.Context, command cliCommand) (string, string, error) {
@@ -42,6 +47,6 @@ func currentMCPBinding(ctx context.Context, command cliCommand) (string, string,
 	if err != nil {
 		return "", "", err
 	}
-	evidence, err := claudeipc.BindCurrentEvidence(ctx, localipc.Client{RuntimeDir: dir})
+	evidence, err := claudeipc.ResolveCurrentEvidence(ctx, localipc.Client{RuntimeDir: dir})
 	return evidence.Session, evidence.BindingEpoch, err
 }

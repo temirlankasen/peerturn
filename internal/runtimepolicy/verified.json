@@ -1,0 +1,38 @@
+{
+  "claude": [
+    {
+      "version": "2.1.306",
+      "os": "linux",
+      "arch": "arm64",
+      "adapter_revision": "2026-10-25.2",
+      "profile": "native-preview/v1",
+      "reference": "m3-claude; m6b Linux ARM64 gateway; macos-live-7 limitations"
+    },
+    {
+      "version": "2.1.306",
+      "os": "darwin",
+      "arch": "arm64",
+      "adapter_revision": "2026-10-25.2",
+      "profile": "native-preview/v1",
+      "reference": "m3-claude; m6b Linux ARM64 gateway; macos-live-7 limitations"
+    }
+  ],
+  "codex": [
+    {
+      "version": "0.163.0",
+      "os": "linux",
+      "arch": "arm64",
+      "adapter_revision": "2026-10-25.2",
+      "profile": "native-preview/v1",
+      "reference": "m4-codex/fix-20261022; macos-live-7 limitations"
+    },
+    {
+      "version": "0.163.0",
+      "os": "darwin",
+      "arch": "arm64",
+      "adapter_revision": "2026-10-25.2",
+      "profile": "native-preview/v1",
+      "reference": "m4-codex/fix-20261022; macos-live-7 limitations"
+    }
+  ]
+}

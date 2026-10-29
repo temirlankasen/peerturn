@@ -31,7 +31,7 @@ func TestInvitePageOnboardingWithoutRedemption(t *testing.T) {
 			t.Errorf("%s = %q, want %q", name, got, want)
 		}
 	}
-	for _, instruction := range []string{"unauthenticated", "pinned tag", "official README", "signing identity", "verification key", "peer_join", "fragment", "coauthor", "strong trust", "provider"} {
+	for _, instruction := range []string{"unauthenticated", "pinned tag", "official README", "signing identity", "verification key", "peer_join({})", "owner-prompt hook", "handle", "fragment", "coauthor", "strong trust", "provider"} {
 		if !bytes.Contains(page, []byte(instruction)) {
 			t.Errorf("missing instruction %q", instruction)
 		}

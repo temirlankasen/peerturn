@@ -26,8 +26,8 @@ class InstallerTests(unittest.TestCase):
         self.downloads.mkdir()
         os_name = {"Darwin": "darwin", "Linux": "linux"}[platform.system()]
         arch = {"arm64": "arm64", "aarch64": "arm64", "x86_64": "amd64"}[platform.machine()]
-        self.artifact = f"peerturn_0.1.1-preview_{os_name}_{arch}.tar.gz"
-        self.manifest = self.root / "peerturn_0.1.1-preview_checksums.txt"
+        self.artifact = f"peerturn_0.1.2-preview_{os_name}_{arch}.tar.gz"
+        self.manifest = self.root / "peerturn_0.1.2-preview_checksums.txt"
         self.log = self.root / "calls"
         self.helper("cosign", '''#!/bin/sh
 if [ "$1" = version ]; then printf '{"gitVersion": "v3.1.3"}\n'; exit; fi
@@ -121,12 +121,12 @@ exec /usr/bin/tar "$@"
         result = self.install(success=True)
         calls = self.log.read_text()
         self.assertIn("--certificate-oidc-issuer https://token.actions.githubusercontent.com", calls)
-        self.assertIn("release.yml@refs/tags/v0.1.1-preview", calls)
+        self.assertIn("release.yml@refs/tags/v0.1.2-preview", calls)
         self.assertNotIn("--insecure-ignore-tlog", calls)
         self.assertIn("curl-first -q", calls)
         self.assertIn("Release source: https://github.com/temirlankasen/peerturn/releases/download", result.stderr)
         self.assertIn("Publisher trust: GitHub OIDC", result.stderr)
-        package = self.home / ".local/share/peerturn/0.1.1-preview"
+        package = self.home / ".local/share/peerturn/0.1.2-preview"
         inventory = (package / ".peerturn-files.sha256").read_bytes()
         self.assertEqual((package / ".peerturn-verified").read_text().strip(),
                          hashlib.sha256(inventory).hexdigest())

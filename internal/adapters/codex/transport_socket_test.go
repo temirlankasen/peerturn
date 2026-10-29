@@ -140,7 +140,7 @@ func closeTransport(t *testing.T, tr *Transport) {
 }
 
 func TestUnixSocketProtocol(t *testing.T) {
-	path, requests := nativeSocketFixture(t, SupportedVersion, false)
+	path, requests := nativeSocketFixture(t, testVersion, false)
 	tr, err := Open(t.Context(), path)
 	if err != nil {
 		t.Fatal(err)
@@ -180,7 +180,7 @@ func TestUnixSocketProtocol(t *testing.T) {
 }
 
 func TestUnixSocketLossAfterSubmitIsInDoubt(t *testing.T) {
-	path, requests := nativeSocketFixture(t, SupportedVersion, true)
+	path, requests := nativeSocketFixture(t, testVersion, true)
 	tr, err := Open(t.Context(), path)
 	if err != nil {
 		t.Fatal(err)
@@ -212,7 +212,7 @@ func TestUnixSocketLossAfterSubmitIsInDoubt(t *testing.T) {
 }
 
 func TestUnixSocketRefusesUnknownVersionAndNoDaemon(t *testing.T) {
-	path, _ := nativeSocketFixture(t, "0.163.1", false)
+	path, _ := nativeSocketFixture(t, "0.162.0", false)
 	if tr, err := Open(t.Context(), path); tr != nil || !IsCode(err, "unsupported_version") {
 		t.Fatalf("unknown version: transport=%v error=%v", tr, err)
 	}
@@ -222,7 +222,7 @@ func TestUnixSocketRefusesUnknownVersionAndNoDaemon(t *testing.T) {
 }
 
 func TestUnixSocketRejectsUnsafePermissionsAndReplacement(t *testing.T) {
-	path, _ := nativeSocketFixture(t, SupportedVersion, false)
+	path, _ := nativeSocketFixture(t, testVersion, false)
 	tr, err := Open(t.Context(), path)
 	if err != nil {
 		t.Fatal(err)

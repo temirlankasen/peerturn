@@ -19,6 +19,7 @@
 # Publish only the explicitly reviewed laboratory summaries.
 /research/lab/*
 !/research/lab/README.md
+!/research/lab/qualify/
 !/research/lab/results/
 /research/lab/results/*
 !/research/lab/results/host-monitor-ws.md

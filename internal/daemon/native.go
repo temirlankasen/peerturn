@@ -13,6 +13,7 @@ import (
 	"github.com/temirlankasen/peerturn/internal/identity"
 	"github.com/temirlankasen/peerturn/internal/localipc"
 	"github.com/temirlankasen/peerturn/internal/protocol"
+	"github.com/temirlankasen/peerturn/internal/runtimepolicy"
 	"github.com/temirlankasen/peerturn/internal/store"
 )
 
@@ -43,7 +44,15 @@ func (d *Daemon) runtime(ctx context.Context) (NativeRuntime, error) {
 
 func nativeError(err error) error {
 	if e, ok := errors.AsType[*codex.Error](err); ok {
-		return localipc.NewError(e.Code, e.Code)
+		public := localipc.NewError(e.Code, e.Code)
+		if failure, found := errors.AsType[*runtimepolicy.Error](err); found {
+			public.Message += " " + failure.Action
+			return errors.Join(public, failure)
+		}
+		return public
+	}
+	if e, ok := errors.AsType[*runtimepolicy.Error](err); ok {
+		return errors.Join(localipc.RuntimeError(e), e)
 	}
 	return localipc.NewError("adapter_unavailable", "needs_rebind")
 }
@@ -117,6 +126,9 @@ func (d *Daemon) nativeStatus(ctx context.Context, s *Status) {
 		return
 	}
 	s.Binding, s.NativeThread = "codex_shared_daemon", d.state.Codex.ThreadID
+	s.RuntimeVersion = d.state.Codex.Version
+	s.RuntimePolicy = runtimepolicy.NewReport(runtimepolicy.Codex, s.RuntimeVersion)
+	s.RuntimePolicy.Source = "app-server.initialize"
 	s.ResponderReason = "protected_path_policy_failed"
 	s.Warning = "Coauthor is strong trust with the receiving agent's normal capabilities, not a sandbox. Peer text can influence later owner turns. Ask is disabled until authority isolation and budget qualification."
 	count, err := d.db.NativePendingCount(ctx)
@@ -125,12 +137,22 @@ func (d *Daemon) nativeStatus(ctx context.Context, s *Status) {
 	}
 	s.InformBoundary = "unverified"
 	if err = d.checkNative(ctx, ""); err != nil {
+		d.nativeRuntimeVersion(s)
 		s.State, s.AdapterReason = "needs_rebind", safeCode(err)
+		if failure, ok := errors.AsType[*runtimepolicy.Error](err); ok {
+			s.RuntimePolicy.Contracts = append(s.RuntimePolicy.Contracts, runtimepolicy.Contract{ID: failure.ContractID, Phase: failure.Phase, Status: "failed", Code: failure.Code, Capabilities: failure.AffectedCapabilities, Action: failure.Action})
+		}
 		return
 	}
-	probe, ok := d.native.(interface {
-		Probe(context.Context, string) (codex.Binding, codex.Capabilities, error)
-	})
+	d.nativeRuntimeVersion(s)
+	s.Capabilities.AttachExisting = true
+	if d.hookVerified > 0 {
+		s.Capabilities.BoundaryDelivery = true
+		s.Capabilities.InformBoundary = true
+		s.SupportedScopes = append(s.SupportedScopes, "inform")
+		s.InformBoundary = "observed"
+	}
+	probe, ok := d.native.(nativeProber)
 	if !ok {
 		s.AdapterReason = "unverified"
 		return
@@ -140,19 +162,23 @@ func (d *Daemon) nativeStatus(ctx context.Context, s *Status) {
 	d.mu.Unlock()
 	_, caps, err := probe.Probe(probeCtx, s.NativeThread)
 	d.mu.Lock()
+	d.nativeRuntimeVersion(s)
+	s.RuntimePolicy.Contracts = caps.Contracts
 	if err != nil || !caps.WakeIdle {
 		s.AdapterReason = "adapter_unavailable"
+		if err != nil {
+			s.AdapterReason = safeCode(nativeError(err))
+			if !caps.AttachExisting {
+				s.State = "needs_rebind"
+				s.Capabilities.AttachExisting, s.Capabilities.InformBoundary, s.Capabilities.BoundaryDelivery = false, false, false
+				s.SupportedScopes = []string{}
+			}
+		}
 		return
 	}
 	s.Capabilities.AttachExisting, s.Capabilities.WakeIdle = true, true
 	s.Capabilities.ReceiptStages = append(s.Capabilities.ReceiptStages, "adapter_accepted", "offered", "delivered", "in_doubt")
-	s.SupportedScopes = []string{"coauthor"}
-	if d.hookVerified > 0 {
-		s.Capabilities.BoundaryDelivery = true
-		s.Capabilities.InformBoundary = true
-		s.SupportedScopes = append(s.SupportedScopes, "inform")
-		s.InformBoundary = "observed"
-	}
+	s.SupportedScopes = append([]string{"coauthor"}, s.SupportedScopes...)
 }
 
 func needsLiveBinding(method string) bool {
@@ -224,6 +250,12 @@ func (d *Daemon) deliverNative(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	if len(items) == 0 {
+		return nil
+	}
+	if err = d.checkNativeCoauthor(ctx); err != nil {
+		return err
+	}
 	var outcomeErr error
 	for _, item := range items {
 		if item.Routing != envelope.Live {
@@ -290,6 +322,9 @@ func (d *Daemon) deliverNative(ctx context.Context) error {
 		}
 		if submitErr != nil && outcomeErr == nil {
 			outcomeErr = nativeError(submitErr)
+		}
+		if runtimepolicy.ErrorCode(submitErr) == "runtime_contract_changed" {
+			return nativeError(submitErr)
 		}
 	}
 	return outcomeErr

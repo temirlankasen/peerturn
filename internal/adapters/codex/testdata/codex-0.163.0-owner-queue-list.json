@@ -1,0 +1,16 @@
+{
+  "data": [
+    {
+      "id": "owner-queue-item",
+      "input": [
+        {
+          "type": "text",
+          "text": "Synthetic owner follow-up",
+          "text_elements": []
+        }
+      ],
+      "clientUserMessageId": "019edb1c-2222-7222-8222-222222222222"
+    }
+  ],
+  "nextCursor": null
+}

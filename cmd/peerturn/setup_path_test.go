@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/temirlankasen/peerturn/internal/localipc"
+	"github.com/temirlankasen/peerturn/internal/runtimepolicy"
 )
 
 func TestSetupCanonicalRootBeforeHostMutation(t *testing.T) {
@@ -146,7 +147,7 @@ func TestSetupMarketplaceAbsenceAllowsRegistration(t *testing.T) {
 				calls = append(calls, call)
 				switch call {
 				case "--version":
-					_, err := io.WriteString(output, qualifiedSetupVersion(host))
+					_, err := io.WriteString(output, runtimepolicy.Evaluate(host, "").Minimum)
 					return err
 				case "plugin marketplace list --json":
 					listing := marketplaces

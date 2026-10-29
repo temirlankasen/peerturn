@@ -2,47 +2,49 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"strings"
+	"os"
+	"path/filepath"
 	"time"
 
-	"github.com/temirlankasen/peerturn/internal/adapters/codex"
 	"github.com/temirlankasen/peerturn/internal/localipc"
+	"github.com/temirlankasen/peerturn/internal/runtimepolicy"
 )
 
-func qualifiedSetupVersion(host string) string {
-	if host == "codex" {
-		return codex.SupportedVersion
+func setupExecutableInfo(binary string) (os.FileInfo, error) {
+	directory, err := os.OpenRoot(filepath.Dir(binary))
+	if err != nil {
+		return nil, err
 	}
-	return "2.1.306"
+	info, err := directory.Stat(filepath.Base(binary))
+	return info, errors.Join(err, directory.Close())
 }
 
 func setupRuntimeFailure(host, detected string) *localipc.Error {
-	problem := localipc.NewError("unsupported_version", "unsupported")
-	problem.Message = fmt.Sprintf("Qualified %s runtime: %s; detected: %s. Install/select the qualified runtime on PATH, then rerun peerturn setup %s. Resume the same selected session with that runtime.", host, qualifiedSetupVersion(host), detected, host)
+	d := runtimepolicy.Evaluate(host, detected)
+	problem := localipc.RuntimeError(runtimepolicy.Check(host, detected))
+	version := d.Version
+	if version == "" {
+		version = "unknown"
+	}
+	problem.Message = fmt.Sprintf("%s runtime minimum: %s; detected: %s (%s). %s", host, d.Minimum, version, d.Status, problem.Message)
 	return problem
 }
 
-func checkSetupRuntime(ctx context.Context, host string, invoke setupInvoke) error {
+func inspectSetupRuntime(ctx context.Context, host string, invoke setupInvoke) (runtimepolicy.Decision, error) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	var output setupOutput
 	detected := "unknown"
 	if err := invoke(ctx, host, []string{"--version"}, &output); err == nil {
-		text := strings.TrimSpace(output.String())
-		if host == "claude" {
-			text = strings.TrimSuffix(text, " (Claude Code)")
-		} else {
-			text = strings.TrimPrefix(text, "codex-cli ")
-		}
-		// Only a bounded numeric version can cross the diagnostic boundary.
-		parts := strings.Split(text, ".")
-		if len(text) <= 32 && len(parts) == 3 && parts[0] != "" && parts[1] != "" && parts[2] != "" && strings.Trim(text, "0123456789.") == "" {
-			detected = text
-		}
+		detected = output.String()
+	} else if localipc.PublicError(err).Code == "runtime_contract_changed" {
+		return runtimepolicy.Evaluate(host, ""), err
 	}
-	if detected != qualifiedSetupVersion(host) {
-		return setupRuntimeFailure(host, detected)
+	d := runtimepolicy.Evaluate(host, detected)
+	if !d.Allowed() {
+		return d, setupRuntimeFailure(host, detected)
 	}
-	return nil
+	return d, nil
 }

@@ -1,6 +1,6 @@
 # Support
 
-PeerTurn is pre-alpha, with **0.1.1-preview prepared for release, pending owner approval**. The preview implements transport, encryption, grants, onboarding and experimental Claude/Codex adapters with platform-specific acceptance limits. The [support matrix](README.md#agent-support-and-laboratory-evidence) records pinned Linux and macOS 27.0 arm64 qualification and limits. Setup refuses newer auto-updated Claude/Codex versions. Ask receivers remain closed on macOS and Codex. There is no production support SLA.
+PeerTurn is pre-alpha, with **0.1.2-preview as the current experimental release**. The preview implements transport, encryption, grants, onboarding and experimental Claude/Codex adapters with platform-specific acceptance limits. The [support matrix](README.md#agent-support-and-laboratory-evidence) records pinned Linux and macOS 27.0 arm64 qualification and limits. The version policy accepts Claude >=2.1.306 and Codex >=0.163.0 without an upper bound; newer versions retain full existing capabilities with `newer_unverified`. Ask is separately verified-only; receivers remain closed on macOS and Codex. There is no production support SLA.
 
 Start with the [README](README.md), [documentation index](docs/README.md), and [capability evidence](research/lab/results/l1-platform/README.md). The specification is available in English, with [Russian originals](docs/spec/ru/) preserved.
 

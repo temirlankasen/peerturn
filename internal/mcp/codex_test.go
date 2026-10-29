@@ -97,7 +97,7 @@ func (c *codexFailureCaller) Call(_ context.Context, request localipc.Request) (
 		if c.refuseFirst || c.hellos > 1 {
 			return nil, localipc.NewError("binding_mismatch", "needs_rebind")
 		}
-		return json.RawMessage(`{"capability":"synthetic-capability"}`), nil
+		return json.RawMessage(`{"capability":"synthetic-capability","runtime_version":"0.163.0"}`), nil
 	case "status":
 		return nil, localipc.NewError("unbound", "unbound")
 	}

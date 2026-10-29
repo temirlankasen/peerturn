@@ -12,6 +12,7 @@ import (
 
 	"github.com/temirlankasen/peerturn/internal/fault"
 	"github.com/temirlankasen/peerturn/internal/invite"
+	"github.com/temirlankasen/peerturn/internal/runtimepolicy"
 )
 
 // SocketName is the fixed private daemon endpoint.
@@ -75,6 +76,9 @@ func PublicError(err error) *Error {
 	if public, ok := errors.AsType[*Error](err); ok {
 		return public
 	}
+	if runtimepolicy.ErrorCode(err) != "" {
+		return RuntimeError(err)
+	}
 	if protocol, ok := errors.AsType[*fault.Error](err); ok {
 		return categorizedError(string(protocol.Code))
 	}
@@ -102,7 +106,7 @@ func codeExit(code string) int {
 	switch code {
 	case "in_doubt":
 		return 7
-	case "unsupported", "unsupported_version", "newer_schema", "guard_unavailable", "adapter_unavailable", "responder_unavailable":
+	case "unsupported", "unsupported_version", "runtime_version_unknown", "runtime_contract_changed", "newer_schema", "guard_unavailable", "adapter_unavailable", "responder_unavailable":
 		return 6
 	case "unbound", "binding_error", "binding_mismatch", "needs_rebind":
 		return 3

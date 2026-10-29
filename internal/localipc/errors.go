@@ -58,6 +58,10 @@ func transportCode(problem publicTransportError) string {
 
 func actionMessage(code string) string {
 	switch code {
+	case "runtime_version_unknown":
+		return "Select a supported runtime on PATH, resume the same selected session and rerun setup / bind."
+	case "runtime_contract_changed":
+		return "Update PeerTurn, reload/resume the same runtime session and rerun doctor / bind. The affected capability remains disabled until its contract passes."
 	case "owner_invitation_required", "no_owner_invitation":
 		return "No pending owner invitation in this session. Keep the daemon running and enable/trust the owner-prompt hook (Codex /hooks UserPromptSubmit). Ask the owner to paste the full link unchanged in this same session, then call peer_join({}) within 10 minutes. Paste again after a daemon restart."
 	case "owner_invitation_expired":

@@ -169,6 +169,7 @@ func (s *Server) handle(parent context.Context, conn *net.UnixConn, handler Hand
 	if err := verifyUID(conn, os.Getuid()); err != nil {
 		return
 	}
+	parent = withPeerPID(parent, conn)
 	lifetime, disconnected := context.WithCancel(parent)
 	defer disconnected()
 	ctx, cancel := context.WithTimeout(lifetime, 30*time.Second)

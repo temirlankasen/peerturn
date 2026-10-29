@@ -12,7 +12,7 @@ test('only human composer sends explicit invitation links to the private helper'
     await h.hooks.get('prompt.submit')(h.$, event, async value => value);
     const request = h.requests.find(r => r.url.endsWith('/owner-boundary'));
     if (kind === 'composer') {
-      assert.deepEqual(JSON.parse(request.init.body), { session: 'session-a', invitation_links: [link] });
+      assert.deepEqual(JSON.parse(request.init.body), { session: '11111111-1111-4111-8111-111111111111', invitation_links: [link] });
     } else if (request) {
       assert.equal(JSON.parse(request.init.body).invitation_links, undefined);
     }

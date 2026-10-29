@@ -6,6 +6,7 @@ import (
 	"reflect"
 
 	"github.com/temirlankasen/peerturn/internal/protocol"
+	"github.com/temirlankasen/peerturn/internal/runtimepolicy"
 )
 
 // Queue makes one submit attempt to the bound live thread's next-turn queue.
@@ -18,6 +19,9 @@ func (t *Transport) Queue(ctx context.Context, b Binding, messageID, framedText 
 		return QueueResult{}, err
 	}
 	if err := t.Validate(ctx, b); err != nil {
+		return QueueResult{}, err
+	}
+	if err := t.checkQueueContract(ctx, b); err != nil {
 		return QueueResult{}, err
 	}
 	if err := ctx.Err(); err != nil {
@@ -34,16 +38,20 @@ func (t *Transport) Queue(ctx context.Context, b Binding, messageID, framedText 
 		if errors.As(err, &native) && native != nil {
 			switch native.Code {
 			case -32601:
-				return QueueResult{}, failure("unsupported")
+				return QueueResult{}, t.fenceCoauthor(t.contractFailure("codex.queue_add", "submit", "coauthor"))
 			case -32600, -32602:
 				return QueueResult{}, failure("rejected")
 			}
+		}
+		contract := t.contractCallError(err, "codex.queue_add", "response", "coauthor")
+		if diagnostic, ok := errors.AsType[*runtimepolicy.Error](contract); ok {
+			return QueueResult{}, errors.Join(failure("in_doubt"), t.fenceCoauthor(diagnostic))
 		}
 		return QueueResult{}, failure("in_doubt")
 	}
 	item := response.QueuedSubmission
 	if !protocol.ValidToken(item.ID) || item.ClientUserMessageID != clientID || !reflect.DeepEqual(item.Input, params.Input) {
-		return QueueResult{}, failure("in_doubt")
+		return QueueResult{}, errors.Join(failure("in_doubt"), t.fenceCoauthor(t.contractFailure("codex.queue_add", "response", "coauthor")))
 	}
 	return QueueResult{ItemIDs: []string{item.ID}, ClientUserMessageID: clientID}, nil
 }
@@ -68,10 +76,13 @@ func (t *Transport) Delete(ctx context.Context, b Binding, itemID string) (bool,
 		Deleted *bool `json:"deleted"`
 	}
 	if err := t.rpc.Call(ctx, "thread/queue/delete", params, &response); err != nil {
+		if diagnostic, ok := errors.AsType[*runtimepolicy.Error](t.contractCallError(err, "codex.queue_delete", "response", "local_revoke")); ok {
+			return false, errors.Join(failure("in_doubt"), diagnostic)
+		}
 		return false, failure("in_doubt")
 	}
 	if response.Deleted == nil {
-		return false, failure("in_doubt")
+		return false, errors.Join(failure("in_doubt"), t.contractFailure("codex.queue_delete", "response", "local_revoke"))
 	}
 	return *response.Deleted, nil
 }

@@ -8,12 +8,15 @@ import (
 	"testing"
 
 	"github.com/temirlankasen/peerturn/internal/localipc"
+	"github.com/temirlankasen/peerturn/internal/runtimepolicy"
 )
 
 func TestClaudeAdapterStartupFailureIsTyped(t *testing.T) {
 	for _, tc := range []struct{ version, want string }{
-		{"2.1.308", "runtime_unsupported"},
+		{"2.1.305", "runtime_unsupported"},
+		{"unknown-private-marker", "runtime_version_unknown"},
 		{"2.1.306", "needs_rebind"},
+		{"2.1.308", "needs_rebind"},
 	} {
 		t.Run(tc.want, func(t *testing.T) {
 			t.Setenv("XDG_RUNTIME_DIR", t.TempDir())
@@ -38,6 +41,7 @@ func TestAdapterStartupDiagnosticsNeverExposeErrorDetails(t *testing.T) {
 		{&localipc.Error{Code: "unavailable", Message: "synthetic-private-marker"}, "daemon_unavailable"},
 		{&localipc.Error{Code: "needs_rebind\nsynthetic-private-marker", Message: "synthetic-private-marker"}, "adapter_unavailable"},
 		{errors.New("synthetic-private-marker"), "adapter_unavailable"},
+		{runtimepolicy.ContractFailure(runtimepolicy.Claude, "2.1.308", "claude.lifecycle", "runtime", "coauthor"), "runtime_contract_changed"},
 	} {
 		var stderr bytes.Buffer
 		if code := writeClaudeFailure(&stderr, tc.err); code == 0 || stderr.String() != "peerturn: "+tc.want+"\n" {

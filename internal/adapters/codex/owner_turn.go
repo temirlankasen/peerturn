@@ -56,7 +56,7 @@ func (t *Transport) validateOwnerThread(ctx context.Context, b Binding) error {
 		IncludeTurns bool   `json:"includeTurns"`
 	}{ThreadID: b.ThreadID}
 	if err := t.rpc.Call(ctx, "thread/read", params, &read); err != nil {
-		return failure("needs_rebind")
+		return t.contractCallError(err, "codex.owner_thread", "hook", "owner_invitation", "inform_boundary")
 	}
 	if read.Thread.ID != b.ThreadID || read.Thread.Session != b.ThreadID || string(read.Thread.Parent) != "null" || read.Thread.Status.Type != "active" {
 		return failure("needs_rebind")
@@ -93,7 +93,7 @@ func (t *Transport) validateOwnerTurnHistory(ctx context.Context, b Binding, tur
 		ItemsView     string `json:"itemsView"`
 	}{b.ThreadID, 1, "desc", "notLoaded"}
 	if err := t.rpc.Call(ctx, "thread/turns/list", query, &page); err != nil {
-		return failure("needs_rebind")
+		return t.contractCallError(err, "codex.owner_turn", "hook", "owner_invitation", "inform_boundary")
 	}
 	// Review forwards its TurnStarted into root history. Its inherited root ID
 	// still names the parent, so membership alone would misclassify the child.

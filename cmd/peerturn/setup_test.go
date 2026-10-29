@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/temirlankasen/peerturn/internal/runtimepolicy"
 )
 
 func TestSetupVerifiesBeforeHostCommands(t *testing.T) {
@@ -72,7 +74,7 @@ func TestSetupHostPlansAndActivationLimits(t *testing.T) {
 			calls = append(calls, append([]string{name}, args...))
 			switch strings.Join(args, " ") {
 			case "--version":
-				_, err := io.WriteString(output, qualifiedSetupVersion(host))
+				_, err := io.WriteString(output, runtimepolicy.Evaluate(host, "").Minimum)
 				return err
 			case "plugin marketplace list --json":
 				_, err := io.WriteString(output, marketplaces)

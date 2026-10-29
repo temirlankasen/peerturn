@@ -1,22 +1,35 @@
 # First-run setup and honest failures
 
-PeerTurn remains pre-alpha. Native exchange is qualified only on Linux with
-the pinned runtimes; live macOS exchange is not yet qualified. Installing or
-registering components does not establish native binding or message delivery.
+PeerTurn remains pre-alpha. Qualification evidence covers specific Linux and
+macOS profiles in the [support matrix](../README.md#agent-support-and-laboratory-evidence).
+Installing or registering components does not establish native binding or delivery.
 
 ## Runtime preflight
 
 `peerturn setup claude|codex` queries the selected PATH executable with
-`--version` before any plugin or MCP installation command. The qualified
-versions remain Claude Code **2.1.306** and Codex CLI **0.163.0**.
-A mismatch, missing executable, failed probe or unrecognized/oversized output
-returns typed `unsupported_version` and exit 6. Its bounded message identifies
-the qualified and detected versions (`unknown` when detection failed), and asks
-the owner to select the qualified executable on PATH and rerun setup.
+`--version` before any plugin or MCP installation command. Minimum versions are
+Claude Code **2.1.306** and Codex CLI **0.163.0**, without an upper bound.
+Those baseline releases are initially `verified`; newer versions get full existing
+functionality immediately with `newer_unverified`. Ask remains verified-only and
+requires its separate provider/OS/isolation qualification. Below-minimum versions
+return `unsupported_version`; failed/missing/malformed probes return
+`runtime_version_unknown`, both exit 6 before setup mutations. Diagnostics show
+runtime, detected/minimum version, verification and available capabilities.
 Setup resolves PATH symlinks once and uses that same executable for the version
 probe and every later setup command, even if an updater retargets the symlink.
 An already running native session
 still needs its own reload/resume and runtime/binding checks.
+
+`status --current --json` and `doctor` expose `runtime_policy`: actual running
+version/source, `verification_status`, structural `contracts` and
+`available_capabilities`. Missing hooks are `not_observed`, not a pass.
+Read-only startup/doctor checks never submit native user/model input or queue
+canaries. Contract failures return `runtime_contract_changed` with an action and
+disable only dependent capabilities; owner work and local revoke remain available.
+Update PeerTurn, reload/resume the same session, then rerun doctor/bind.
+Version acceptance cannot prove changed origin/subagent semantics. The owner
+accepted that risk; [policy and qualification plan](spec/versions.md) records it.
+Known-bad versions arrive through PeerTurn updates; there is no network manifest.
 
 ## Helper startup status
 
@@ -28,7 +41,8 @@ After readiness, stderr cannot replace the lifecycle status.
 
 | UI code | Next step |
 | --- | --- |
-| `runtime_unsupported` | Select Claude 2.1.306, then resume/reload the selected session. |
+| `unsupported_version` / `runtime_version_unknown` | Select a runtime at or above the minimum, then resume/reload the selected session. |
+| `runtime_contract_changed` | Update PeerTurn and resume/reload the same session; rerun doctor/bind. Only dependent capabilities are disabled. |
 | `daemon_unavailable` | Start/check the daemon under the same private runtime environment. |
 | `needs_rebind` | Check the native helper, reload/resume the same session and bind from its tool child. |
 | `permission_denied` | Check private local runtime permissions and local authorization. |
@@ -123,17 +137,25 @@ arguments and authority-bearing data retain strict decoding.
 Claude 2.1.306's captured MCP environment includes
 `CLAUDE_CODE_MESSAGING_SOCKET`, `CLAUDE_CODE_MESSAGING_TOKEN` and
 `XDG_RUNTIME_DIR`; the fixture stores the initialize request only, with no
-credentials. `currentMCPBinding` calls `BindCurrentEvidence`: the daemon issues
-a nonce, the MCP process authenticates to the private native messaging socket,
-and the native helper confirms that nonce for the selected session. The
-resolved binding epoch must match the subsequent daemon capability handshake.
-A partial messaging environment, failed challenge or changed/missing epoch
+credentials. An explicit `peerturn session bind --current` uses the native nonce
+round trip. MCP startup and diagnostic/current commands instead read an already
+confirmed binding: the native socket's kernel UID/PID/start identity must match
+an ancestor of the caller, remain stable, and match the live daemon helper's
+socket/epoch. They write no native auth/user frames. The resolved binding epoch
+must match the subsequent daemon capability handshake.
+A missing/unsafe native socket, absent confirmed binding or changed/missing epoch
 fails closed before protocol output. If both messaging variables are absent,
 discovery can initialize without authority, but Claude tool calls fail closed:
 only the qualified Codex profile can use deferred binding. No UUID is taken
 from initialize metadata.
 
-The regression fixture exercises challenge, captured initialize, tool listing
+Run explicit `peerturn session bind --current` from that session's tool child
+before connecting MCP or using current-session diagnostics. If startup preceded
+binding, reconnect MCP after binding succeeds. Read-only resolution does not use
+or collect the messaging token and cannot establish a new binding.
+
+The regression fixtures exercise explicit challenge separately from read-only
+current resolution, captured initialize, tool listing
 and `peer_status`, including replaced/missing epochs. This verifies the code
 path with synthetic local sockets; a fresh native host rerun is still required.
 

@@ -12,6 +12,7 @@ import (
 	"github.com/temirlankasen/peerturn/internal/keystore"
 	"github.com/temirlankasen/peerturn/internal/localipc"
 	"github.com/temirlankasen/peerturn/internal/protocol"
+	"github.com/temirlankasen/peerturn/internal/runtimepolicy"
 )
 
 // InitOptions requires an explicit storage policy and an owner-selected test label.
@@ -51,6 +52,7 @@ type Capabilities struct {
 
 // Status distinguishes preview bindings, native probes and observed hook activation.
 type Status struct {
+	RuntimePolicy    *runtimepolicy.Report      `json:"runtime_policy,omitempty"`
 	OwnerInvitations []localipc.OwnerInvitation `json:"owner_invitations,omitempty"`
 	RuntimeVersion   string                     `json:"runtime_version,omitempty"`
 	Provider         string                     `json:"provider,omitempty"`

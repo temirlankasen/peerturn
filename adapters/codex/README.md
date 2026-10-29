@@ -1,4 +1,11 @@
-# Codex adapter (target 0.163.0)
+# Codex adapter (minimum 0.163.0)
+
+The shared app-server adapter accepts Codex CLI >=0.163.0, without an upper
+bound. Newer releases retain full existing capabilities with `newer_unverified`;
+ask remains closed. The verified baseline and original evidence remain 0.163.0.
+See the [approved runtime policy](../../docs/spec/versions.md). Read-only startup
+and doctor contract probes never submit model input or queue mutation canaries;
+`runtime_contract_changed` disables only dependent capabilities with recovery advice.
 
 Use a built, locally trusted PeerTurn binary. Copy the executable to
 `plugin/bin/peerturn` before enabling the plugin and approving its trust screen;

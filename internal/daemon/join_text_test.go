@@ -133,7 +133,7 @@ func TestPeerJoinCannotEscapeSessionCapabilityOrStaleNativeBinding(t *testing.T)
 		}
 	}
 	runtime := &nativeFixture{thread: "chosen", failure: "stale"}
-	d.native, d.state.Codex = runtime, &codex.Binding{ThreadID: "chosen", DaemonID: "test-daemon", Version: codex.SupportedVersion}
+	d.native, d.state.Codex = runtime, &codex.Binding{ThreadID: "chosen", DaemonID: "test-daemon", Version: nativeTestVersion}
 	request := textJoinRequest(t, syntheticJoinLink("foreign.invalid", "A"))
 	request.Session, request.Capability = d.state.Label, capability
 	if _, err := d.Dispatch(t.Context(), request); localipc.PublicError(err).Code != "needs_rebind" {

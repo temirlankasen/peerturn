@@ -129,7 +129,7 @@ func TestSetupObservedContentMatched(t *testing.T) {
 			if code := runSetup([]string{host, "--path", root, "--sha256", pin}, &stdout, &stderr); code != 0 {
 				t.Fatalf("setup failed: %s", stderr.String())
 			}
-			if !strings.Contains(stdout.String(), "matched") || strings.Contains(stdout.String(), "verified") {
+			if !strings.Contains(stdout.String(), "matched") || !strings.Contains(stdout.String(), "not independent publisher authentication") {
 				t.Fatal("self-consistency was presented as publisher verification")
 			}
 		})

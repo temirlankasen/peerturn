@@ -5,7 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"testing"
+
+	"github.com/temirlankasen/peerturn/internal/runtimepolicy"
 )
+
+var testVersion = runtimepolicy.Evaluate(runtimepolicy.Codex, "").Minimum
 
 const testThread = "019a0cb0-1234-7000-8000-123456789abc"
 const otherThread = "019a0cb0-1234-7000-8000-123456789abd"
@@ -82,7 +86,7 @@ func TestBindRequiresExactLoadedThread(t *testing.T) {
 			rpc.loaded = tc.loaded
 			rpc.readID = tc.readID
 			rpc.status = tc.status
-			tr := NewTransport(rpc, SupportedVersion)
+			tr := NewTransport(rpc, testVersion)
 			bound, err := tr.Bind(t.Context(), testThread)
 			if tc.want != "" {
 				if !IsCode(err, tc.want) {
@@ -90,7 +94,7 @@ func TestBindRequiresExactLoadedThread(t *testing.T) {
 				}
 				return
 			}
-			if err != nil || bound.ThreadID != testThread || bound.DaemonID == "" || bound.Version != SupportedVersion {
+			if err != nil || bound.ThreadID != testThread || bound.DaemonID == "" || bound.Version != testVersion {
 				t.Fatalf("binding = %+v, error = %v", bound, err)
 			}
 			if rpc.calls[1].params["threadId"] != testThread || rpc.calls[1].params["includeTurns"] != false {
@@ -102,11 +106,11 @@ func TestBindRequiresExactLoadedThread(t *testing.T) {
 
 func TestBindRejectsUnknownVersionAndEmbeddedSession(t *testing.T) {
 	rpc := newFakeRPC()
-	if _, err := NewTransport(rpc, "0.163.1").Bind(t.Context(), testThread); !IsCode(err, "unsupported_version") {
+	if _, err := NewTransport(rpc, "0.162.0").Bind(t.Context(), testThread); !IsCode(err, "unsupported_version") {
 		t.Fatalf("version error = %v", err)
 	}
 	for _, id := range []string{"", "cwd:/work", "latest", "019A0CB0-1234-7000-8000-123456789abc"} {
-		if _, err := NewTransport(rpc, SupportedVersion).Bind(t.Context(), id); !IsCode(err, "needs_rebind") {
+		if _, err := NewTransport(rpc, testVersion).Bind(t.Context(), id); !IsCode(err, "needs_rebind") {
 			t.Fatalf("%q: %v", id, err)
 		}
 	}
@@ -117,12 +121,12 @@ func TestBindRejectsUnknownVersionAndEmbeddedSession(t *testing.T) {
 
 func TestBindingCannotCrossDaemonOrBecomeStale(t *testing.T) {
 	rpc := newFakeRPC()
-	tr := NewTransport(rpc, SupportedVersion)
+	tr := NewTransport(rpc, testVersion)
 	b, err := tr.Bind(t.Context(), testThread)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = NewTransport(rpc, SupportedVersion).Validate(t.Context(), b); !IsCode(err, "needs_rebind") {
+	if err = NewTransport(rpc, testVersion).Validate(t.Context(), b); !IsCode(err, "needs_rebind") {
 		t.Fatalf("daemon error = %v", err)
 	}
 	rpc.loaded = []string{otherThread}

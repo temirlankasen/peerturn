@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/temirlankasen/peerturn/internal/localipc"
+	"github.com/temirlankasen/peerturn/internal/runtimepolicy"
 	"github.com/temirlankasen/peerturn/internal/version"
 )
 
@@ -65,9 +66,23 @@ func runSetup(args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		return writeFailure(stdout, stderr, setupRuntimeFailure(args[0], "unknown"))
 	}
+	identity, err := setupExecutableInfo(binary)
+	if err != nil {
+		return writeFailure(stdout, stderr, setupRuntimeFailure(args[0], "unknown"))
+	}
+	checkIdentity := func() error {
+		current, statErr := setupExecutableInfo(binary)
+		if statErr != nil || !os.SameFile(identity, current) || identity.Size() != current.Size() || !identity.ModTime().Equal(current.ModTime()) {
+			return runtimepolicy.ContractFailure(args[0], "", "executable.identity", "setup", "setup")
+		}
+		return nil
+	}
 	invoke := func(ctx context.Context, name string, argv []string, output io.Writer) error {
 		if name != args[0] {
 			return invalidArguments()
+		}
+		if identityErr := checkIdentity(); identityErr != nil {
+			return localipc.RuntimeError(identityErr)
 		}
 		var command *exec.Cmd
 		switch name {
@@ -92,7 +107,13 @@ func runSetup(args []string, stdout, stderr io.Writer) int {
 			// diagnostics may contain private configuration or environment values.
 			command.Stderr, command.Stdin = io.Discard, nil
 		}
-		return command.Run()
+		if commandErr := command.Run(); commandErr != nil {
+			return commandErr
+		}
+		if identityErr := checkIdentity(); identityErr != nil {
+			return localipc.RuntimeError(identityErr)
+		}
+		return nil
 	}
 	if err = installSetup(ctx, args[0], absolute, stdout, invoke); err != nil {
 		if public, ok := errors.AsType[*localipc.Error](err); ok {
@@ -132,7 +153,8 @@ func installSetup(ctx context.Context, host, root string, stdout io.Writer, invo
 	if err != nil {
 		return err
 	}
-	if err = checkSetupRuntime(ctx, host, invoke); err != nil {
+	runtime, err := inspectSetupRuntime(ctx, host, invoke)
+	if err != nil {
 		return err
 	}
 	// Refuse an existing foreign or unobservable marketplace before host
@@ -166,6 +188,9 @@ func installSetup(ctx context.Context, host, root string, stdout io.Writer, invo
 		return err
 	}
 	if err = registerSetupMCP(ctx, host, root, invoke); err != nil {
+		return err
+	}
+	if _, err = fmt.Fprintf(stdout, "Runtime: %s %s; verification_status=%s; minimum=%s. Available capabilities: setup. Live binding/coauthor/owner-boundary contracts: not_observed; inspect status --current --json / doctor after activation.\n", runtime.Runtime, runtime.Version, runtime.Status, runtime.Minimum); err != nil {
 		return err
 	}
 	_, err = fmt.Fprintln(stdout, "Host-reported marketplace source and observable plugin files matched the installer inventory. This is a local integrity match, not independent publisher authentication or proof of activation/current-session binding. Review and accept the host's actual hook trust prompt; never bypass it.")

@@ -51,7 +51,7 @@ func TestOwnerTurnRequiresExactActiveRootMetadata(t *testing.T) {
 			rpc := &ownerTurnRPC{fakeRPC: newFakeRPC(), thread: map[string]any{
 				"id": testThread, "sessionId": testThread, "parentThreadId": nil, "source": "cli", "status": map[string]string{"type": "active"}},
 				turns: []map[string]any{{"id": ownerTurnID, "rootTurnId": ownerTurnID, "status": "inProgress", "itemsView": "notLoaded", "items": []any{}}}}
-			tr := NewTransport(rpc, SupportedVersion)
+			tr := NewTransport(rpc, testVersion)
 			binding, err := tr.Bind(t.Context(), testThread)
 			if err != nil {
 				t.Fatal(err)

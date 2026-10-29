@@ -138,7 +138,7 @@ func TestReviewRevokeDeletesAcceptedNativeItemsAndFencesLateStart(t *testing.T) 
 }
 
 func (f *nativeFixture) Delete(_ context.Context, b codex.Binding, id string) (bool, error) {
-	if b.ThreadID != f.thread || b.DaemonID != "test-daemon" || b.Version != codex.SupportedVersion {
+	if b.ThreadID != f.thread || b.DaemonID != "test-daemon" || b.Version != nativeTestVersion {
 		return false, &codex.Error{Code: "needs_rebind"}
 	}
 	f.deleted = append(f.deleted, id)

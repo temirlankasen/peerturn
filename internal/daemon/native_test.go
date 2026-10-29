@@ -12,7 +12,10 @@ import (
 	"github.com/temirlankasen/peerturn/internal/adapters/codex"
 	"github.com/temirlankasen/peerturn/internal/localipc"
 	"github.com/temirlankasen/peerturn/internal/protocol"
+	"github.com/temirlankasen/peerturn/internal/runtimepolicy"
 )
+
+var nativeTestVersion = runtimepolicy.Evaluate(runtimepolicy.Codex, "").Minimum
 
 type nativeFixture struct {
 	thread        string
@@ -23,11 +26,11 @@ type nativeFixture struct {
 }
 
 func (f *nativeFixture) Bind(_ context.Context, id string) (codex.Binding, error) {
-	b := codex.Binding{ThreadID: id, DaemonID: "test-daemon", Version: codex.SupportedVersion}
+	b := codex.Binding{ThreadID: id, DaemonID: "test-daemon", Version: nativeTestVersion}
 	return b, f.Validate(context.Background(), b)
 }
 func (f *nativeFixture) Validate(_ context.Context, b codex.Binding) error {
-	if b.ThreadID != f.thread || b.DaemonID != "test-daemon" || b.Version != codex.SupportedVersion || f.failure == "stale" {
+	if b.ThreadID != f.thread || b.DaemonID != "test-daemon" || b.Version != nativeTestVersion || f.failure == "stale" {
 		return &codex.Error{Code: "needs_rebind"}
 	}
 	return nil

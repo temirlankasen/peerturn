@@ -1,4 +1,4 @@
-// Package claude implements the pinned Claude Code local adapter contract.
+// Package claude implements the Claude Code local adapter contract.
 package claude
 
 import (
@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"time"
+
+	"github.com/temirlankasen/peerturn/internal/runtimepolicy"
 )
 
 var nativeID = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
@@ -24,6 +26,7 @@ type Binding struct {
 	NativeSessionID, Socket, Instance, RuntimeVersion, Provider string
 	WorkingDirectory                                            string
 	ParentConfiguration                                         *ResponderConfiguration
+	ContractFailures                                            map[string]*runtimepolicy.Error
 	ConfirmedNonce                                              string
 	confirmed                                                   bool
 	lastSeen                                                    time.Time
@@ -31,15 +34,16 @@ type Binding struct {
 	nonceExpiry                                                 time.Time
 }
 
-// NewBinding gates the private mod and socket protocol to the qualified version.
+// NewBinding admits supported runtime versions without supplying native authority.
 func NewBinding(session, socket, version, provider string, now time.Time) (*Binding, error) {
-	if version != "2.1.306" {
-		return nil, errors.New("unsupported_version")
+	if err := runtimepolicy.Check(runtimepolicy.Claude, version); err != nil {
+		return nil, err
 	}
 	if !nativeID.MatchString(session) || !filepath.IsAbs(socket) || filepath.Clean(socket) != socket || len(socket) > 240 || (provider != "gateway" && provider != "anthropic") {
 		return nil, ErrNeedsRebind
 	}
-	return &Binding{NativeSessionID: session, Socket: socket, Instance: nonce128(), RuntimeVersion: version, Provider: provider, lastSeen: now}, nil
+	decision := runtimepolicy.Evaluate(runtimepolicy.Claude, version)
+	return &Binding{NativeSessionID: session, Socket: socket, Instance: nonce128(), RuntimeVersion: decision.Version, Provider: provider, lastSeen: now}, nil
 }
 
 // Challenge requires the Bash child's exact native socket and a live helper.
@@ -79,7 +83,10 @@ func (b *Binding) Ready(now time.Time) bool {
 	return b != nil && b.confirmed && now.Sub(b.lastSeen) <= 20*time.Second
 }
 
-// MCPEpoch proves a resolved incarnation without exposing the helper bearer.
+// MCPEpoch identifies this helper incarnation without exposing its bearer.
+// Resolution requires a confirmed nonce, or daemon-verified caller ancestry to
+// the native socket process pinned by UID/PID/start at open and confirm. Neither
+// path independently proves human origin or authenticates the native executable.
 func (b *Binding) MCPEpoch() string {
 	mac := hmac.New(sha256.New, []byte(b.Instance))
 	mac.Write([]byte("peerturn/mcp-epoch/v1"))

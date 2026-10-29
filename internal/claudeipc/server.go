@@ -20,6 +20,7 @@ import (
 	"github.com/temirlankasen/peerturn/internal/codec"
 	"github.com/temirlankasen/peerturn/internal/invite"
 	"github.com/temirlankasen/peerturn/internal/localipc"
+	"github.com/temirlankasen/peerturn/internal/runtimepolicy"
 )
 
 // Options are local runtime facts supplied by the installed mod, never a peer.
@@ -42,8 +43,8 @@ type bridge struct {
 // Serve publishes a single capability on its inherited private stdout pipe. The
 // listener accepts only loopback bearer requests; no endpoint fetches URLs/files.
 func Serve(ctx context.Context, stdout io.Writer, options Options) error {
-	if options.RuntimeVersion != "2.1.306" {
-		return localipc.NewError("unsupported_version", "unsupported")
+	if err := runtimepolicy.Check(runtimepolicy.Claude, options.RuntimeVersion); err != nil {
+		return err
 	}
 	nativeGuard, err := newNativeGuard(ctx)
 	if err != nil {
@@ -139,6 +140,7 @@ func (b *bridge) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			AttemptID       string          `json:"attempt_id"`
 			Result          json.RawMessage `json:"result"`
 			InvitationLinks []string        `json:"invitation_links"`
+			ContractID      string          `json:"contract_id"`
 		}
 		data, err := io.ReadAll(io.LimitReader(r.Body, 128*1024+1))
 		if err != nil || len(data) > 128*1024 || codec.Decode(data, 128*1024, &event) != nil {
@@ -147,6 +149,12 @@ func (b *bridge) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		request.Nonce, request.NativeSession, request.MessageID, request.AttemptID = event.Nonce, event.Session, event.MessageID, event.AttemptID
 		switch r.URL.Path {
+		case "/contract":
+			if claude.RuntimeContractFailure(b.options.RuntimeVersion, event.ContractID, "runtime") == nil {
+				http.Error(w, `{"error":"invalid_arguments"}`, http.StatusBadRequest)
+				return
+			}
+			request.Method, request.Kind = "adapter.contract", event.ContractID
 		case "/confirm":
 			request.Method = "adapter.confirm"
 		case "/owner-boundary":

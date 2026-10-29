@@ -4,10 +4,9 @@ package codex
 import (
 	"context"
 	"errors"
-)
 
-// SupportedVersion is the qualified experimental app-server protocol version.
-const SupportedVersion = "0.163.0"
+	"github.com/temirlankasen/peerturn/internal/runtimepolicy"
+)
 
 // RPC permits deterministic tests without starting or discovering native sessions.
 type RPC interface {
@@ -29,12 +28,13 @@ type QueueResult struct {
 
 // Capabilities describes only evidence available from this transport probe.
 type Capabilities struct {
-	AttachExisting  bool     `json:"attach_existing"`
-	WakeIdle        bool     `json:"wake_idle"`
-	ForkResponder   bool     `json:"fork_responder"`
-	SupportedScopes []string `json:"supported_scopes"`
-	ReceiptStages   []string `json:"receipt_stages"`
-	Version         string   `json:"version"`
+	AttachExisting  bool                     `json:"attach_existing"`
+	WakeIdle        bool                     `json:"wake_idle"`
+	ForkResponder   bool                     `json:"fork_responder"`
+	SupportedScopes []string                 `json:"supported_scopes"`
+	ReceiptStages   []string                 `json:"receipt_stages"`
+	Version         string                   `json:"version"`
+	Contracts       []runtimepolicy.Contract `json:"contracts"`
 }
 
 // Error carries a stable failure code without native paths, bodies or diagnostics.
@@ -47,7 +47,7 @@ func (e *Error) Error() string { return e.Code }
 // IsCode classifies an adapter failure without parsing untrusted native text.
 func IsCode(err error, code string) bool {
 	var target *Error
-	return errors.As(err, &target) && target != nil && target.Code == code
+	return (errors.As(err, &target) && target != nil && target.Code == code) || runtimepolicy.ErrorCode(err) == code
 }
 
 func failure(code string) error { return &Error{Code: code} }

@@ -10,6 +10,7 @@ import (
 	"github.com/temirlankasen/peerturn/internal/claude"
 	"github.com/temirlankasen/peerturn/internal/localipc"
 	"github.com/temirlankasen/peerturn/internal/protocol"
+	"github.com/temirlankasen/peerturn/internal/runtimepolicy"
 	"github.com/temirlankasen/peerturn/internal/store"
 )
 
@@ -42,6 +43,10 @@ func (d *Daemon) authorizePreparedAsk(ctx context.Context, budget askBudgetReser
 	if d.persistenceFailed || d.state.NativeSessionID != native || !d.claudeBinding.Ready(time.Now()) || d.claudeBinding.Instance != instance {
 		return run, nil, localipc.NewError("needs_rebind", "needs_rebind")
 	}
+	profileID, qualified := runtimepolicy.AskProfile(runtimepolicy.Claude, d.claudeBinding.RuntimeVersion)
+	if !qualified {
+		return run, nil, localipc.NewError("responder_unavailable", "runtime_version_unqualified")
+	}
 	if err := d.refreshPeerRevocations(ctx); err != nil {
 		return run, nil, err
 	}
@@ -49,7 +54,7 @@ func (d *Daemon) authorizePreparedAsk(ctx context.Context, budget askBudgetReser
 	if err != nil {
 		return run, nil, err
 	}
-	profile := sha256.Sum256([]byte("peerturn/claude/2.1.306/m6c/read-only/v4"))
+	profile := sha256.Sum256([]byte(profileID))
 	run, err = d.db.ReserveAsk(ctx, store.AskReservation{RunID: budget.ID, MessageID: item.MessageID, AttemptID: attempt.ID,
 		Parent: d.cert.Binding, ParentContext: bindingContext(d.state), Snapshot: snapshot.Evidence(),
 		Model: snapshot.Model, Effort: snapshot.Effort, ProfileHash: hex.EncodeToString(profile[:]), BudgetID: item.BudgetID,

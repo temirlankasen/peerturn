@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"github.com/temirlankasen/peerturn/internal/claude"
+	"github.com/temirlankasen/peerturn/internal/claudeipc"
 	"maps"
 	"path/filepath"
 	"sync"
@@ -47,6 +48,7 @@ type Daemon struct {
 	ackedThrough             int64
 	notifyOnline             bool
 	claudeBinding            *claude.Binding
+	claudeCurrentProof       *claudeipc.NativeProcessProof
 	claudeAttempt            *adapterEvent
 	claudeNotice             *informNotice
 	native                   NativeRuntime

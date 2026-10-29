@@ -22,22 +22,39 @@ func codexMCPFixture(t *testing.T) string {
 	return string(data)
 }
 
-func codexMCPDaemon(t *testing.T) func() []localipc.Request {
+func codexMCPDaemon(t *testing.T, versions ...string) func() []localipc.Request {
 	t.Helper()
 	t.Setenv("CLAUDE_CODE_MESSAGING_SOCKET", "")
 	t.Setenv("CLAUDE_CODE_MESSAGING_TOKEN", "")
 	// Keep fixture socket paths below macOS's sun_path limit.
 	t.Setenv("TMPDIR", "/tmp")
 	runtime := t.TempDir()
+	version := "0.163.0"
+	if len(versions) > 0 {
+		version = versions[0]
+	}
 	return serveHook(t, func(r localipc.Request) (any, error) {
 		if r.Method == "hello" {
 			if r.NativeThread != hookThread || r.Session != hookThread {
 				return nil, localipc.NewError("binding_mismatch", "needs_rebind")
 			}
-			return map[string]string{"capability": "synthetic-host-bound-capability"}, nil
+			return map[string]string{"capability": "synthetic-host-bound-capability", "runtime_version": version}, nil
 		}
 		return map[string]string{"state": "active"}, nil
 	}, runtime)
+}
+
+func TestCodexMCPHostStartedNewerVersion(t *testing.T) {
+	calls := codexMCPDaemon(t, "0.164.0")
+	input := strings.Replace(codexMCPFixture(t), `"version":"0.163.0"`, `"version":"0.164.0"`, 1)
+	var stdout, stderr bytes.Buffer
+	if code := runInput([]string{"mcp", "--current"}, strings.NewReader(input), &stdout, &stderr); code != 0 || stderr.Len() != 0 || strings.Contains(stdout.String(), `"isError":true`) {
+		t.Fatalf("newer matching native version refused: %d %s %s", code, &stdout, &stderr)
+	}
+	requests := calls()
+	if len(requests) != 3 || requests[0].Method != "hello" || requests[1].Method != "status" || requests[2].Method != "bye" || !strings.Contains(stdout.String(), "newer_unverified") {
+		t.Fatalf("newer native handshake lost version/capability evidence: %+v %s", requests, &stdout)
+	}
 }
 
 func TestCodexMCPHostStartedSourceShape(t *testing.T) {
@@ -116,12 +133,19 @@ func TestCodexMCPHostSelectors(t *testing.T) {
 			if code != 0 || stderr.Len() != 0 || (!strings.Contains(stdout.String(), `"isError":true`) && !strings.Contains(stdout.String(), `"error"`)) {
 				t.Fatalf("unproven request escaped MCP failure: code=%d stdout=%s stderr=%s", code, stdout.String(), stderr.String())
 			}
-			if mode == "foreign" {
+			switch mode {
+			case "foreign":
 				if len(requests) != 1 || requests[0].Method != "hello" {
 					t.Fatal("foreign native binding reached a tool")
 				}
-			} else if len(requests) != 0 {
-				t.Fatalf("unproven context contacted daemon: %+v", requests)
+			case "version":
+				if len(requests) != 2 || requests[0].Method != "hello" || requests[1].Method != "bye" || !strings.Contains(stdout.String(), "runtime_contract_changed") {
+					t.Fatalf("version contradiction reached an effect or lost cleanup: %+v %s", requests, &stdout)
+				}
+			default:
+				if len(requests) != 0 {
+					t.Fatalf("unproven context contacted daemon: %+v", requests)
+				}
 			}
 		})
 	}

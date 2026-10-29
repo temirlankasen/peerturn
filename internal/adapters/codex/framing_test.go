@@ -58,7 +58,7 @@ func TestInformFramingCannotEnterLiveQueue(t *testing.T) {
 		t.Fatal(err)
 	}
 	rpc := newFakeRPC()
-	tr := NewTransport(rpc, SupportedVersion)
+	tr := NewTransport(rpc, testVersion)
 	b, err := tr.Bind(t.Context(), testThread)
 	if err != nil {
 		t.Fatal(err)

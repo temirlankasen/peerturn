@@ -9,7 +9,12 @@ import (
 
 func bindClaude(t *testing.T, d *Daemon) string {
 	t.Helper()
-	r := localipc.Request{Method: "adapter.open", NativeSession: "11111111-1111-4111-8111-111111111111", NativeSocket: "/tmp/claude.sock", RuntimeVersion: "2.1.306", Provider: "gateway"}
+	return bindClaudeVersion(t, d, "2.1.306")
+}
+
+func bindClaudeVersion(t *testing.T, d *Daemon, version string) string {
+	t.Helper()
+	r := localipc.Request{Method: "adapter.open", NativeSession: "11111111-1111-4111-8111-111111111111", NativeSocket: "/tmp/claude.sock", RuntimeVersion: version, Provider: "gateway"}
 	value, err := d.Dispatch(t.Context(), r)
 	if err != nil {
 		t.Fatal(err)

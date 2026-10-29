@@ -10,12 +10,13 @@ import (
 	"github.com/temirlankasen/peerturn/internal/adapters/codex"
 	"github.com/temirlankasen/peerturn/internal/daemon"
 	"github.com/temirlankasen/peerturn/internal/localipc"
+	"github.com/temirlankasen/peerturn/internal/runtimepolicy"
 )
 
 type hookOwnerRuntime struct{ daemon.NativeRuntime }
 
 func (hookOwnerRuntime) Bind(context.Context, string) (codex.Binding, error) {
-	return codex.Binding{ThreadID: hookThread, DaemonID: "fixture", Version: codex.SupportedVersion}, nil
+	return codex.Binding{ThreadID: hookThread, DaemonID: "fixture", Version: runtimepolicy.Evaluate(runtimepolicy.Codex, "").Minimum}, nil
 }
 
 func (hookOwnerRuntime) Validate(context.Context, codex.Binding) error { return nil }

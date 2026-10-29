@@ -10,7 +10,7 @@ BUILD_DATE ?= $(shell git log -1 --format=%cI 2>/dev/null || printf unknown)
 VERSION_PACKAGE := github.com/temirlankasen/peerturn/internal/version
 LDFLAGS := -s -w -X $(VERSION_PACKAGE).Version=$(VERSION) -X $(VERSION_PACKAGE).Commit=$(COMMIT) -X $(VERSION_PACKAGE).Date=$(BUILD_DATE)
 
-.PHONY: build test vet lint vuln fmt fmt-check tidy tidy-check workflow-check release-check public-check ci
+.PHONY: build test vet lint vuln fmt fmt-check tidy tidy-check workflow-check release-check public-check ci runtime-contract-check runtime-module-check runtime-automation-check
 
 build:
 	mkdir -p bin
@@ -53,4 +53,21 @@ public-check:
 	python3 -I -B scripts/export_public_test.py
 	sh scripts/publish-check.sh
 
-ci: fmt-check tidy-check build vet test lint vuln workflow-check release-check public-check
+runtime-contract-check: runtime-module-check
+	$(GO) test -race ./internal/runtimepolicy ./internal/adapters/codex ./internal/claudeipc ./internal/mcp
+
+runtime-module-check:
+	node --test adapters/claude/tests/*.test.mjs
+
+runtime-automation-check:
+	python3 -I -B scripts/runtime_automation_test.py
+	python3 -I -B scripts/runtime_watch_test.py
+	python3 -I -B scripts/runtime_promote_test.py
+	python3 -I -B scripts/runtime_promotion_security_test.py
+	python3 -I -B scripts/runtime_evidence_test.py
+	python3 -I -B scripts/runtime_install_test.py
+	python3 -I -B scripts/runtime_npm_test.py
+	python3 -I -B scripts/runtime_report_test.py
+	python3 -I -B research/lab/qualify/test_qualification.py
+
+ci: fmt-check tidy-check build vet test lint vuln workflow-check release-check public-check runtime-module-check runtime-automation-check

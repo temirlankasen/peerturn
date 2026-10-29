@@ -52,7 +52,11 @@ func (d *Daemon) newCapability(ctx context.Context, request localipc.Request) (a
 	if d.state.Codex != nil {
 		epoch = ""
 	}
-	return map[string]string{"capability": capability, "binding_epoch": epoch}, nil
+	response := map[string]string{"capability": capability, "binding_epoch": epoch}
+	if d.state.Codex != nil {
+		response["runtime_version"] = d.state.Codex.Version
+	}
+	return response, nil
 }
 
 // Joining issues fresh peer authority, so a label/capability alone cannot outlive

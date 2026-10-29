@@ -3,13 +3,9 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
-	"net"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/temirlankasen/peerturn/internal/localipc"
 )
@@ -57,7 +53,6 @@ func TestMCPClaudeHostEpoch(t *testing.T) {
 
 func checkMCPCurrentClaudeEpoch(t *testing.T, mode string) {
 	t.Helper()
-	nonce := strings.Repeat("a", 64)
 	oldEpoch, newEpoch := strings.Repeat("b", 32), strings.Repeat("c", 32)
 	if mode == "same" {
 		newEpoch = oldEpoch
@@ -67,63 +62,18 @@ func checkMCPCurrentClaudeEpoch(t *testing.T, mode string) {
 	}
 	calls := serveHook(t, func(r localipc.Request) (any, error) {
 		switch r.Method {
-		case "adapter.challenge":
-			return map[string]string{"nonce": nonce}, nil
-		case "adapter.resolve":
+		case "adapter.current":
 			return map[string]string{"session": "chosen", "binding_epoch": oldEpoch}, nil
 		case "hello":
 			return map[string]string{"capability": "synthetic-new-capability", "binding_epoch": newEpoch}, nil
 		}
 		return map[string]string{"state": "released"}, nil
 	})
-	dir := t.TempDir()
-	canonical, err := filepath.EvalSymlinks(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	socket := filepath.Join(canonical, "native.sock")
-	listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: socket, Net: "unix"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		if closeErr := listener.Close(); closeErr != nil {
-			t.Error(closeErr)
-		}
-	})
-	if err = os.Chmod(socket, 0600); err != nil {
-		t.Fatal(err)
-	}
+	socket, nativeDone := currentNativeFixture(t)
 	t.Setenv("CODEX_THREAD_ID", "")
 	t.Setenv("CLAUDE_CODE_MESSAGING_SOCKET", socket)
 	t.Setenv("CLAUDE_CODE_MESSAGING_TOKEN", "synthetic-private-native-token")
-	nativeDone := make(chan error, 1)
-	go func() {
-		connection, acceptErr := listener.AcceptUnix()
-		if acceptErr != nil {
-			nativeDone <- acceptErr
-			return
-		}
-		defer func() {
-			if closeErr := connection.Close(); closeErr != nil {
-				return
-			}
-		}()
-		decoder := json.NewDecoder(connection)
-		var auth struct{ Type, Token string }
-		var frame struct {
-			Message struct{ Content string }
-		}
-		if acceptErr = decoder.Decode(&auth); acceptErr == nil {
-			acceptErr = decoder.Decode(&frame)
-		}
-		if acceptErr == nil && (auth.Token != "synthetic-private-native-token" || frame.Message.Content != "<peerturn-bind>"+nonce+"</peerturn-bind>") {
-			acceptErr = errors.New("unexpected synthetic native challenge")
-		}
-		nativeDone <- acceptErr
-	}()
-	// macos-live-2 captured these messaging variables in the host MCP process.
-	// Synthetic sockets exercise its nonce path, not native runtime qualification.
+	// The real child must reuse existing epoch proof without a native user frame.
 	raw, err := os.ReadFile("../../internal/mcp/testdata/claude-2.1.306-initialize.json")
 	if err != nil {
 		t.Fatal(err)
@@ -134,25 +84,16 @@ func checkMCPCurrentClaudeEpoch(t *testing.T, mode string) {
 	}
 	input := compact.String() + "\n" + `{"jsonrpc":"2.0","id":1,"method":"tools/list"}` + "\n" +
 		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"peer_status","arguments":{}}}` + "\n"
-	var stdout, stderr bytes.Buffer
-	code := runInput([]string{"mcp", "--current"}, strings.NewReader(input), &stdout, &stderr)
-	timer := time.NewTimer(time.Second)
-	defer timer.Stop()
-	select {
-	case err = <-nativeDone:
-		if err != nil {
-			t.Fatal(err)
-		}
-	case <-timer.C:
-		t.Fatal("native challenge did not complete")
-	}
+	code, output, diagnostic := currentCommandProcess(t, []string{"mcp", "--current"}, input)
+	stdout, stderr := bytes.NewBufferString(output), bytes.NewBufferString(diagnostic)
+	assertCurrentNoNativeBytes(t, nativeDone)
 	requests := calls()
 	if mode == "same" {
-		if code != 0 || stderr.Len() != 0 || len(requests) != 5 || requests[3].Method != "status" || requests[3].Session != "chosen" || requests[3].Capability != "synthetic-new-capability" || requests[4].Method != "bye" {
+		if code != 0 || stderr.Len() != 0 || len(requests) != 4 || requests[0].Method != "adapter.current" || requests[2].Method != "status" || requests[2].Session != "chosen" || requests[2].Capability != "synthetic-new-capability" || requests[3].Method != "bye" {
 			t.Fatalf("verified incarnation could not initialize: code=%d requests=%d stderr=%s", code, len(requests), stderr.String())
 		}
 		var responses []rpcCurrentResponse
-		decoder := json.NewDecoder(&stdout)
+		decoder := json.NewDecoder(stdout)
 		for range 3 {
 			var response rpcCurrentResponse
 			if err = decoder.Decode(&response); err != nil || response.Error != nil {
@@ -165,11 +106,11 @@ func checkMCPCurrentClaudeEpoch(t *testing.T, mode string) {
 		}
 		return
 	}
-	expectedRequests := 4
+	expectedRequests := 3
 	if mode == "missing" {
-		expectedRequests = 2
+		expectedRequests = 1
 	}
-	if code != 3 || stdout.Len() != 0 || !strings.Contains(stderr.String(), "needs_rebind") || len(requests) != expectedRequests || (mode == "replaced" && requests[3].Method != "bye") {
+	if code != 3 || stdout.Len() != 0 || !strings.Contains(stderr.String(), "needs_rebind") || len(requests) != expectedRequests || (mode == "replaced" && requests[2].Method != "bye") {
 		t.Fatalf("startup changed Claude incarnation without fresh proof: code=%d requests=%d stdout=%s stderr=%s", code, len(requests), stdout.String(), stderr.String())
 	}
 }

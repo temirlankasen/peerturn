@@ -1,6 +1,9 @@
 # PeerTurn Claude plugin
 
-This pre-alpha plugin targets **Claude Code 2.1.306 exactly**. Its dependency-free
+This pre-alpha plugin accepts **Claude Code 2.1.306 and later**, without an upper
+bound. The central Go runtime policy distinguishes verified builds from newer,
+unverified builds; both receive all existing capabilities after native checks.
+The dormant ask responder retains its verified-build restriction. Its dependency-free
 JavaScript mod handles the runtime API and UI. The Go helper owns binding,
 authorization, custody, framing and receipts. Installing the plugin does not
 authorize peers or automatically attach other sessions.
@@ -12,7 +15,9 @@ owner's explicit instruction. Native activation must be checked after reload or
 resume; a successful plugin install alone is not delivery evidence.
 
 The mod starts `peerturn adapter claude --native-session UUID --runtime-version
-2.1.306 --provider gateway|anthropic` using an argv array. The provider value only
+DETECTED_VERSION --provider gateway|anthropic` using an argv array. It forwards
+the actual session version; the helper applies the central policy before effects.
+The provider value only
 records whether `ANTHROPIC_BASE_URL` is present; it is not a provider qualification.
 The helper inherits its own native child socket environment. Stdout supplies one
 bounded NDJSON `ready` object containing a strict `http://127.0.0.1:PORT` URL and
@@ -32,6 +37,7 @@ All loopback calls use `Authorization: Bearer CAPABILITY`:
 | `POST /owner-boundary` | `{session,invitation_links}`; optional links array: at most 32, each at most 2048 bytes; returns `{notice_id,context}` with count/sender labels only. |
 | `POST /boundary-attached` | `{session,notice_id}` confirms host attachment of that notice. |
 | `POST /close` | Best-effort `{}` on native session end. |
+| `POST /contract` | `{contract_id}` records an allowlisted contract failure and closes only dependent capabilities. |
 
 `<peerturn-bind>64-lowercase-hex</peerturn-bind>` is consumed by `session.receive`
 before the model queue. The helper verifies the fresh nonce and exact native
@@ -80,6 +86,15 @@ off without `/close`; unknown submit outcomes require owner reconciliation via
 `peerturn delivery resolve MESSAGE_ID --sent|--not-sent`. Replaced helpers and
 helpers idle without authenticated requests exit.
 Owner permissions, model, effort and tools are not modified by this plugin.
+
+`inspectRuntimeContract($)` inspects callable APIs, the version object and native
+UUID without starting a helper, submitting a prompt or sending a native frame.
+Lifecycle semantics start as `not_observed`; malformed events close coauthor.
+Missing submit capability leaves owner invitations and notices available; a missing
+toast leaves coauthor available. Contract failures report `runtime_contract_changed`
+with an update / doctor / rebind action and appear in daemon status after helper
+reporting. Hooks always continue owner work. Shape checks cannot qualify origin,
+nonce-consumption or lifecycle semantics of a future runtime.
 
 Targeted fixtures: `node --test adapters/claude/tests/*.test.mjs`.
 Validate the actual runtime with `claude plugin validate adapters/claude

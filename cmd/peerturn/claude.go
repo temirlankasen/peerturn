@@ -11,6 +11,7 @@ import (
 	"github.com/temirlankasen/peerturn/internal/claudeipc"
 	"github.com/temirlankasen/peerturn/internal/daemon"
 	"github.com/temirlankasen/peerturn/internal/localipc"
+	"github.com/temirlankasen/peerturn/internal/runtimepolicy"
 )
 
 func runClaudeAdapter(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
@@ -43,6 +44,9 @@ func runClaudeAdapter(args []string, stdin io.Reader, stdout, stderr io.Writer) 
 			return writeFailure(stdout, stderr, invalidArguments())
 		}
 		values[args[i]] = args[i+1]
+	}
+	if err := runtimepolicy.Check(runtimepolicy.Claude, values["--runtime-version"]); err != nil {
+		return writeClaudeFailure(stderr, err)
 	}
 	dir, err := daemon.DefaultRuntimeDir()
 	if err != nil {

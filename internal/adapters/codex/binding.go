@@ -6,17 +6,22 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 	"sync/atomic"
+
+	"github.com/temirlankasen/peerturn/internal/runtimepolicy"
 )
 
 var injectedDaemon atomic.Uint64
 
 // Transport never starts a daemon, attaches a neighbor, steers or raw-injects.
 type Transport struct {
-	rpc        RPC
-	version    string
-	daemonID   string
-	socketPath string
+	rpc             RPC
+	version         string
+	daemonID        string
+	socketPath      string
+	contractMu      sync.Mutex
+	coauthorFailure *runtimepolicy.Error
 }
 
 // NewTransport installs an explicitly supplied RPC implementation.
@@ -28,11 +33,19 @@ func NewTransport(rpc RPC, version string) *Transport {
 // Bind verifies the UUID obtained from CODEX_THREAD_ID against the same daemon.
 // The caller must obtain that value from its current tool child environment.
 func (t *Transport) Bind(ctx context.Context, threadID string) (Binding, error) {
+	b, _, err := t.probeBinding(ctx, threadID)
+	if b.ThreadID != "" {
+		return b, nil
+	}
+	return b, err
+}
+
+func (t *Transport) bindThread(ctx context.Context, threadID string) (Binding, error) {
 	if t == nil || t.rpc == nil {
 		return Binding{}, failure("unsupported")
 	}
-	if t.version != SupportedVersion {
-		return Binding{}, failure("unsupported_version")
+	if err := runtimepolicy.Check(runtimepolicy.Codex, t.version); err != nil {
+		return Binding{}, err
 	}
 	if !validThreadID(threadID) {
 		return Binding{}, failure("needs_rebind")
@@ -57,8 +70,8 @@ func (t *Transport) validateIdentity(b Binding) error {
 		b.DaemonID != t.daemonID || b.Version != t.version {
 		return failure("needs_rebind")
 	}
-	if t.version != SupportedVersion {
-		return failure("unsupported_version")
+	if err := runtimepolicy.Check(runtimepolicy.Codex, t.version); err != nil {
+		return err
 	}
 	if t.socketPath != "" {
 		_, id, err := probeSocket(t.socketPath)
@@ -86,7 +99,10 @@ func (t *Transport) validateThread(ctx context.Context, threadID string) error {
 		IncludeTurns bool   `json:"includeTurns"`
 	}{ThreadID: threadID}
 	if err := t.rpc.Call(ctx, "thread/read", params, &read); err != nil {
-		return failure("needs_rebind")
+		return t.contractCallError(err, "codex.thread_read", "bind", "binding", "coauthor", "owner_invitation", "inform_boundary")
+	}
+	if read.Thread.ID == "" || read.Thread.Status.Type == "" {
+		return t.contractFailure("codex.thread_read", "bind", "binding", "coauthor", "owner_invitation", "inform_boundary")
 	}
 	if read.Thread.ID != threadID || (read.Thread.Status.Type != "idle" && read.Thread.Status.Type != "active") {
 		return failure("needs_rebind")
@@ -107,10 +123,15 @@ func (t *Transport) requireLoaded(ctx context.Context, id string) error {
 			Limit  int    `json:"limit"`
 		}{Cursor: cursor, Limit: 100}
 		if err := t.rpc.Call(ctx, "thread/loaded/list", params, &page); err != nil {
-			return failure("unavailable")
+			return t.contractCallError(err, "codex.loaded_list", "bind", "binding", "coauthor", "owner_invitation", "inform_boundary")
 		}
-		if len(page.Data) > 100 || len(page.NextCursor) > 1024 {
-			return failure("needs_rebind")
+		if page.Data == nil || len(page.Data) > 100 || len(page.NextCursor) > 1024 {
+			return t.contractFailure("codex.loaded_list", "bind", "binding", "coauthor", "owner_invitation", "inform_boundary")
+		}
+		for _, loaded := range page.Data {
+			if !validThreadID(loaded) {
+				return t.contractFailure("codex.loaded_list", "bind", "binding", "coauthor", "owner_invitation", "inform_boundary")
+			}
 		}
 		if slices.Contains(page.Data, id) {
 			return nil

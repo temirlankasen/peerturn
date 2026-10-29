@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/temirlankasen/peerturn/internal/codec"
+	"github.com/temirlankasen/peerturn/internal/runtimepolicy"
 )
 
 // ResponderSnapshot is an opaque native committed boundary. Its private fields
@@ -123,9 +124,10 @@ func AcquireResponderSnapshot(options ResponderOptions, parent string) (*Respond
 	// last-prompt names the pre-generation input in ordinary TUI transcripts.
 	// Resume the completed assistant instead of replaying that unfinished turn.
 	snapshot.leaf = assistant.UUID
+	version := runtimepolicy.Evaluate(runtimepolicy.Claude, assistant.Version)
 	if !validNativeSessionID(promptLeaf) || !uuids[promptLeaf] || !validNativeSessionID(snapshot.leaf) ||
 		snapshot.leaf != lastUUID || message.Stop != "end_turn" ||
-		assistant.Version != "2.1.306" || assistant.CWD != options.WorkingDirectory ||
+		version.Status != runtimepolicy.Verified || version.Version != assistant.Version || assistant.CWD != options.WorkingDirectory ||
 		!validSnapshotModel(assistant.RequestedModel) || !validSnapshotEffort(assistant.Effort) ||
 		assistant.PerTurnEffort != nil || snapshot.system == ([32]byte{}) {
 		return nil, failure

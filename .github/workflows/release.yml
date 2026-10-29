@@ -3,6 +3,7 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
 
 permissions: {}
 
@@ -16,6 +17,7 @@ defaults:
 
 jobs:
   validate:
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
@@ -25,10 +27,19 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      - name: Verify immutable release ref belongs to main
+        run: |
+          test "$GITHUB_REF_TYPE" = tag
+          git merge-base --is-ancestor HEAD origin/main
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-          cache-dependency-path: go.mod
+          cache: false
+      - name: Download and verify clean release modules
+        run: |
+          go clean -modcache -cache
+          go mod download
+          go mod verify
       - run: scripts/publish-check.sh --cached --strict-index
       - run: make ci
 
@@ -48,7 +59,12 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-          cache-dependency-path: go.mod
+          cache: false
+      - name: Download and verify clean release modules
+        run: |
+          go clean -modcache -cache
+          go mod download
+          go mod verify
       - name: Refuse to modify an already published release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

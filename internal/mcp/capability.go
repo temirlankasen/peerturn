@@ -8,6 +8,7 @@ import (
 
 	"github.com/temirlankasen/peerturn/internal/codec"
 	"github.com/temirlankasen/peerturn/internal/localipc"
+	"github.com/temirlankasen/peerturn/internal/runtimepolicy"
 )
 
 type capabilityCaller interface {
@@ -15,11 +16,12 @@ type capabilityCaller interface {
 }
 
 type capabilitySession struct {
-	options    Options
-	capability string
-	boundEpoch string
-	closeLease func() error
-	closed     bool
+	options        Options
+	capability     string
+	boundEpoch     string
+	runtimeVersion string
+	closeLease     func() error
+	closed         bool
 }
 
 func bindCapability(ctx context.Context, options Options) (*capabilitySession, error) {
@@ -28,17 +30,33 @@ func bindCapability(ctx context.Context, options Options) (*capabilitySession, e
 		return nil, err
 	}
 	var binding struct {
-		Capability   string `json:"capability"`
-		BindingEpoch string `json:"binding_epoch,omitempty"`
+		Capability     string          `json:"capability"`
+		BindingEpoch   string          `json:"binding_epoch,omitempty"`
+		RuntimeVersion json.RawMessage `json:"runtime_version,omitempty"`
 	}
 	if err := codec.Decode(hello, localipc.MaxFrame, &binding); err != nil || binding.Capability == "" {
 		return nil, errors.Join(localipc.NewError("unbound", "unbound"), closeLease())
 	}
 	session := &capabilitySession{options: options, capability: binding.Capability, boundEpoch: binding.BindingEpoch, closeLease: closeLease}
+	var runtimeVersion string
+	if json.Unmarshal(binding.RuntimeVersion, &runtimeVersion) == nil && len(runtimeVersion) <= 160 {
+		session.runtimeVersion = runtimepolicy.Evaluate(runtimepolicy.Codex, runtimeVersion).Version
+	}
 	if options.ExpectedBindingEpoch != "" && session.boundEpoch != options.ExpectedBindingEpoch {
 		return nil, errors.Join(localipc.NewError("needs_rebind", "needs_rebind"), session.Close())
 	}
+	if err := session.checkRuntimeVersion(options.ExpectedRuntimeVersion); err != nil {
+		return nil, errors.Join(err, session.Close())
+	}
 	return session, nil
+}
+
+func (s *capabilitySession) checkRuntimeVersion(expected string) error {
+	if expected == "" || s.runtimeVersion == expected {
+		return nil
+	}
+	failure := runtimepolicy.ContractFailure(runtimepolicy.Codex, s.runtimeVersion, "codex.mcp_version", "hello", "mcp")
+	return errors.Join(localipc.RuntimeError(failure), failure)
 }
 
 func (s *capabilitySession) Close() error {

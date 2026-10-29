@@ -1,6 +1,12 @@
 # Contributing to PeerTurn
 
-PeerTurn is pre-alpha with experimental client onboarding and version-pinned Claude/Codex adapters. Start with the [README](README.md), [documentation index](docs/README.md), and [acceptance plan](docs/spec/plan.md) before proposing product behavior. The specification is in English, with sanitized Russian originals in `docs/spec/ru/`.
+Runtime qualification and reruns are described in the
+[operator guide](docs/operators/runtime-qualification.md). PR checks remain
+model-free; only guarded main workflows receive the dedicated qualification key.
+Run offline automation fixtures with `make runtime-automation-check` and
+adapter fixtures with `make runtime-contract-check`.
+
+PeerTurn is pre-alpha with experimental client onboarding and Claude/Codex adapters following the [approved minimum-version policy](docs/spec/versions.md). Start with the [README](README.md), [documentation index](docs/README.md), and [acceptance plan](docs/spec/plan.md) before proposing product behavior. The specification is in English, with sanitized Russian originals in `docs/spec/ru/`.
 
 Follow the [Code of Conduct](CODE_OF_CONDUCT.md). Report vulnerabilities privately through [SECURITY.md](SECURITY.md), not in a public issue.
 

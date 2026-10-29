@@ -44,7 +44,7 @@ func TestOwnerTurnSeparatesBoundedMetadataAndReplayBudgets(t *testing.T) {
 				turns: []map[string]any{{"id": ownerTurnID, "rootTurnId": ownerTurnID,
 					"status": "inProgress", "itemsView": "notLoaded", "items": []any{}}}},
 				deadlines: map[string]time.Time{}}
-			tr := NewTransport(rpc, SupportedVersion)
+			tr := NewTransport(rpc, testVersion)
 			binding, err := tr.Bind(t.Context(), testThread)
 			if err != nil {
 				t.Fatal(err)
@@ -121,7 +121,7 @@ func testOwnerTurnLargeRollout(t *testing.T) {
 	if len(rpc.rollout) != 50400000 {
 		t.Fatalf("synthetic rollout has %d bytes", len(rpc.rollout))
 	}
-	tr := NewTransport(rpc, SupportedVersion)
+	tr := NewTransport(rpc, testVersion)
 	binding, err := tr.Bind(t.Context(), testThread)
 	if err != nil {
 		t.Fatal(err)

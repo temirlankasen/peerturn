@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"strings"
 
 	"github.com/temirlankasen/peerturn/internal/codec"
 	"github.com/temirlankasen/peerturn/internal/localipc"
+	"github.com/temirlankasen/peerturn/internal/runtimepolicy"
 )
 
 // Host turn metadata includes workspace/tracing context, unlike initialize.
@@ -19,6 +21,8 @@ type sessionBinding struct {
 	bound        *capabilitySession
 	nativeThread string
 	codexClient  bool
+	codexVersion string
+	codexFailure *runtimepolicy.Error
 }
 
 func newSessionBinding(ctx context.Context, options Options) (*sessionBinding, error) {
@@ -44,6 +48,9 @@ func (s *sessionBinding) Close() error {
 }
 
 func (s *sessionBinding) Call(ctx context.Context, command localipc.Request, meta json.RawMessage) (json.RawMessage, error) {
+	if s.codexFailure != nil {
+		return nil, localipc.RuntimeError(s.codexFailure)
+	}
 	if s.options.ResolveCodex != nil || s.options.CodexThread != "" {
 		if s.options.ResolveCodex != nil && !s.codexClient {
 			return nil, localipc.NewError("binding_error", "needs_rebind")
@@ -60,6 +67,7 @@ func (s *sessionBinding) Call(ctx context.Context, command localipc.Request, met
 		s.nativeThread = thread
 		if s.bound == nil {
 			options := s.options
+			options.ExpectedRuntimeVersion = s.codexVersion
 			if options.ResolveCodex != nil {
 				options.Caller, err = options.ResolveCodex(thread)
 				if err != nil {
@@ -72,6 +80,7 @@ func (s *sessionBinding) Call(ctx context.Context, command localipc.Request, met
 			}
 			s.bound, err = bindCapability(ctx, options)
 			if err != nil {
+				s.rememberCodexFailure(err)
 				return nil, err
 			}
 		}
@@ -81,10 +90,62 @@ func (s *sessionBinding) Call(ctx context.Context, command localipc.Request, met
 			return nil, localipc.NewError("invalid_encoding", "rejected")
 		}
 	}
-	return s.bound.Call(ctx, command)
+	if s.codexClient {
+		if err := s.bound.checkRuntimeVersion(s.codexVersion); err != nil {
+			s.rememberCodexFailure(err)
+			return nil, errors.Join(err, s.bound.Close())
+		}
+		s.bound.options.ExpectedRuntimeVersion = s.codexVersion
+	}
+	result, err := s.bound.Call(ctx, command)
+	s.rememberCodexFailure(err)
+	if err != nil || command.Method != "status" || !s.codexClient {
+		return result, err
+	}
+	return s.codexStatus(result)
 }
 
-// This hint only qualifies the pinned wire shape. It cannot grant authority;
+func (s *sessionBinding) rememberCodexFailure(err error) {
+	if failure, ok := errors.AsType[*runtimepolicy.Error](err); ok && s.codexClient {
+		s.codexFailure = failure
+	}
+}
+
+func (s *sessionBinding) qualifyCodexClient(params json.RawMessage) {
+	s.codexClient = qualifiedCodexClient(params)
+	var input map[string]json.RawMessage
+	var name, version string
+	if codec.Decode(params, maxInitialize, &input) != nil ||
+		!informationalFields(input["clientInfo"], map[string]any{"name": &name, "version": &version}) || name != "codex-mcp-client" {
+		return
+	}
+	s.codexVersion = runtimepolicy.Evaluate(runtimepolicy.Codex, version).Version
+	if failure, ok := errors.AsType[*runtimepolicy.Error](runtimepolicy.Check(runtimepolicy.Codex, version)); ok {
+		s.codexFailure = failure
+	}
+}
+
+func (s *sessionBinding) codexStatus(result json.RawMessage) (json.RawMessage, error) {
+	var status map[string]json.RawMessage
+	if err := json.Unmarshal(result, &status); err != nil || status == nil {
+		return nil, localipc.RuntimeError(runtimepolicy.ContractFailure(runtimepolicy.Codex, s.codexVersion, "codex.mcp_status", "mcp", "mcp"))
+	}
+	if raw, exists := status["runtime_version"]; exists {
+		var actual string
+		if json.Unmarshal(raw, &actual) != nil || runtimepolicy.Evaluate(runtimepolicy.Codex, actual).Version != s.codexVersion {
+			s.codexFailure = runtimepolicy.ContractFailure(runtimepolicy.Codex, s.codexVersion, "codex.mcp_version", "mcp", "mcp")
+			return nil, errors.Join(localipc.RuntimeError(s.codexFailure), s.bound.Close())
+		}
+	}
+	policy, err := json.Marshal(runtimepolicy.Evaluate(runtimepolicy.Codex, s.codexVersion))
+	if err != nil {
+		return nil, errors.Join(localipc.NewError("unavailable", "unavailable"), err)
+	}
+	status["mcp_client_policy"] = policy
+	return json.Marshal(status)
+}
+
+// Version admission cannot grant authority;
 // the exact host thread selector must still pass the daemon's native handshake.
 func qualifiedCodexClient(params json.RawMessage) bool {
 	var input map[string]json.RawMessage
@@ -92,7 +153,7 @@ func qualifiedCodexClient(params json.RawMessage) bool {
 		return false
 	}
 	var name, version string
-	return informationalFields(input["clientInfo"], map[string]any{"name": &name, "version": &version}) && name == "codex-mcp-client" && version == "0.163.0"
+	return informationalFields(input["clientInfo"], map[string]any{"name": &name, "version": &version}) && name == "codex-mcp-client" && runtimepolicy.Evaluate(runtimepolicy.Codex, version).Allowed()
 }
 
 func codexToolThread(raw json.RawMessage) (string, error) {

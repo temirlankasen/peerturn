@@ -2,10 +2,13 @@
 
 PeerTurn is pre-alpha with an approved design. The [M1a pure core](core-m1a.md), [M1b client store](store-m1b.md), [M2 relay](operators/relay.md) and [M2.5 installed preview](m25.md) provide protocol, encrypted custody, transport and local CLI/MCP. The partial [Claude M3](m3.md) and [Codex M4](m4.md) previews add exact native-session binding, coauthor delivery and no-wake inform notices with explicit inbox body reads. [M6](m6-ask.md) qualifies Linux Claude ask with verified Secret Service and a narrow provider profile. Codex/macOS ask, broader fault recovery, Internet/self-host and performance qualification remain acceptance work.
 
-**0.1.1-preview is prepared for release, pending owner approval.** The first
+**0.1.2-preview is the current experimental release.** The first
 published release was [v0.1.0-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.0-preview).
 Linux/macOS archives cover amd64/arm64; qualification is specific to the evidence below.
-Setup refuses newer auto-updated Claude/Codex versions before side effects.
+The [runtime policy](spec/versions.md) accepts Claude Code >=2.1.306
+and Codex CLI >=0.163.0 without an upper bound. Newer versions get full existing
+functionality with `newer_unverified`; ask remains separately verified-only.
+Below-minimum versions are refused before setup mutations.
 
 | Environment | Live qualification | Limits |
 | --- | --- | --- |
@@ -16,6 +19,8 @@ Setup refuses newer auto-updated Claude/Codex versions before side effects.
 | Document | Purpose |
 | --- | --- |
 | [Project README](../README.md) | Status, intended behavior, capabilities, risks, and roadmap. |
+| [Approved runtime policy](spec/versions.md) | Minimums, verification, model-free contracts, accepted semantic risk and main-only qualification automation. |
+| [Runtime qualification operation](operators/runtime-qualification.md) | Dedicated key/settings, scripted native checks, protected-main promotion, signed release and reruns. |
 | [M1a core](core-m1a.md) | Pure APIs, v1 wire decisions, integration responsibilities, and evidence. |
 | [M1b client store](store-m1b.md) | SQLite schema, encryption, atomic custody, limits and local acceptance. |
 | [M2.5 installed client preview](m25.md) | Explicit initialization, relay administrator setup, invitation/join, CLI/MCP and custody limits. |

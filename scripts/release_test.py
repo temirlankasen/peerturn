@@ -58,7 +58,7 @@ class ReleaseTests(unittest.TestCase):
                         cls.fixture, environment)
         cls.run_command([cls.git, "remote", "add", "origin",
                          "https://github.com/temirlankasen/peerturn.git"], cls.fixture)
-        cls.run_command([cls.git, "tag", "v0.1.1-preview"], cls.fixture)
+        cls.run_command([cls.git, "tag", "v0.1.2-preview"], cls.fixture)
         # A deterministic synthetic SBOM keeps this fixture independent of Syft downloads.
         syft = cls.work / "syft"
         syft.write_text(f"#!{sys.executable}\nimport pathlib, sys\n"

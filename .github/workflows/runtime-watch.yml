@@ -1,0 +1,80 @@
+name: Runtime watch
+run-name: Runtime watch ${{ inputs.runtime }} ${{ inputs.version }} ${{ inputs.qualification_run }}
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      runtime:
+        description: Optional qualified runtime selector for exact-run recovery
+        type: string
+        required: false
+        default: ""
+      version:
+        description: Optional exact qualified version
+        type: string
+        required: false
+        default: ""
+      qualification_run:
+        description: Optional dedicated qualification run ID for recovery
+        type: string
+        required: false
+        default: ""
+
+permissions: {}
+
+concurrency:
+  group: runtime-watch
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  detect:
+    if: >-
+      github.ref == 'refs/heads/main' && !github.event.repository.fork &&
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+      actions: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Discover, claim and dispatch stable upstream candidates
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 -I -B scripts/runtime_watch.py
+
+  reconcile:
+    needs: detect
+    if: >-
+      always() && github.ref == 'refs/heads/main' && !github.event.repository.fork &&
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: runtime-promotion-main
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      actions: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Recover green promotions and merged bot PR releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          QUAL_RUNTIME: ${{ inputs.runtime }}
+          QUAL_VERSION: ${{ inputs.version }}
+          QUALIFICATION_RUN: ${{ inputs.qualification_run }}
+        run: python3 -I -B scripts/runtime_promote.py reconcile

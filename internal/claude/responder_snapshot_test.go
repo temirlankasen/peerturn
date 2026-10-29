@@ -68,6 +68,7 @@ func TestResponderSnapshotRejectsMissingTornOrDriftedNativeMetadata(t *testing.T
 		[]byte(strings.ReplaceAll(string(data), `"effort":"high"`, `"effort":"unknown"`)),
 		[]byte(strings.ReplaceAll(string(data), `"perTurnEffort":null`, `"perTurnEffort":"max"`)),
 		[]byte(strings.ReplaceAll(string(data), `"version":"2.1.306"`, `"version":"2.1.307"`)),
+		[]byte(strings.ReplaceAll(string(data), `"version":"2.1.306"`, `"version":"2.1.306 (Claude Code)"`)),
 		[]byte(strings.ReplaceAll(string(data), `"stop_reason":"end_turn"`, `"stop_reason":"tool_use"`)),
 		[]byte(strings.ReplaceAll(string(data), `"requestedModel":"fixture-model"`, `"requestedModel":"--bad"`)),
 	} {

@@ -6,7 +6,7 @@
     {
       "name": "peerturn",
       "source": "./adapters/claude",
-      "description": "Explicit Claude Code 2.1.306 binding and coauthor delivery"
+      "description": "Explicit binding and coauthor delivery for Claude Code 2.1.306 or later"
     }
   ]
 }

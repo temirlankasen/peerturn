@@ -1,0 +1,175 @@
+name: Runtime qualification
+run-name: Qualify ${{ inputs.runtime }} ${{ inputs.version }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      runtime:
+        description: Runtime candidate
+        type: choice
+        options: [claude, codex]
+        required: true
+      version:
+        description: Exact stable X.Y.Z at or above the approved minimum
+        type: string
+        required: true
+      identity:
+        description: Detected upstream identity (leave empty for an explicit fresh manual resolution)
+        type: string
+        required: false
+
+permissions: {}
+
+concurrency:
+  group: runtime-qualify-${{ inputs.runtime }}-${{ inputs.version }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  contracts:
+    name: Model-free contracts
+    if: >-
+      github.ref == 'refs/heads/main' && !github.event.repository.fork &&
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      artifacts: ${{ steps.candidate.outputs.artifacts }}
+      npm_lock: ${{ steps.candidate.outputs.npm_lock }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Validate main-only inputs
+        env:
+          QUAL_RUNTIME: ${{ inputs.runtime }}
+          QUAL_VERSION: ${{ inputs.version }}
+          QUAL_IDENTITY: ${{ inputs.identity }}
+        run: |
+          python3 -I -B - <<'PY'
+          import os, runpy
+          c = runpy.run_path('scripts/runtime_common.py')
+          c['validate_context'](os.environ)
+          c['version_tuple'](os.environ['QUAL_RUNTIME'], os.environ['QUAL_VERSION'])
+          c['validate_identity'](os.environ['QUAL_RUNTIME'], os.environ['QUAL_IDENTITY'])
+          PY
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Model-free adapter contracts
+        run: make runtime-contract-check runtime-automation-check
+      - name: Pin candidate and baseline artifact identities
+        id: candidate
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          QUAL_RUNTIME: ${{ inputs.runtime }}
+          QUAL_VERSION: ${{ inputs.version }}
+          QUAL_IDENTITY: ${{ inputs.identity }}
+        run: python3 -I -B scripts/runtime_install.py identity "$QUAL_RUNTIME" "$QUAL_VERSION" "$QUAL_IDENTITY"
+      - name: Preserve resolved npm dependency evidence
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: qualification-npm-lock-${{ inputs.runtime }}-${{ inputs.version }}
+          path: qualification-npm-lock.json
+          if-no-files-found: error
+          retention-days: 30
+
+  live:
+    name: Live qualification / ${{ matrix.os }}
+    environment: runtime-qualification
+    needs: contracts
+    if: >-
+      github.ref == 'refs/heads/main' && !github.event.repository.fork &&
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    env:
+      QUAL_RUNTIME: ${{ inputs.runtime }}
+      QUAL_VERSION: ${{ inputs.version }}
+      QUAL_ARTIFACTS: ${{ needs.contracts.outputs.artifacts }}
+      QUAL_NPM_LOCK: ${{ needs.contracts.outputs.npm_lock }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Install exact public runtimes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 -I -B scripts/runtime_install.py "$QUAL_RUNTIME" "$QUAL_VERSION"
+      - name: Build PeerTurn
+        run: make build
+      - name: Validate candidate schemas
+        run: python3 -I -B research/lab/qualify/schema.py "$QUAL_RUNTIME" "$QUAL_VERSION"
+      - name: Live native contract qualification
+        env:
+          PEERTURN_QUAL_LITELLM_KEY: ${{ secrets.PEERTURN_QUAL_LITELLM_KEY }}
+          PEERTURN_QUAL_LITELLM_BASE: ${{ secrets.PEERTURN_QUAL_LITELLM_BASE }}
+          PEERTURN_QUAL_CLAUDE_MODEL: ${{ vars.PEERTURN_QUAL_CLAUDE_MODEL }}
+          PEERTURN_QUAL_CODEX_MODEL: ${{ vars.PEERTURN_QUAL_CODEX_MODEL }}
+        run: python3 -I -B research/lab/qualify/run.py "$QUAL_RUNTIME" "$QUAL_VERSION"
+      - name: Upload sanitized assertions only
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: qualification-${{ inputs.runtime }}-${{ inputs.version }}-${{ matrix.os }}
+          path: qualification-summary.json
+          if-no-files-found: error
+          retention-days: 30
+
+  promote:
+    name: Record verification and release
+    needs: [contracts, live]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: Record green qualification and request signed release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          QUAL_RUNTIME: ${{ inputs.runtime }}
+          QUAL_VERSION: ${{ inputs.version }}
+        run: >-
+          gh workflow run runtime-watch.yml --ref main
+          -f runtime="$QUAL_RUNTIME" -f version="$QUAL_VERSION"
+          -f qualification_run="$GITHUB_RUN_ID"
+
+  failure:
+    needs: [contracts, live, promote]
+    if: >-
+      always() && github.ref == 'refs/heads/main' && !github.event.repository.fork &&
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') &&
+      (needs.contracts.result != 'success' || needs.live.result != 'success' || needs.promote.result == 'failure')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Update one bounded failure issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          QUAL_RUNTIME: ${{ inputs.runtime }}
+          QUAL_VERSION: ${{ inputs.version }}
+        run: python3 -I -B scripts/runtime_report.py "$QUAL_RUNTIME" "$QUAL_VERSION"

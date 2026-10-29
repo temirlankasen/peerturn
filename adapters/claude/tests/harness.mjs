@@ -13,7 +13,7 @@ export async function harness(version = '2.1.306', idle = true, configure = () =
   const inbox = [];
   const $ = {
     session: {
-      id: async () => 'session-a',
+      id: async () => '11111111-1111-4111-8111-111111111111',
       version: async () => ({ version, base: version }),
     },
     env: { get: async () => undefined },
@@ -58,6 +58,6 @@ export async function harness(version = '2.1.306', idle = true, configure = () =
   await hooks.get('session.start')?.($, {}, async value => value);
   await tick();
   if (idle) await hooks.get('turn.complete')?.($, {}, async value => value);
-  return { $, hooks, tick, inbox, submitted, requests, launched, statuses, timers };
+  return { $, hooks, tick, inbox, submitted, requests, launched, statuses, timers, mod };
 }
 

@@ -12,7 +12,7 @@ import (
 
 func TestSocketRPCRejectsMethodsOutsideAllowlist(t *testing.T) {
 	closed := make(chan struct{}, 1)
-	path, requests := nativeSocketWithHook(t, SupportedVersion, false, nil, func() { closed <- struct{}{} })
+	path, requests := nativeSocketWithHook(t, testVersion, false, nil, func() { closed <- struct{}{} })
 	tr, err := Open(t.Context(), path)
 	if err != nil {
 		t.Fatal(err)
@@ -68,7 +68,7 @@ func TestUnixSocketFloodAndServerRequestBeforeQueueResponse(t *testing.T) {
 		}
 		return true
 	}
-	path, _ := nativeSocketWithHook(t, SupportedVersion, false, hook, nil)
+	path, _ := nativeSocketWithHook(t, testVersion, false, hook, nil)
 	tr, err := Open(t.Context(), path)
 	if err != nil {
 		t.Fatal(err)
@@ -89,7 +89,7 @@ func TestUnixSocketFloodAndServerRequestBeforeQueueResponse(t *testing.T) {
 
 func TestUnixSocketDoesNotRetainIdleSubscriptions(t *testing.T) {
 	closed := make(chan struct{}, 16)
-	path, _ := nativeSocketWithHook(t, SupportedVersion, false, nil, func() { closed <- struct{}{} })
+	path, _ := nativeSocketWithHook(t, testVersion, false, nil, func() { closed <- struct{}{} })
 	tr, err := Open(t.Context(), path)
 	if err != nil {
 		t.Fatal(err)
@@ -127,7 +127,7 @@ func TestUnixSocketConcurrentCallHonorsShortDeadline(t *testing.T) {
 			return false
 		}
 	}
-	path, _ := nativeSocketWithHook(t, SupportedVersion, false, hook, nil)
+	path, _ := nativeSocketWithHook(t, testVersion, false, hook, nil)
 	tr, err := Open(t.Context(), path)
 	if err != nil {
 		t.Fatal(err)

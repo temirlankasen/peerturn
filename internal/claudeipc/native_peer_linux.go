@@ -20,38 +20,47 @@ func nativePeerCredentials(fd int) (int, uint32, error) {
 }
 
 func processIdentity(pid int) (nativeProcess, error) {
+	process, _, err := processWithParent(pid)
+	return process, err
+}
+
+func processWithParent(pid int) (nativeProcess, int, error) {
 	if pid <= 0 {
-		return nativeProcess{}, rebind()
+		return nativeProcess{}, 0, rebind()
 	}
 	// Reads stay inside /proc even if the numeric name were ever malformed;
 	// the peer process identity must never be read from another tree.
 	proc, err := os.OpenRoot("/proc")
 	if err != nil {
-		return nativeProcess{}, rebind()
+		return nativeProcess{}, 0, rebind()
 	}
 	name := strconv.Itoa(pid)
 	info, statErr := proc.Stat(name)
 	data, readErr := proc.ReadFile(name + "/stat")
 	if closeErr := proc.Close(); statErr != nil || readErr != nil || closeErr != nil || len(data) > 4096 {
-		return nativeProcess{}, rebind()
+		return nativeProcess{}, 0, rebind()
 	}
 	owner, ok := info.Sys().(*syscall.Stat_t)
 	if !ok {
-		return nativeProcess{}, rebind()
+		return nativeProcess{}, 0, rebind()
 	}
 	// The executable name is parenthesized and can itself contain whitespace or
 	// parentheses. Field 22 is starttime; fields after the last ')' start at 3.
 	end := strings.LastIndexByte(string(data), ')')
 	if end < 0 {
-		return nativeProcess{}, rebind()
+		return nativeProcess{}, 0, rebind()
 	}
 	fields := strings.Fields(string(data[end+1:]))
 	if len(fields) < 20 {
-		return nativeProcess{}, rebind()
+		return nativeProcess{}, 0, rebind()
 	}
 	started, err := strconv.ParseUint(fields[19], 10, 64)
 	if err != nil || started == 0 {
-		return nativeProcess{}, rebind()
+		return nativeProcess{}, 0, rebind()
 	}
-	return nativeProcess{pid: pid, uid: owner.Uid, started: started}, nil
+	parent, err := strconv.Atoi(fields[1])
+	if err != nil || parent < 0 {
+		return nativeProcess{}, 0, rebind()
+	}
+	return nativeProcess{pid: pid, uid: owner.Uid, started: started}, parent, nil
 }

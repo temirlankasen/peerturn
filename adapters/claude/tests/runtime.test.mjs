@@ -3,10 +3,11 @@ import test from 'node:test';
 
 import { harness } from './harness.mjs';
 
-test('an unknown Claude build never launches the adapter', async () => {
-  const h = await harness('2.1.307');
-  assert.equal(h.launched.length, 0);
-  assert.ok(h.statuses.some(value => value.includes('runtime_unsupported')));
+test('a newer Claude build forwards its actual version for central helper policy', async () => {
+  const h = await harness('2.1.308');
+  assert.equal(h.launched.length, 1);
+  assert.equal(h.launched[0][h.launched[0].indexOf('--runtime-version') + 1], '2.1.308');
+  assert.equal(h.submitted.length, 0);
 });
 
 test('inform updates a count without a prompt, model wake, or peer body UI', async () => {
@@ -49,7 +50,7 @@ test('a bind nonce is consumed before the model and confirmed with the current U
   }, async () => { throw new Error('Handshake reached the model'); });
   assert.deepEqual(outcome, { consumed: 'PeerTurn binding challenge' });
   const request = h.requests.find(value => value.url.endsWith('/confirm'));
-  assert.deepEqual(JSON.parse(request.init.body), { nonce: 'b'.repeat(64), session: 'session-a' });
+  assert.deepEqual(JSON.parse(request.init.body), { nonce: 'b'.repeat(64), session: '11111111-1111-4111-8111-111111111111' });
 });
 
 test('normal native peer messages pass through unchanged', async () => {

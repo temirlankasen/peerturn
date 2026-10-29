@@ -2,9 +2,45 @@
 
 Notable user-facing changes will be recorded here, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioned releases follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+## [0.1.2-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.2-preview) — 2026-10-29
+
+### Changed
+
+- Claude Code >=2.1.306 and Codex CLI >=0.163.0 are accepted without an upper
+  version bound. Newer versions retain existing functionality and report
+  `newer_unverified`; ask remains separately qualified and verified-only.
+- Setup, status and doctor distinguish the selected executable from the actual
+  running runtime, verification evidence and available capabilities.
+- Bounded, model-free contract checks report `runtime_contract_changed` with
+  recovery instructions. Unknown/below-minimum versions fail before setup or
+  adapter effects; contract failures do not restrict the owner's normal turn.
+
+### Added
+
+- Six-hour, main-only runtime discovery and disposable Linux/macOS qualification,
+  with packaged evidence promotion, protected-main bot PR fallback and signed
+  patch-release dispatch. Offline tests do not establish a successful live run.
+- A 72-hour upstream-age gate before verified promotion, main-only Environment
+  secrets and pinned upstream identities. Qualification code can access its
+  dedicated provider key; only server-side quotas bound spend and exposure.
+  See [operation](docs/operators/runtime-qualification.md).
+
+### Security
+
+- The daemon verifies Claude caller ancestry using kernel process credentials
+  before exposing an already-confirmed native binding epoch.
+- Verification records are platform/profile-specific; newer builds do not
+  inherit an older runtime's ask qualification.
+- Qualification, CI and releases do not restore shared Actions caches. Release
+  jobs download clean modules and verify them before building signed artifacts.
+- Ambiguous native submissions remain `in_doubt`, without automatic replay.
+  Known-bad information arrives through PeerTurn updates, not a network manifest.
+
 ## [0.1.1-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.1-preview) — 2026-10-23
 
-Prepared for release; publication requires the owner's approval.
+Published on 24 October 2026; the original release preparation date is retained above.
 
 ### Added
 

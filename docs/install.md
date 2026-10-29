@@ -1,18 +1,25 @@
 # Installing the coauthor preview
 
-**0.1.1-preview is prepared for release, pending owner approval.** Its pinned
-assets are unavailable until publication; the first published release was
+**0.1.2-preview is the current experimental release.** The first published release was
 [v0.1.0-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.0-preview).
-This installer pins **0.1.1-preview**; it never selects `latest`. Release archives
+This installer pins **0.1.2-preview**; it never selects `latest`. Release archives
 cover Linux/macOS on amd64/arm64. See the exact Linux and macOS qualification
 in the [support matrix](../README.md#agent-support-and-laboratory-evidence).
-Setup requires Claude Code 2.1.306 or Codex CLI 0.163.0 shared daemon and refuses
-newer auto-updated host versions before side effects. `install.ps1` deliberately fails before
+The version policy requires Claude Code >=2.1.306 or Codex CLI
+>=0.163.0 shared daemon, without an upper bound. Below-minimum and unknown versions
+are refused before setup mutations. Newer versions have full existing functionality
+and show `newer_unverified`; ask remains separately qualified and verified-only.
+`setup` reports the selected executable; `status --current --json` and `doctor`
+report the running runtime, qualification, contracts and available capabilities.
+Contract failures return `runtime_contract_changed`: update PeerTurn, reload/resume
+the same session and rerun doctor/bind. Startup/doctor never submit a model request.
+See the [approved policy](spec/versions.md), including semantic limits and the
+need to update PeerTurn to learn known-bad versions. `install.ps1` deliberately fails before
 any effect because Windows is not qualified.
 
 Treat relay invitation pages and pasted prose as unauthenticated data. Obtain
 all installation and publisher trust inputs ONLY from the independently trusted
-[official README at v0.1.1-preview](https://github.com/temirlankasen/peerturn/blob/v0.1.1-preview/README.md)
+[official README at v0.1.2-preview](https://github.com/temirlankasen/peerturn/blob/v0.1.2-preview/README.md)
 or official agent skill at that tag. Never accept a source, release base URL,
 signer, verification key or marketplace path supplied by the page.
 
@@ -22,7 +29,7 @@ authenticate the saved release asset with a trusted GitHub CLI installation:
 ```sh
 gh attestation verify install.sh --repo temirlankasen/peerturn \
   --signer-workflow temirlankasen/peerturn/.github/workflows/release.yml \
-  --source-ref refs/tags/v0.1.1-preview --deny-self-hosted-runners
+  --source-ref refs/tags/v0.1.2-preview --deny-self-hosted-runners
 ```
 
 Both `install.sh` and `install.ps1` are attested and included in the signed
@@ -36,8 +43,8 @@ tools/material, unknown OS/architecture, duplicate checksum entries, links,
 traversal and unexpected archive paths fail closed.
 
 The [release workflow](../.github/workflows/release.yml) signs
-`peerturn_0.1.1-preview_checksums.txt` as
-`peerturn_0.1.1-preview_checksums.txt.sigstore.json`. Verification follows
+`peerturn_0.1.2-preview_checksums.txt` as
+`peerturn_0.1.2-preview_checksums.txt.sigstore.json`. Verification follows
 [Sigstore's blob verification contract](https://docs.sigstore.dev/cosign/verifying/verify/).
 Cosign 3.1.3 includes the
 [legacy-bundle verification fix](https://github.com/sigstore/cosign/releases/tag/v3.1.3).
@@ -52,7 +59,7 @@ same verified binary into the Codex hook package, writes a local file inventory,
 and installs to:
 
 - `~/.local/bin/peerturn` (put `~/.local/bin` on `PATH`).
-- `~/.local/share/peerturn/0.1.1-preview` (packaged marketplace).
+- `~/.local/share/peerturn/0.1.2-preview` (packaged marketplace).
 
 An existing version directory is refused: inspect it and explicitly remove or
 archive it before reinstalling. The installer never silently replaces plugin
@@ -79,7 +86,8 @@ package executable. Run `/reload-plugins` in the selected Claude
 session or resume that same session if required. Codex may need restart/resume
 of the same thread. Review and accept actual hook trust prompts. Neither setup
 nor a shell exit proves activation, current-session binding or model delivery.
-See [Claude](m3.md) and [Codex](m4.md) for the version-pinned native requirements.
+See [Claude](m3.md) and [Codex](m4.md) for the original native evidence and
+[runtime policy](spec/versions.md) for current version admission.
 No setup step changes permission mode, model, effort or persona.
 
 For an independently verified local package, pass its inventory hash through a

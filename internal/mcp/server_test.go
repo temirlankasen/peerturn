@@ -10,14 +10,22 @@ import (
 	"time"
 
 	"github.com/temirlankasen/peerturn/internal/localipc"
+	"github.com/temirlankasen/peerturn/internal/runtimepolicy"
 )
 
-type recordingCaller struct{ requests []localipc.Request }
+type recordingCaller struct {
+	requests       []localipc.Request
+	runtimeVersion string
+}
 
 func (c *recordingCaller) Call(_ context.Context, request localipc.Request) (json.RawMessage, error) {
 	c.requests = append(c.requests, request)
 	if request.Method == "hello" {
-		return json.RawMessage(`{"capability":"bound-token"}`), nil
+		version := c.runtimeVersion
+		if version == "" {
+			version = runtimepolicy.Evaluate(runtimepolicy.Codex, "").Minimum
+		}
+		return json.Marshal(map[string]string{"capability": "bound-token", "runtime_version": version})
 	}
 	return json.RawMessage(`{"state":"stored","model_input":false}`), nil
 }

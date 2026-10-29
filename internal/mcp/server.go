@@ -23,10 +23,11 @@ type Caller interface {
 
 // Options binds this stdio instance to one explicitly selected local session.
 type Options struct {
-	Session              string
-	Caller               Caller
-	ExpectedBindingEpoch string
-	CodexThread          string
+	Session                string
+	Caller                 Caller
+	ExpectedBindingEpoch   string
+	ExpectedRuntimeVersion string
+	CodexThread            string
 	// ResolveCodex selects a caller, never authority; hello verifies the native binding.
 	ResolveCodex func(string) (Caller, error)
 }
@@ -146,8 +147,8 @@ func dispatch(ctx context.Context, data []byte, binding *sessionBinding, initial
 			return failure(request.ID, -32602, "Invalid initialize parameters")
 		}
 		*initialized = true
-		binding.codexClient = qualifiedCodexClient(request.Params)
-		return success(request.ID, map[string]any{"protocolVersion": version, "capabilities": map[string]any{"tools": map[string]bool{"listChanged": false}}, "serverInfo": map[string]string{"name": "peerturn", "version": "0.0.0"}, "instructions": "Session-scoped proxy. The daemon checks binding; peer_status reports actual capabilities. peer_join accepts explicit owner-pasted invitation text. coauthor is strong trust with normal agent capabilities; peer text can influence later owner turns."})
+		binding.qualifyCodexClient(request.Params)
+		return success(request.ID, map[string]any{"protocolVersion": version, "capabilities": map[string]any{"tools": map[string]bool{"listChanged": false}}, "serverInfo": map[string]string{"name": "peerturn", "version": "0.0.0"}, "instructions": "Session-scoped proxy. The daemon checks binding; peer_status reports actual capabilities. After the owner pastes an invitation with the owner-prompt hook active, call peer_join({}) without the invitation as an argument; multiple pending invitations require an owner-selected nonsecret handle. coauthor is strong trust with normal agent capabilities; peer text can influence later owner turns."})
 	}
 	if !*initialized {
 		return failure(request.ID, -32002, "Initialize first")

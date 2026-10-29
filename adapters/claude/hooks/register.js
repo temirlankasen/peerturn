@@ -1,23 +1,68 @@
-const VERSION = '2.1.306';
 const MAX_FRAME = 262144;
 const STARTUP_FAILURES = new Set(['runtime_unsupported', 'daemon_unavailable',
-  'needs_rebind', 'permission_denied', 'peer_identity_failed', 'auth_failed', 'adapter_unavailable']);
+  'needs_rebind', 'permission_denied', 'peer_identity_failed', 'auth_failed', 'adapter_unavailable',
+  'unsupported_version', 'runtime_version_unknown', 'runtime_contract_changed']);
+const RECOVERY = 'Update PeerTurn, reload/resume this session and rerun doctor / bind.';
+const ALL_CAPABILITIES = ['coauthor', 'owner_invitation', 'inform_boundary', 'inform_notification'];
 let runtime = null;
 let working = null;
 let turnGeneration = 0;
-
 function object(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
-
 function identifier(value) {
   return typeof value === 'string' && /^[A-Za-z0-9._:-]{1,160}$/.test(value);
 }
-
-async function status($, text) {
-  try { await $.ui.status(text); } catch { /* UI failure does not affect the owner. */ }
+async function runtimeFact($, read) {
+  try {
+    const value = Promise.resolve(read()).catch(() => undefined);
+    return await Promise.race([value, $.clock.sleep(1000).then(() => undefined)]);
+  } catch { return undefined; }
 }
-
+// This inspection never submits a prompt, sends a binding frame or starts a helper.
+// Version admission belongs to the Go helper's central runtime policy.
+export async function inspectRuntimeContract($) {
+  const failures = [];
+  const fail = (contract_id, affected_capabilities) => failures.push({
+    code: 'runtime_contract_changed', runtime: 'claude', contract_id, phase: 'startup',
+    affected_capabilities, action: RECOVERY,
+  });
+  for (const [group, member, capabilities] of [
+    ['session', 'id', ALL_CAPABILITIES], ['session', 'version', ALL_CAPABILITIES],
+    ['process', 'spawn', ALL_CAPABILITIES], ['http', 'fetch', ALL_CAPABILITIES],
+    ['clock', 'every', ALL_CAPABILITIES], ['clock', 'sleep', ALL_CAPABILITIES],
+    ['env', 'get', ALL_CAPABILITIES], ['prompt', 'submit', ['coauthor']],
+    ['ui', 'toast', ['inform_notification']], ['ui', 'status', ['inform_notification']],
+  ]) if (typeof $?.[group]?.[member] !== 'function') fail('claude.' + group + '.' + member, capabilities);
+  const [session, version] = await Promise.all([
+    runtimeFact($, () => $.session.id()), runtimeFact($, () => $.session.version()),
+  ]);
+  if (typeof session !== 'string' || !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(session)) {
+    fail('claude.session.id', ALL_CAPABILITIES);
+  }
+  if (!object(version) || typeof version.version !== 'string' || version.version.length > 160
+      || !version.version.length || /[\u0000-\u0020\u007f]/.test(version.version) || version.version !== version.base) {
+    fail('claude.session.version', ALL_CAPABILITIES);
+  }
+  return { session, version: version?.version, failures, lifecycle: 'not_observed' };
+}
+async function contractChanged($, state, id, capabilities) {
+  for (const capability of capabilities) state.disabled.add(capability);
+  state.contracts.add(id);
+  await status($, 'runtime_contract_changed: ' + id + '. ' + RECOVERY);
+  if (state.active && state.url) {
+    void request($, state, '/contract', { contract_id: id }).then(() => state.contracts.delete(id)).catch(() => {});
+  }
+}
+async function lifecycle($, e) {
+  if (object(e) && (e.agentId === undefined || (typeof e.agentId === 'string' && identifier(e.agentId)))) return true;
+  if (runtime) await contractChanged($, runtime, 'claude.lifecycle', ['coauthor']);
+  working = null;
+  return false;
+}
+async function status($, text) {
+  try { void Promise.resolve($.ui.status(text)).catch(() => {}); } catch { /* UI never holds owner work. */ }
+}
 async function stop($, state, reason) {
   if (state.active && state.url && reason === 'binding_lost') {
     void request($, state, '/close', {}).catch(() => {});
@@ -26,7 +71,6 @@ async function stop($, state, reason) {
   state.timer?.cancel();
   await status($, reason);
 }
-
 async function request($, state, path, body) {
   if (!state.active || !state.url) throw new Error('adapter_unavailable');
   const response = await $.http.fetch(state.url + path, {
@@ -47,7 +91,6 @@ async function request($, state, path, body) {
   }
   return value;
 }
-
 async function retryLater($, state, error, reason = 'adapter_unavailable') {
   if (!state.active) return;
   if (error?.message === 'binding_lost') return stop($, state, 'binding_lost');
@@ -56,23 +99,20 @@ async function retryLater($, state, error, reason = 'adapter_unavailable') {
   state.backoff = 2 ** state.failures;
   await status($, reason);
 }
-
 async function release($, state, frame) {
   await request($, state, '/release', { message_id: frame.message_id, attempt_id: frame.attempt_id });
   state.release = false;
 }
-
 async function confirm($, state, nonce) {
   const session = await $.session.id();
   if (!state.active || session !== state.session) return;
   await request($, state, '/confirm', { nonce, session });
 }
-
 async function confirmLater($, state, nonce) {
   try { await confirm($, state, nonce); } catch { await status($, 'binding_unconfirmed'); }
 }
-
 async function deliver($, state, frame) {
+  if (state.disabled.has('coauthor')) return;
   state.submitting = true;
   let submitted = false;
   try {
@@ -126,12 +166,15 @@ async function deliver($, state, frame) {
     state.submitting = false;
   }
 }
-
 async function poll($, state) {
   if (!state.active || !state.url || state.polling) return;
   if (state.backoff > 0) { state.backoff -= 1; return; }
   state.polling = true;
   try {
+    for (const id of state.contracts) {
+      await request($, state, '/contract', { contract_id: id });
+      state.contracts.delete(id);
+    }
     if (await $.session.id() !== state.session) {
       await stop($, state, 'binding_lost');
       return;
@@ -152,7 +195,7 @@ async function poll($, state) {
       if (frame.inform_pending !== state.inform) {
         state.inform = frame.inform_pending;
         await status($, 'inform: ' + frame.inform_pending + ' pending');
-        if (frame.inform_pending > 0) await $.ui.toast('PeerTurn inbox has pending inform messages');
+        if (frame.inform_pending > 0 && !state.disabled.has('inform_notification')) await $.ui.toast('PeerTurn inbox has pending inform messages');
       }
       return;
     }
@@ -173,14 +216,13 @@ async function poll($, state) {
     state.polling = false;
   }
 }
-
 async function launch($, state) {
   let buffered = '';
   let diagnostic = '';
   try {
     for await (const chunk of $.process.spawn({ argv: [
       state.binary, 'adapter', 'claude', '--native-session', state.session,
-      '--runtime-version', VERSION, '--provider', state.provider,
+      '--runtime-version', state.version, '--provider', state.provider,
     ] })) {
       if (!state.active) return;
       if (chunk.stream === 'stderr' && !state.url) {
@@ -194,7 +236,7 @@ async function launch($, state) {
           diagnostic = diagnostic.slice(newline + 1);
           const code = line.startsWith('peerturn: ') ? line.slice(10) : '';
           if (STARTUP_FAILURES.has(code)) {
-            await stop($, state, code);
+            await stop($, state, code === 'runtime_contract_changed' ? code + ': ' + RECOVERY : code);
             return;
           }
         }
@@ -228,13 +270,13 @@ async function launch($, state) {
     await stop($, state, 'adapter_unavailable');
   }
 }
-
 async function start($, options) {
-  const session = await $.session.id();
-  if (runtime?.active && runtime.session === session) return;
-  const version = await $.session.version();
-  if (version.version !== VERSION || version.base !== VERSION) {
-    await status($, 'runtime_unsupported');
+  if (runtime?.active && await runtimeFact($, () => $.session.id()) === runtime.session) return;
+  const contract = await inspectRuntimeContract($);
+  const { session, version, failures } = contract;
+  if (failures.some(failure => failure.affected_capabilities.length === ALL_CAPABILITIES.length)) {
+    if (runtime) await stop($, runtime, 'binding_lost');
+    for (const failure of failures) await status($, failure.code + ': ' + failure.contract_id + '. ' + failure.action);
     return;
   }
   const binary = options.peerturn_binary;
@@ -245,20 +287,26 @@ async function start($, options) {
   }
   if (runtime) await stop($, runtime, 'binding_lost');
   const state = {
-    session, binary, provider: await $.env.get('ANTHROPIC_BASE_URL') ? 'gateway' : 'anthropic',
+    session, binary, version, provider: await $.env.get('ANTHROPIC_BASE_URL') ? 'gateway' : 'anthropic',
     active: true, url: null, capability: null, polling: false, submitting: false,
     nonce: null, inform: -1, pending: null, timer: null,
     failures: 0, backoff: 0, fenced: false, release: false, report: null,
+    disabled: new Set(), contracts: new Set(),
   };
   runtime = state;
+  for (const failure of failures) await contractChanged($, state, failure.contract_id, failure.affected_capabilities);
   void launch($, state);
 }
-
 async function ownerBoundary($, e) {
+  if (!object(e.origin) || typeof e.origin.kind !== 'string' || (e.context !== undefined && !Array.isArray(e.context))) {
+    if (runtime) await contractChanged($, runtime, 'claude.owner_boundary', ['owner_invitation', 'inform_boundary']);
+    return null;
+  }
   if (e.origin.kind !== 'composer' && e.origin.kind !== 'bridge') return null;
   working = true;
   turnGeneration += 1;
   const state = runtime;
+  if (state?.disabled.has('owner_invitation') || state?.disabled.has('inform_boundary')) return null;
   if (!state?.active || !state.url || typeof e.text !== 'string' || /^\s*\//.test(e.text)) return null;
   // Only the human composer can authorize joining. Bridge/plugin/peer input
   // cannot create an owner invitation, even on an ordinary prompt boundary.
@@ -283,7 +331,6 @@ async function ownerBoundary($, e) {
   if (labels.length > 20 || new Set(labels).size !== labels.length) return null;
   return { state, notice_id: result.notice_id, prompt: { ...e, context: [...(e.context ?? []), result.context] } };
 }
-
 export function register(on, options) {
   on('session.start', async ($, e, next) => {
     try { await start($, options); } catch { await status($, 'adapter_unavailable'); }
@@ -310,7 +357,7 @@ export function register(on, options) {
   });
   on('session.receive', async ($, e, next) => {
     const match = typeof e.text === 'string' && /^<peerturn-bind>([a-f0-9]{64})<\/peerturn-bind>$/.exec(e.text);
-    if (!match || e.origin.kind !== 'peer') return next(e);
+    if (!match || e.origin?.kind !== 'peer') return next(e);
     if (runtime?.active && e.origin.kind === 'peer') {
       if (runtime.url) void confirmLater($, runtime, match[1]);
       else runtime.nonce = match[1];
@@ -318,16 +365,17 @@ export function register(on, options) {
     return { consumed: 'PeerTurn binding challenge' };
   });
   on('turn.start', async ($, e, next) => {
-    if (e.agentId === undefined) {
+    if (await lifecycle($, e) && e.agentId === undefined) {
       working = true;
       turnGeneration += 1;
     }
     return next(e);
   });
   on('turn.complete', async ($, e, next) => {
+    const valid = await lifecycle($, e);
     const generation = turnGeneration;
     const result = await next(e);
-    if (e.agentId === undefined && generation === turnGeneration) working = false;
+    if (valid && e.agentId === undefined && generation === turnGeneration) working = false;
     return result;
   });
   on('session.end', async ($, e, next) => {

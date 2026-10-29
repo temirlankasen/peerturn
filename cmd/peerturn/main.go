@@ -28,14 +28,15 @@ Commands:
   session bind --current  Bind the current Claude Code session using its native socket
   session unbind          Disconnect Claude and invalidate its grants
   delivery resolve ID --sent|--not-sent  Reconcile ambiguous delivery (Codex: --sent only)
-  adapter claude  Private Claude Code 2.1.306 mod helper
+  adapter claude  Private Claude Code mod helper
   relay --config FILE  Run the durable ciphertext relay
   version  Show version and build metadata
   help     Show this help
 
-PeerTurn is pre-alpha. Claude Code 2.1.306 and Codex 0.163.0 shared daemon
+PeerTurn is pre-alpha. Claude Code >=2.1.306 and Codex >=0.163.0 shared daemon
 coauthor/inform adapters are experimental. Ask remains unavailable until isolation
-and budget qualification. Codex embedded TUI is unsupported.
+and budget qualification on verified versions. Newer versions are newer_unverified
+with full existing functionality. Codex embedded TUI is unsupported.
 `
 
 func main() {

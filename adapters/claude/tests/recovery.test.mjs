@@ -125,9 +125,9 @@ test('inform acknowledges only after next accepts fixed notice and never sends o
     return 'accepted';
   });
   assert.equal(outcome, 'accepted');
-  assert.deepEqual(JSON.parse(h.requests.find(r => r.url.endsWith('/owner-boundary')).init.body), { session: 'session-a' });
+  assert.deepEqual(JSON.parse(h.requests.find(r => r.url.endsWith('/owner-boundary')).init.body), { session: '11111111-1111-4111-8111-111111111111' });
   assert.deepEqual(JSON.parse(h.requests.find(r => r.url.endsWith('/boundary-attached')).init.body), {
-    session: 'session-a', notice_id: 'notice-1',
+    session: '11111111-1111-4111-8111-111111111111', notice_id: 'notice-1',
   });
   assert.ok(!h.requests.some(r => r.init.body?.includes(owner.text)));
 });

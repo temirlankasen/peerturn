@@ -10,6 +10,7 @@ import (
 
 	"github.com/temirlankasen/peerturn/internal/claude"
 	"github.com/temirlankasen/peerturn/internal/localipc"
+	"github.com/temirlankasen/peerturn/internal/runtimepolicy"
 )
 
 // ResponderPreflight is local startup evidence, not a persisted authorization.
@@ -42,6 +43,8 @@ func (d *Daemon) checkResponderStartup() ResponderPreflight {
 	}
 	if d.state.NativeSessionID == "" || !d.claudeBinding.Ready(time.Now()) {
 		result.Failures = append(result.Failures, "native_binding_unavailable")
+	} else if _, qualified := runtimepolicy.AskProfile(runtimepolicy.Claude, d.claudeBinding.RuntimeVersion); !qualified {
+		result.Failures = append(result.Failures, "runtime_version_unqualified")
 	}
 	if d.state.ClaudeProject != "" {
 		home, err := os.UserHomeDir()

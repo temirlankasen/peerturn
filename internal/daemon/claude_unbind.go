@@ -47,6 +47,7 @@ func (d *Daemon) claudeUnbind(ctx context.Context) (any, error) {
 	d.cancelAskWorkers()
 	d.capabilities = map[string]capabilityBinding{}
 	d.claudeBinding, d.claudeAttempt, d.claudeNotice = nil, nil, nil
+	d.claudeCurrentProof = nil
 	if err = d.save(); err != nil {
 		return nil, err
 	}
