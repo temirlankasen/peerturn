@@ -3,20 +3,34 @@ package claude
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/temirlankasen/peerturn/internal/runtimepolicy"
 )
 
 const responderLeaf = "11111111-2222-4333-8444-555555555555"
 
-func responderSnapshotFixture(t *testing.T, r *Responder, parents ...string) *ResponderSnapshot {
+// The exported entrypoint takes its platform from the host and offers no override.
+var _ func(ResponderOptions, string) (*ResponderSnapshot, error) = AcquireResponderSnapshot
+
+// Parser and lifecycle fixtures run on the one platform the packaged policy
+// qualifies for restricted ask, so the CI host's architecture cannot change them.
+const (
+	snapshotFixtureOS   = "linux"
+	snapshotFixtureArch = "arm64"
+)
+
+func acquireFixtureSnapshot(options ResponderOptions, parent string) (*ResponderSnapshot, error) {
+	return acquireResponderSnapshot(options, parent, snapshotFixtureOS, snapshotFixtureArch)
+}
+
+func writeSnapshotFixture(t *testing.T, r *Responder, parent string) {
 	t.Helper()
-	parent := responderParent
-	if len(parents) > 0 {
-		parent = parents[0]
-	}
 	directory := filepath.Join(responderConfigDirectory(r.options), "projects", "fixture")
 	if err := os.MkdirAll(directory, 0700); err != nil {
 		t.Fatal(err)
@@ -25,11 +39,28 @@ func responderSnapshotFixture(t *testing.T, r *Responder, parents ...string) *Re
 	if err := os.WriteFile(filepath.Join(directory, parent+".jsonl"), data, 0600); err != nil {
 		t.Fatal(err)
 	}
-	snapshot, err := AcquireResponderSnapshot(r.options, parent)
+}
+
+func responderSnapshotFixture(t *testing.T, r *Responder, parents ...string) *ResponderSnapshot {
+	t.Helper()
+	parent := responderParent
+	if len(parents) > 0 {
+		parent = parents[0]
+	}
+	writeSnapshotFixture(t, r, parent)
+	snapshot, err := acquireFixtureSnapshot(r.options, parent)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return snapshot
+}
+
+func requireSnapshotRefused(t *testing.T, snapshot *ResponderSnapshot, err error) {
+	t.Helper()
+	var failure *ResponderError
+	if snapshot != nil || !errors.As(err, &failure) || failure.Code != SnapshotUnavailable {
+		t.Fatalf("snapshot issued = %t, err = %v; want %s with no snapshot", snapshot != nil, err, SnapshotUnavailable)
+	}
 }
 
 func snapshotFixtureData(session, directory string) []byte {
@@ -75,7 +106,7 @@ func TestResponderSnapshotRejectsMissingTornOrDriftedNativeMetadata(t *testing.T
 		if err := os.WriteFile(snapshot.path, invalid, 0600); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := AcquireResponderSnapshot(r.options, responderParent); err == nil {
+		if _, err := acquireFixtureSnapshot(r.options, responderParent); err == nil {
 			t.Fatal("unqualified conversation accepted")
 		}
 	}
@@ -131,9 +162,49 @@ func TestResponderSnapshotRecognizesPinnedNativeFileHistoryMetadata(t *testing.T
 		if err := os.WriteFile(snapshot.path, append(prefix, data...), 0600); err != nil {
 			t.Fatal(err)
 		}
-		_, err := AcquireResponderSnapshot(r.options, responderParent)
+		_, err := acquireFixtureSnapshot(r.options, responderParent)
 		if (err == nil) != (kind == "file-history-snapshot") {
 			t.Fatalf("native metadata %s: %v", kind, err)
 		}
 	}
+}
+
+func TestResponderSnapshotRefusesUnqualifiedSyntheticPlatform(t *testing.T) {
+	r := responderFixture(t)
+	writeSnapshotFixture(t, r, responderParent)
+	for _, platform := range []struct {
+		os, arch  string
+		qualified bool
+	}{
+		{"linux", "arm64", true},
+		{"darwin", "arm64", true},
+		{"linux", "amd64", false},
+		{"darwin", "amd64", false},
+		{"windows", "arm64", false},
+	} {
+		t.Run(platform.os+"-"+platform.arch, func(t *testing.T) {
+			snapshot, err := acquireResponderSnapshot(r.options, responderParent, platform.os, platform.arch)
+			if platform.qualified {
+				if err != nil || snapshot == nil {
+					t.Fatalf("qualified platform refused: %v", err)
+				}
+				return
+			}
+			requireSnapshotRefused(t, snapshot, err)
+		})
+	}
+}
+
+func TestAcquireResponderSnapshotFollowsActualHostQualification(t *testing.T) {
+	r := responderFixture(t)
+	writeSnapshotFixture(t, r, responderParent)
+	hostQualified := runtimepolicy.EvaluateForPlatform(runtimepolicy.Claude, "2.1.306", runtime.GOOS, runtime.GOARCH).Status == runtimepolicy.Verified
+	snapshot, err := AcquireResponderSnapshot(r.options, responderParent)
+	if hostQualified {
+		if err != nil || snapshot == nil {
+			t.Fatalf("qualified host refused: %v", err)
+		}
+		return
+	}
+	requireSnapshotRefused(t, snapshot, err)
 }

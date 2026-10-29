@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/temirlankasen/peerturn/internal/codec"
@@ -61,6 +62,13 @@ type snapshotRecord struct {
 // AcquireResponderSnapshot reads only the explicitly bound local UUID's native
 // journal. It creates no attachment and does not write or trim owner history.
 func AcquireResponderSnapshot(options ResponderOptions, parent string) (*ResponderSnapshot, error) {
+	return acquireResponderSnapshot(options, parent, runtime.GOOS, runtime.GOARCH)
+}
+
+// acquireResponderSnapshot receives platform facts only from in-package code.
+// Only the exported entrypoint above may pass the running host's, and neither a
+// caller nor a peer can choose which platform qualifies the journal.
+func acquireResponderSnapshot(options ResponderOptions, parent, goos, goarch string) (*ResponderSnapshot, error) {
 	failure := &ResponderError{Code: SnapshotUnavailable}
 	if !validNativeSessionID(parent) || !validResponderPath(options.WorkingDirectory) {
 		return nil, failure
@@ -124,7 +132,7 @@ func AcquireResponderSnapshot(options ResponderOptions, parent string) (*Respond
 	// last-prompt names the pre-generation input in ordinary TUI transcripts.
 	// Resume the completed assistant instead of replaying that unfinished turn.
 	snapshot.leaf = assistant.UUID
-	version := runtimepolicy.Evaluate(runtimepolicy.Claude, assistant.Version)
+	version := runtimepolicy.EvaluateForPlatform(runtimepolicy.Claude, assistant.Version, goos, goarch)
 	if !validNativeSessionID(promptLeaf) || !uuids[promptLeaf] || !validNativeSessionID(snapshot.leaf) ||
 		snapshot.leaf != lastUUID || message.Stop != "end_turn" ||
 		version.Status != runtimepolicy.Verified || version.Version != assistant.Version || assistant.CWD != options.WorkingDirectory ||

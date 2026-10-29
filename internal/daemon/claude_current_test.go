@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -88,7 +89,9 @@ func TestClaudeCurrentAdmitsOnlyStableNativeDescendant(t *testing.T) {
 			if acceptErr != nil {
 				return
 			}
-			if closeErr := conn.Close(); closeErr != nil {
+			// Closing before the credential-only client races Darwin peer credentials.
+			_, readErr := io.Copy(io.Discard, conn)
+			if closeErr := conn.Close(); readErr != nil || closeErr != nil {
 				return
 			}
 		}
@@ -119,6 +122,9 @@ func TestClaudeCurrentAdmitsOnlyStableNativeDescendant(t *testing.T) {
 	_, err = d.Dispatch(t.Context(), localipc.Request{Method: "adapter.confirm", NativeSession: r.NativeSession, Instance: instance, Nonce: challenged["nonce"]})
 	if err != nil {
 		t.Fatal(err)
+	}
+	if d.claudeCurrentProof == nil {
+		t.Fatal("native fixture lost process proof before descendant admission")
 	}
 	server, err := localipc.Listen(dir)
 	if err != nil {

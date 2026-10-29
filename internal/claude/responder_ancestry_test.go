@@ -38,7 +38,7 @@ func TestResponderSnapshotRejectsAmbiguousOrNonterminalLeaf(t *testing.T) {
 			if err := os.WriteFile(snapshot.path, data, 0600); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := AcquireResponderSnapshot(r.options, responderParent); err == nil {
+			if _, err := acquireFixtureSnapshot(r.options, responderParent); err == nil {
 				t.Fatal("ambiguous or nonterminal native parent accepted")
 			}
 		})
@@ -74,7 +74,7 @@ func TestResponderSnapshotSelectsCompletedLeafAfterNativeLastPrompt(t *testing.T
 	if err := os.WriteFile(snapshot.path, []byte(data), 0600); err != nil {
 		t.Fatal(err)
 	}
-	got, err := AcquireResponderSnapshot(r.options, responderParent)
+	got, err := acquireFixtureSnapshot(r.options, responderParent)
 	if err != nil || got.leaf != responderLeaf {
 		t.Fatal("native last-prompt is a pre-generation boundary; expected completed assistant leaf", err)
 	}
@@ -82,7 +82,7 @@ func TestResponderSnapshotSelectsCompletedLeafAfterNativeLastPrompt(t *testing.T
 	if err := os.WriteFile(snapshot.path, []byte(data), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := AcquireResponderSnapshot(r.options, responderParent); err == nil {
+	if _, err := acquireFixtureSnapshot(r.options, responderParent); err == nil {
 		t.Fatal("dangling native parent accepted")
 	}
 }

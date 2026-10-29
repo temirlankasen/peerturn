@@ -15,6 +15,7 @@ import (
 	"github.com/temirlankasen/peerturn/internal/claude"
 	"github.com/temirlankasen/peerturn/internal/envelope"
 	"github.com/temirlankasen/peerturn/internal/protocol"
+	"github.com/temirlankasen/peerturn/internal/runtimepolicy"
 )
 
 const askProcessParent = "11111111-1111-4111-8111-111111111111"
@@ -70,6 +71,14 @@ func askJournal(session, project string, fork bool) []byte {
 }
 
 func askNativeProcess() int {
+	home, err := os.OpenRoot(os.Getenv("HOME"))
+	if err != nil {
+		return 2
+	}
+	err = home.WriteFile("ask-worker-started", []byte("started"), 0600)
+	if closeErr := home.Close(); err != nil || closeErr != nil {
+		return 2
+	}
 	var child string
 	for i, argument := range os.Args {
 		if argument == "--session-id" && i+1 < len(os.Args) {
@@ -118,7 +127,7 @@ func askNativeProcess() int {
 	return 0
 }
 
-func TestAskDaemonStartsRealSupervisedWorker(t *testing.T) {
+func TestAskDaemonRespectsHostQualification(t *testing.T) {
 	a, b := pairedStores(t)
 	if err := a.Close(); err != nil {
 		t.Fatal(err)
@@ -214,8 +223,26 @@ func TestAskDaemonStartsRealSupervisedWorker(t *testing.T) {
 		t.Fatal("supervised worker never settled")
 	}
 	receipt, err := a.db.Receipt(t.Context(), packet.Message.MessageID)
-	if err != nil || receipt.Stage != "reply" {
-		t.Fatal("no supervised reply", receipt, err, "local:", a.lastError)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, qualified := runtimepolicy.AskProfile(runtimepolicy.Claude, a.claudeBinding.RuntimeVersion)
+	_, startedErr := os.Stat(filepath.Join(home, "ask-worker-started"))
+	if qualified {
+		if receipt.Stage != "reply" || startedErr != nil {
+			t.Fatal("no supervised reply", receipt, startedErr, "local:", a.lastError)
+		}
+	} else {
+		if receipt.Stage != "rejected" || receipt.EvidenceKind != "responder_preflight" ||
+			receipt.Outcome != "responder_unavailable" || receipt.ReasonCode != "runtime_unavailable" ||
+			receipt.NativeInputID != "" || receipt.NativeTurnID != "" || !os.IsNotExist(startedErr) {
+			t.Fatal("unqualified host admitted a worker or lost its refusal", receipt, startedErr)
+		}
+		pending, pendingErr := a.db.PendingRoute(t.Context(), envelope.Responder, 1)
+		forks, forksErr := a.db.ListAskForks(t.Context())
+		if pendingErr != nil || forksErr != nil || len(pending) != 0 || len(forks) != 0 {
+			t.Fatal("refused ask remains runnable", pending, forks, pendingErr, forksErr)
+		}
 	}
 	files, err := os.ReadDir(directory)
 	if err != nil || len(files) != 1 || files[0].Name() != askProcessParent+".jsonl" {

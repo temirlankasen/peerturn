@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -134,7 +135,12 @@ func TestResponderBoundsRedactedAnswerExpansion(t *testing.T) {
 
 func TestResponderConcurrencyUsesExactParent(t *testing.T) {
 	r := responderFixture(t)
+	// t.Fatal ends only the calling goroutine, so a fixture failure inside the
+	// worker would strand the wait below; prepare it on the test goroutine.
+	first := responderSnapshotFixture(t, r)
 	started, release := make(chan struct{}), make(chan struct{})
+	releaseRun := sync.OnceFunc(func() { close(release) })
+	t.Cleanup(releaseRun)
 	r.options.AuthorityCheck = func(context.Context) error {
 		close(started)
 		<-release
@@ -142,13 +148,17 @@ func TestResponderConcurrencyUsesExactParent(t *testing.T) {
 	}
 	done := make(chan error, 1)
 	go func() {
-		_, err := r.Run(t.Context(), AskRequest{Snapshot: responderSnapshotFixture(t, r), NativeSessionID: responderParent, FramedQuestion: "success"})
+		_, err := r.Run(t.Context(), AskRequest{Snapshot: first, NativeSessionID: responderParent, FramedQuestion: "success"})
 		done <- err
 	}()
-	<-started
+	select {
+	case <-started:
+	case err := <-done:
+		t.Fatalf("first run ended before holding the parent: %v", err)
+	}
 	result, err := r.Run(t.Context(), AskRequest{Snapshot: responderSnapshotFixture(t, r), NativeSessionID: responderParent, FramedQuestion: "success"})
 	requireResponderFailure(t, result, err, ResponderBusy)
-	close(release)
+	releaseRun()
 	if err := <-done; err != nil {
 		t.Fatal(err)
 	}

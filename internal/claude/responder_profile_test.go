@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 )
@@ -176,7 +177,12 @@ func TestResponderFinalAnswerIsRedacted(t *testing.T) {
 func TestResponderCapacityAndSlotRelease(t *testing.T) {
 	r := responderFixture(t)
 	r.options.MaxConcurrent = 1
+	// t.Fatal ends only the calling goroutine, so a fixture failure inside the
+	// worker would strand the wait below; prepare it on the test goroutine.
+	first := responderSnapshotFixture(t, r)
 	started, release := make(chan struct{}), make(chan struct{})
+	releaseRun := sync.OnceFunc(func() { close(release) })
+	t.Cleanup(releaseRun)
 	var calls atomic.Int32
 	r.options.AuthorityCheck = func(context.Context) error {
 		if calls.Add(1) == 1 {
@@ -187,14 +193,18 @@ func TestResponderCapacityAndSlotRelease(t *testing.T) {
 	}
 	done := make(chan error, 1)
 	go func() {
-		_, err := r.Run(t.Context(), AskRequest{Snapshot: responderSnapshotFixture(t, r), NativeSessionID: responderParent, FramedQuestion: "success"})
+		_, err := r.Run(t.Context(), AskRequest{Snapshot: first, NativeSessionID: responderParent, FramedQuestion: "success"})
 		done <- err
 	}()
-	<-started
+	select {
+	case <-started:
+	case err := <-done:
+		t.Fatalf("first run ended before holding the slot: %v", err)
+	}
 	other := "cccccccc-dddd-4eee-8fff-aaaaaaaaaaaa"
 	result, err := r.Run(t.Context(), AskRequest{Snapshot: responderSnapshotFixture(t, r, other), NativeSessionID: other, FramedQuestion: "success"})
 	requireResponderFailure(t, result, err, ResponderBusy)
-	close(release)
+	releaseRun()
 	if err := <-done; err != nil {
 		t.Fatal(err)
 	}
