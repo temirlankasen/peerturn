@@ -32,6 +32,8 @@ func TestMCPClaudeColdStartDiscoveryNeedsNoBinding(t *testing.T) {
 
 func TestMCPClaudeColdStartRefusesToolsButKeepsConnection(t *testing.T) {
 	mcpRuntimeState(t)
+	// Reach the native binding refusal without relying on macOS's TMPDIR fallback.
+	t.Setenv("XDG_RUNTIME_DIR", t.TempDir())
 	t.Setenv("CLAUDE_CODE_MESSAGING_SOCKET", "/synthetic/not-yet-created-native.sock")
 	input := claudeColdDiscovery() + claudeColdTool("3") +
 		`{"jsonrpc":"2.0","id":4,"method":"ping"}` + "\n"
