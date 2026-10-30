@@ -9,6 +9,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 func TestConnectStartsPrivateDaemonWhenAbsent(t *testing.T) {
@@ -153,11 +155,11 @@ func TestSpawnDetachedRunsInOwnSessionWithoutInheritedStreamsOrSecrets(t *testin
 		}
 		<-exited
 	})
-	sid, err := syscall.Getsid(pid)
+	sid, err := unix.Getsid(pid)
 	if err != nil || sid != pid {
 		t.Fatalf("child must lead its own session: pid=%d sid=%d err=%v", pid, sid, err)
 	}
-	if mine, mineErr := syscall.Getsid(0); mineErr != nil || sid == mine {
+	if mine, mineErr := unix.Getsid(0); mineErr != nil || sid == mine {
 		t.Fatalf("child shares the caller's session: %d", sid)
 	}
 	data, err := readInside(envFile)
