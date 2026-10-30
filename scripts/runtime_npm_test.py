@@ -111,6 +111,10 @@ class RuntimeNpmTests(unittest.TestCase):
                 {key: value for key, value in fixture()["packages"].items() if key})))
             self.assertTrue((root / "npm-tree.json").is_file())
             self.assertEqual(N["verify"](root, VERSION, SRI, json.dumps(frozen)), identity)
+            loaded, packages, installed = N["load"](root, VERSION, SRI, json.dumps(frozen))
+            self.assertEqual(loaded, identity)
+            self.assertEqual(packages, fixture()["packages"])
+            self.assertEqual(installed, {key: value for key, value in packages.items() if key})
             tree = json.loads((root / "npm-tree.json").read_text())
             tree["installed"]["node_modules/fixture-transitive"]["version"] = "1.0.2"
             (root / "npm-tree.json").write_text(json.dumps(tree))

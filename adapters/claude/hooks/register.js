@@ -27,13 +27,6 @@ export async function inspectRuntimeContract($) {
     code: 'runtime_contract_changed', runtime: 'claude', contract_id, phase: 'startup',
     affected_capabilities, action: RECOVERY,
   });
-  for (const [group, member, capabilities] of [
-    ['session', 'id', ALL_CAPABILITIES], ['session', 'version', ALL_CAPABILITIES],
-    ['process', 'spawn', ALL_CAPABILITIES], ['http', 'fetch', ALL_CAPABILITIES],
-    ['clock', 'every', ALL_CAPABILITIES], ['clock', 'sleep', ALL_CAPABILITIES],
-    ['env', 'get', ALL_CAPABILITIES], ['prompt', 'submit', ['coauthor']],
-    ['ui', 'toast', ['inform_notification']], ['ui', 'status', ['inform_notification']],
-  ]) if (typeof $?.[group]?.[member] !== 'function') fail('claude.' + group + '.' + member, capabilities);
   const [session, version] = await Promise.all([
     runtimeFact($, () => $.session.id()), runtimeFact($, () => $.session.version()),
   ]);
@@ -195,7 +188,10 @@ async function poll($, state) {
       if (frame.inform_pending !== state.inform) {
         state.inform = frame.inform_pending;
         await status($, 'inform: ' + frame.inform_pending + ' pending');
-        if (frame.inform_pending > 0 && !state.disabled.has('inform_notification')) await $.ui.toast('PeerTurn inbox has pending inform messages');
+        if (frame.inform_pending > 0 && !state.disabled.has('inform_notification')) {
+          try { await $.ui.toast('PeerTurn inbox has pending inform messages'); }
+          catch { await contractChanged($, state, 'claude.ui.toast', ['inform_notification']); }
+        }
       }
       return;
     }
@@ -286,8 +282,12 @@ async function start($, options) {
     return;
   }
   if (runtime) await stop($, runtime, 'binding_lost');
+  const provider = await runtimeFact($, async () => ({ url: await $.env.get('ANTHROPIC_BASE_URL') }));
+  if (!object(provider) || (provider.url != null && typeof provider.url !== 'string')) {
+    await status($, 'adapter_unavailable'); return;
+  }
   const state = {
-    session, binary, version, provider: await $.env.get('ANTHROPIC_BASE_URL') ? 'gateway' : 'anthropic',
+    session, binary, version, provider: provider.url ? 'gateway' : 'anthropic',
     active: true, url: null, capability: null, polling: false, submitting: false,
     nonce: null, inform: -1, pending: null, timer: null,
     failures: 0, backoff: 0, fenced: false, release: false, report: null,
@@ -334,6 +334,12 @@ async function ownerBoundary($, e) {
 export function register(on, options) {
   on('session.start', async ($, e, next) => {
     try { await start($, options); } catch { await status($, 'adapter_unavailable'); }
+    return next(e);
+  });
+  on('tool.call', async ($, e, next) => {
+    if (e.tool === 'Bash' && e.agentId === undefined && !runtime?.active) {
+      try { await start($, options); } catch { await status($, 'adapter_unavailable'); }
+    }
     return next(e);
   });
   on('prompt.submit', async ($, e, next) => {

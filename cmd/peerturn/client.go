@@ -33,6 +33,9 @@ func runLocal(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if command.name == "mcp" {
 		return runMCP(ctx, command, stdin, stdout, stderr)
 	}
+	if command.name == "connect" {
+		return runConnect(ctx, command, stdout, stderr)
+	}
 	if command.flags["current"] {
 		session, bindErr := currentSession(ctx, command)
 		if bindErr != nil {

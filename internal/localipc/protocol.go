@@ -50,6 +50,7 @@ type Request struct {
 	Outcome             string          `json:"outcome,omitempty"`
 	NativeThread        string          `json:"native_thread,omitempty"`
 	BindingEpoch        string          `json:"binding_epoch,omitempty"`
+	ProfileID           string          `json:"profile_id,omitempty"`
 	OwnerInvites        []string        `json:"owner_invites,omitempty"`
 	WorkingDirectory    string          `json:"working_directory,omitempty"`
 	NativeConfiguration json.RawMessage `json:"native_configuration,omitempty"`
@@ -149,7 +150,7 @@ func (r Request) Validate() error {
 	if (r.InvitationText != "" && r.Method != "join.text") || (r.Method == "join.text" && (strings.TrimSpace(r.InvitationText) == "" || r.Link != "")) {
 		return NewError("invalid_arguments", "rejected")
 	}
-	for _, value := range []string{r.InvitationHandle, r.Method, r.Session, r.Peer, r.Kind, r.MessageID, r.GrantID, r.Scope, r.Capability, r.Cursor, r.NativeSession, r.NativeSocket, r.RuntimeVersion, r.Provider, r.Instance, r.Nonce, r.AttemptID, r.Outcome, r.NativeThread, r.BindingEpoch} {
+	for _, value := range []string{r.InvitationHandle, r.Method, r.Session, r.Peer, r.Kind, r.MessageID, r.GrantID, r.Scope, r.Capability, r.Cursor, r.NativeSession, r.NativeSocket, r.RuntimeVersion, r.Provider, r.Instance, r.Nonce, r.AttemptID, r.Outcome, r.NativeThread, r.BindingEpoch, r.ProfileID} {
 		if len(value) > 512 || !utf8.ValidString(value) || strings.ContainsAny(value, "\x00\r\n") {
 			return NewError("invalid_encoding", "rejected")
 		}

@@ -86,6 +86,8 @@ func ancestorChain(child int, peer nativeProcess, inspect func(int) (nativeProce
 
 func currentResolutionError() error {
 	problem := localipc.NewError("needs_rebind", "needs_rebind")
-	problem.Message = "Run peerturn session bind --current from the selected session's tool child, then rerun status/doctor or reconnect MCP."
+	problem.Message = "Run peerturn session bind --current from the selected session's tool child, " +
+		"then retry the current-session command. " +
+		"Reconnect MCP only if it was already bound to an earlier native epoch."
 	return problem
 }

@@ -27,6 +27,7 @@ import (
 type Options struct {
 	NativeSession, RuntimeVersion, Provider string
 	Client                                  localipc.Client
+	ResolveClient                           func() (localipc.Client, error)
 }
 
 type bridge struct {
@@ -64,6 +65,10 @@ func Serve(ctx context.Context, stdout io.Writer, options Options) error {
 		}
 	}
 	if err = nativeGuard(ctx); err != nil {
+		return err
+	}
+	options.Client, err = readyDaemonClient(ctx, options, nativeGuard)
+	if err != nil {
 		return err
 	}
 	raw, err := options.Client.Call(ctx, localipc.Request{Method: "adapter.open", NativeSession: options.NativeSession, NativeSocket: os.Getenv("CLAUDE_CODE_MESSAGING_SOCKET"), RuntimeVersion: options.RuntimeVersion, Provider: options.Provider, WorkingDirectory: workingDirectory, NativeConfiguration: configuration})

@@ -48,11 +48,13 @@ func runClaudeAdapter(args []string, stdin io.Reader, stdout, stderr io.Writer) 
 	if err := runtimepolicy.Check(runtimepolicy.Claude, values["--runtime-version"]); err != nil {
 		return writeClaudeFailure(stderr, err)
 	}
-	dir, err := daemon.DefaultRuntimeDir()
-	if err != nil {
-		return writeClaudeFailure(stderr, err)
-	}
-	err = claudeipc.Serve(ctx, stdout, claudeipc.Options{NativeSession: values["--native-session"], RuntimeVersion: values["--runtime-version"], Provider: values["--provider"], Client: localipc.Client{RuntimeDir: dir}})
+	err := claudeipc.Serve(ctx, stdout, claudeipc.Options{
+		NativeSession: values["--native-session"], RuntimeVersion: values["--runtime-version"], Provider: values["--provider"],
+		ResolveClient: func() (localipc.Client, error) {
+			dir, err := daemon.DefaultRuntimeDir()
+			return localipc.Client{RuntimeDir: dir}, err
+		},
+	})
 	if err != nil {
 		return writeClaudeFailure(stderr, err)
 	}

@@ -20,12 +20,16 @@ type Options struct {
 	ExpectedRelayKey string
 }
 
+// AdmissionSelfService selects own-publication flow, never relay or E2E authority.
+const AdmissionSelfService = "self_service"
+
 // Discovery describes unsigned public capabilities, not relay-key possession or E2E trust.
 type Discovery struct {
-	WireVersions []int  `json:"wire_versions"`
-	RelayKey     string `json:"relay_key"`
-	BackupEpoch  int64  `json:"backup_epoch"`
-	Limits       Limits `json:"limits"`
+	WireVersions  []int  `json:"wire_versions"`
+	RelayKey      string `json:"relay_key"`
+	BackupEpoch   int64  `json:"backup_epoch"`
+	Limits        Limits `json:"limits"`
+	AdmissionMode string `json:"admission_mode,omitempty"`
 }
 
 // Limits are the relay's public custody and polling bounds.
@@ -73,13 +77,21 @@ type Message struct {
 	Tombstone bool                      `json:"tombstone,omitempty"`
 }
 
-// InviteRequest publishes ciphertext under explicit relay admin authority.
+// InviteRequest publishes ciphertext under the routing key's signature.
 type InviteRequest struct {
-	ID        string        `json:"-"`
-	ProofKey  string        `json:"proof_key"`
-	Packet    invite.Packet `json:"packet"`
-	ExpiresAt int64         `json:"expires_at"`
-	Voucher   string        `json:"voucher,omitempty"`
+	ID                string        `json:"-"`
+	ProofKey          string        `json:"proof_key"`
+	Packet            invite.Packet `json:"packet"`
+	ExpiresAt         int64         `json:"expires_at"`
+	Voucher           string        `json:"voucher,omitempty"`
+	RequireOwnMailbox bool          `json:"require_own_mailbox,omitempty"`
+}
+
+// InviteReceipt is transient publication confirmation, not an E2E grant.
+// A nonempty Mailbox is validated against the request signing key.
+type InviteReceipt struct {
+	ID      string `json:"id"`
+	Mailbox string `json:"mailbox,omitempty"`
 }
 
 // Invite contains no plaintext voucher, policy or claim status for strangers.

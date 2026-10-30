@@ -21,18 +21,21 @@ import (
 const maxConfigBytes = 64 * 1024
 
 // Config contains operator-controlled paths, listeners, authentication and limits.
+// Programmatic callers must start from Defaults; zero admission fields are invalid.
 type Config struct {
-	Listen          string   `toml:"listen"`
-	PrivateListen   string   `toml:"private_listen"`
-	DataDir         string   `toml:"data_dir"`
-	TLSCert         string   `toml:"tls_cert"`
-	TLSKey          string   `toml:"tls_key"`
-	PublicAuthority string   `toml:"public_authority"`
-	ClientIPHeader  string   `toml:"client_ip_header"`
-	TrustedProxies  []string `toml:"trusted_proxies"`
-	AdminKeys       []string `toml:"admin_keys"`
-	BootstrapFile   string   `toml:"bootstrap_file"`
-	Limits          Limits   `toml:"limits"`
+	Listen          string            `toml:"listen"`
+	PrivateListen   string            `toml:"private_listen"`
+	DataDir         string            `toml:"data_dir"`
+	TLSCert         string            `toml:"tls_cert"`
+	TLSKey          string            `toml:"tls_key"`
+	PublicAuthority string            `toml:"public_authority"`
+	ClientIPHeader  string            `toml:"client_ip_header"`
+	TrustedProxies  []string          `toml:"trusted_proxies"`
+	AdminKeys       []string          `toml:"admin_keys"`
+	BootstrapFile   string            `toml:"bootstrap_file"`
+	AdmissionMode   AdmissionMode     `toml:"admission_mode"`
+	SelfService     SelfServiceLimits `toml:"self_service"`
+	Limits          Limits            `toml:"limits"`
 }
 
 // Limits bounds durable storage and request/notification resources.
@@ -66,6 +69,10 @@ func Defaults() Config {
 	return Config{
 		Listen: "127.0.0.1:8443", PrivateListen: "127.0.0.1:9090",
 		ClientIPHeader: "X-Forwarded-For",
+		AdmissionMode:  AdmissionClosed,
+		SelfService: SelfServiceLimits{
+			ActiveInvites: 4, DailyInvites: 20, LifetimeInvites: 128, Inviters: 100,
+		},
 		Limits: Limits{
 			TotalBytes: 1 << 30, MailboxBytes: 32 << 20, MailboxItems: 1000,
 			MetadataItems: 100000, BodyBytes: 135168, CiphertextBytes: 96 << 10,
@@ -168,7 +175,13 @@ func (c Config) Validate() error {
 		}
 		seenKeys[key] = true
 	}
-	return c.Limits.validate()
+	if err := c.Limits.validate(); err != nil {
+		return err
+	}
+	if err := c.AdmissionMode.validate(); err != nil {
+		return err
+	}
+	return c.SelfService.validate()
 }
 
 // TrustedProxyPrefixes returns parsed prefixes after successful validation.

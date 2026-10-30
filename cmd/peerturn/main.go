@@ -19,6 +19,7 @@ const usage = `Usage: peerturn <command>
 Commands:
   init [--codex-current] [--relay-key KEY]  Initialize explicit preview or verified current Codex identity
   setup claude|codex [--path DIR --sha256 PIN]  Install a verified local release plugin
+  connect [--relay URL] [--no-invite] [--json]  From the current Claude session: init once, start the private daemon, verify the binding, print a coauthor link
   daemon start|stop|status  Control the foreground local daemon
   keys isolate [--state-dir DIR]  Rotate a stopped store into the OS keystore
   invite create --current  Create a coauthor invitation for the native session

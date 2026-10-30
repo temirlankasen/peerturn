@@ -19,7 +19,7 @@ type cliCommand struct {
 
 func localCommand(name string) bool {
 	switch name {
-	case "init", "daemon", "invite", "join", "peers", "send", "reply", "inbox", "receipt", "status", "grants", "doctor", "mcp", "session", "adapter", "delivery", "keys":
+	case "init", "daemon", "invite", "join", "peers", "send", "reply", "inbox", "receipt", "status", "grants", "doctor", "mcp", "session", "adapter", "delivery", "keys", "connect":
 		return true
 	case "codex-hook":
 		return true
@@ -91,6 +91,7 @@ var commandFlags = map[string]map[string]bool{
 	"grants revoke":    {"session": false, "current": true, "grant": false, "json": true},
 	"doctor":           {"session": false, "current": true, "json": true},
 	"mcp":              {"session": false, "current": true},
+	"connect":          {"relay": false, "no-invite": true, "json": true},
 }
 
 func invalidArguments() error { return localipc.NewError("invalid_arguments", "rejected") }

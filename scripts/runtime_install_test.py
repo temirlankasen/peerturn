@@ -6,6 +6,7 @@ import io
 import json
 import os
 from pathlib import Path
+import shutil
 import tarfile
 import tempfile
 import unittest
@@ -17,6 +18,9 @@ ROOT = Path(__file__).resolve().parent.parent
 SPEC = importlib.util.spec_from_file_location("runtime_install", ROOT / "scripts/runtime_install.py")
 INSTALL = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(INSTALL)
+FIXTURE_SPEC = importlib.util.spec_from_file_location("runtime_native_test", ROOT / "scripts/runtime_native_test.py")
+FIXTURE = importlib.util.module_from_spec(FIXTURE_SPEC)
+FIXTURE_SPEC.loader.exec_module(FIXTURE)
 ASSET = "codex-aarch64-apple-darwin.tar.gz"
 
 
@@ -196,20 +200,58 @@ class RuntimeInstallTests(unittest.TestCase):
         download.assert_not_called()
         command.assert_not_called()
 
-    def test_claude_preserves_full_tree_identity_and_checks_binary_version(self):
-        binary = self.root / "node_modules/.bin/claude"
-        binary.parent.mkdir(parents=True)
-        binary.write_bytes(b"synthetic Claude executable")
-        tree = {"npm_lock_sha256": "d" * 64, "npm_tree_sha256": "e" * 64,
-                "npm_installed_tree_sha256": "f" * 64}
-        with patch.dict(INSTALL.N, {"install": MagicMock(return_value=tree)}), patch.object(INSTALL, "command", return_value="2.1.308 (Claude Code)"):
-            result = INSTALL.install("claude", "2.1.308", self.root, self.api, "synthetic-sri", "synthetic-lock")
-        self.assertEqual({key: result[key] for key in tree}, tree)
-        self.assertEqual(result["source_integrity"], "synthetic-sri")
-        (self.root / "bin/claude").unlink()
-        with patch.dict(INSTALL.N, {"install": MagicMock(return_value=tree)}), patch.object(INSTALL, "command", return_value="2.1.309 (Claude Code)"):
-            with self.assertRaisesRegex(ValueError, "version mismatch"):
-                INSTALL.install("claude", "2.1.308", self.root, self.api, "synthetic-sri", "synthetic-lock")
+    def install_claude(self, tree, output=FIXTURE.VERSION + " (Claude Code)"):
+        identity = {"npm_lock_sha256": "d" * 64, "npm_tree_sha256": "e" * 64, "npm_installed_tree_sha256": "f" * 64}
+        self.command = MagicMock(return_value=output)
+        with patch.dict(INSTALL.N, {"install": MagicMock(return_value=identity)}), patch.object(INSTALL, "command", self.command):
+            result = INSTALL.install("claude", FIXTURE.VERSION, self.root, self.api, FIXTURE.SRI, tree.contracts())
+        return result, identity
+
+    def refuse_claude(self, tree, reason="."):
+        with self.assertRaisesRegex(ValueError, reason):
+            self.install_claude(tree)
+        self.command.assert_not_called()
+        self.assertFalse((self.root / "bin/claude").is_symlink())
+
+    def test_claude_links_the_native_binary_and_never_the_ignore_scripts_stub(self):
+        tree = FIXTURE.Tree(self.root)
+        result, identity = self.install_claude(tree)
+        link = self.root / "bin/claude"
+        self.assertEqual(link.resolve(), tree.binary)
+        self.assertEqual((self.root / "node_modules/.bin/claude").resolve().read_bytes(), FIXTURE.PLACEHOLDER)
+        self.command.assert_called_once_with([str(tree.binary), "--version"])
+        self.assertEqual(result, dict(identity, version=FIXTURE.VERSION, source_integrity=FIXTURE.SRI,
+                                      binary_sha256=hashlib.sha256(tree.header).hexdigest()))
+
+    def test_claude_selects_the_package_of_the_linux_host(self):
+        tree = FIXTURE.Tree(self.root, FIXTURE.LINUX)
+        with (patch.object(INSTALL.platform, "system", return_value="Linux"),
+              patch.object(INSTALL.platform, "machine", return_value="x86_64"),
+              patch.object(os, "confstr", return_value="glibc 2.39")):
+            self.install_claude(tree)
+        self.assertEqual((self.root / "bin/claude").resolve(), tree.binary)
+        self.assertTrue(str(tree.binary).endswith("claude-code-linux-x64/claude"))
+
+    def test_claude_stub_without_the_platform_package_is_never_executed(self):
+        tree = FIXTURE.Tree(self.root)
+        shutil.rmtree(tree.package)
+        tree.installed.pop(tree.key)
+        self.refuse_claude(tree, "installed")
+
+    def test_claude_native_binary_of_another_architecture_is_never_executed(self):
+        tree = FIXTURE.Tree(self.root)
+        tree.binary.write_bytes(FIXTURE.macho(FIXTURE.X64))
+        self.refuse_claude(tree, "format")
+
+    def test_claude_platform_package_of_another_version_is_never_executed(self):
+        tree = FIXTURE.Tree(self.root)
+        tree.packages[tree.key]["version"] = "2.1.307"
+        self.refuse_claude(tree, "lock")
+
+    def test_claude_binary_version_must_match_the_pinned_version(self):
+        tree = FIXTURE.Tree(self.root)
+        with self.assertRaisesRegex(ValueError, "version mismatch"):
+            self.install_claude(tree, "2.1.309 (Claude Code)")
 
     def test_contracts_emit_the_same_lock_bundle_and_auditable_tree_artifact(self):
         source = "sha512-" + base64.b64encode(b"a" * 64).decode()

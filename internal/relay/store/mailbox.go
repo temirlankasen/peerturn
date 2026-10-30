@@ -14,6 +14,11 @@ func (s *Store) CreateMailbox(ctx context.Context, mailbox Mailbox, voucher stri
 	}
 	now := s.clockNow()
 	return s.transact(ctx, now, func(tx *sql.Tx) error {
+		if voucher != "" {
+			if err := checkVoucherMailbox(ctx, tx, mailbox, voucher); err != nil {
+				return err
+			}
+		}
 		var existing string
 		err := tx.QueryRowContext(ctx, `SELECT read_key FROM mailboxes WHERE id=?`, mailbox.ID).Scan(&existing)
 		if err == nil {
@@ -27,7 +32,9 @@ func (s *Store) CreateMailbox(ctx context.Context, mailbox Mailbox, voucher stri
 		}
 		if voucher != "" {
 			var allowed int
-			err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM invites WHERE voucher_hash=? AND claim_reader=? AND expires_ns>? AND revoked=0 AND enrolled_mailbox IS NULL`, digest([]byte(voucher)), mailbox.ReadKey, now.UnixNano()).Scan(&allowed)
+			err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM invites i LEFT JOIN relay_inviters r ON r.routing_key=i.inviter_key
+			 WHERE i.voucher_hash=? AND i.claim_reader=? AND i.expires_ns>? AND i.revoked=0
+			 AND COALESCE(r.revoked,0)=0 AND i.enrolled_mailbox IS NULL`, digest([]byte(voucher)), mailbox.ReadKey, now.UnixNano()).Scan(&allowed)
 			if err != nil {
 				return unavailable()
 			}
@@ -51,6 +58,31 @@ func (s *Store) CreateMailbox(ctx context.Context, mailbox Mailbox, voucher stri
 		}
 		return nil
 	})
+}
+
+// Untrusted self-service vouchers cannot allocate a future owner's routing
+// address. Legacy operator-issued vouchers retain their explicit ID namespace.
+func checkVoucherMailbox(ctx context.Context, tx *sql.Tx, mailbox Mailbox, voucher string) error {
+	var owner, claimReader sql.NullString
+	err := tx.QueryRowContext(ctx, `SELECT inviter_key,claim_reader FROM invites WHERE voucher_hash=?`, digest([]byte(voucher))).
+		Scan(&owner, &claimReader)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return unavailable()
+	}
+	if !owner.Valid {
+		return nil
+	}
+	if !claimReader.Valid || claimReader.String != mailbox.ReadKey {
+		return forbidden()
+	}
+	derived, err := routingMailbox(claimReader.String)
+	if err != nil || derived.ID != mailbox.ID {
+		return forbidden()
+	}
+	return nil
 }
 
 // CheckReader verifies the exact routing key bound at enrollment.

@@ -6,10 +6,27 @@ PeerTurn is **pre-alpha**. The protocol core, HPKE/Ed25519 encryption, direction
 
 | Version | Security support |
 | --- | --- |
-| 0.1.2-preview | Best-effort security fixes on the latest preview revision; baseline evidence for Claude Code 2.1.306 / Codex CLI 0.163.0 shared daemon; no production qualification. The [version policy](docs/spec/versions.md) admits all versions at or above these minima with the accepted semantic risk. |
+| 0.1.3-preview candidate | Prepared, not yet published. Best-effort preview fixes once released; source/native validation is separate from signed-install qualification. No production qualification. |
+| 0.1.2-preview | Last published preview; historical Claude first-run loader rejection is fixed in the `.3` candidate. Baseline labs cover Claude 2.1.306 / Codex 0.163.0 shared daemon, not the new candidate's installed assets. |
 | Development branch | Best-effort investigation only; no security support SLA. |
 
 Use the latest preview revision. Older preview snapshots and unqualified host versions have no maintenance guarantee. Signed Linux/macOS archives require SHA-256 and Sigstore bundle verification with cosign >=3.1.3; no Windows release or automatic trust/reload is claimed. A published support window begins only with an explicitly published release. Setup refuses below-minimum or unknown runtime versions before side effects; newer unverified versions retain full existing functionality, with separately verified-only ask. See the [support matrix](README.md#agent-support-and-laboratory-evidence) for exact Linux/macOS qualification and limits.
+
+The prepared `.3` pins require the exact tag's signed assets and attestations;
+their absence is a refusal, not permission to use another source. Integrated
+source CI and Claude 2.1.308 functional checks passed, with a trust-warning
+ordering deviation. Signed install, Haiku, two hosts, owner-pasted join and model
+reply acceptance remain pending.
+
+Relay admission stays closed unless the operator explicitly enables
+[self-service](docs/operators/self-service.md). Schema v2 opens/migrates even in
+closed mode: retain a consistent backup before upgrade; there is no automatic
+downgrade or claimed live migration. Per-key durable quotas are finite and do
+not verify human identity. Discovery hints never grant access or prove mailbox
+ownership: required publication receipts bind the invitation ID and mailbox to
+the verified routing signer. Idle publication confirmation is transient; a new
+claim rechecks relay admission before first effects. Relay revoke/block cannot
+undo effects already admitted or replace recipient-issued grant revocation.
 
 ## Report a vulnerability privately
 
@@ -57,7 +74,10 @@ credentials or inaccessible process metadata close this read-only route with
 origin or executable authenticity; the native helper and OS account remain trusted.
 The Codex match is a selector, not independent proof of human origin: a same-uid
 caller can supply the thread ID and invoke the hook IPC. Label-only MCP sessions
-cannot join. The daemon also recognizes common invitation link forms in delivered
+cannot join. `connect` remains Claude-only; `CODEX_THREAD_ID` alone cannot
+authorize a CLI exact-thread connect fallback. Cold Claude MCP recovery is
+model-free and cannot follow an already pinned epoch into a replacement binding.
+The daemon also recognizes common invitation link forms in delivered
 coauthor, inform and reply content as a best-effort deny signal. It retains only
 claim hashes in per-peer LRU buckets (128 each, 1024 total), evicting the oldest
 entries at either limit; peer volume does not close unrelated owner joining.

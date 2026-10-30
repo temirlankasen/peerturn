@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/temirlankasen/peerturn/internal/relay/auth"
+	"github.com/temirlankasen/peerturn/internal/relay/config"
 	"github.com/temirlankasen/peerturn/internal/relay/store"
 )
 
@@ -76,16 +77,37 @@ func (s *Server) authorizeRequest(ctx context.Context, r *http.Request, key stri
 		a.control = r.Method == "DELETE" || (r.Method == "POST" && strings.HasSuffix(r.URL.Path, "/ack"))
 		return nil
 	}
-	if r.URL.Path == "/v1/mailboxes" && s.admin(key) {
-		return nil
-	}
-	if r.Method == "POST" && r.PathValue("invite") != "" && !strings.HasSuffix(r.URL.Path, "/claims") {
+	if r.Method == "DELETE" && r.PathValue("inviter") != "" {
 		if !s.admin(key) {
 			return auth.ErrForbidden
 		}
+		a.control = true
 		return nil
 	}
-	if r.URL.Path == "/v1/mailboxes" {
+	inviteID := r.PathValue("invite")
+	switch {
+	case inviteID != "" && r.Method == "DELETE":
+		if err := s.db.CheckInviteRevoker(ctx, inviteID, key, s.admin(key)); err != nil {
+			return bindingError(err)
+		}
+		a.control = true
+		return nil
+	case inviteID != "" && r.Method == "POST" && !strings.HasSuffix(r.URL.Path, "/claims"):
+		if s.cfg.AdmissionMode != config.AdmissionSelfService {
+			if err := s.db.CheckInviteOwner(ctx, inviteID, key); err != nil {
+				bound := bindingError(err)
+				if !errors.Is(bound, auth.ErrForbidden) || !s.admin(key) {
+					return bound
+				}
+				return nil
+			}
+			// Retained authors may replay through bootstrap capacity. The store
+			// rechecks exact ownership and terminal fences in the transaction.
+		}
+	case r.URL.Path == "/v1/mailboxes":
+		if s.admin(key) {
+			return nil
+		}
 		var input struct {
 			ReadKey string `json:"read_key"`
 			Voucher string `json:"voucher"`
@@ -93,7 +115,9 @@ func (s *Server) authorizeRequest(ctx context.Context, r *http.Request, key stri
 		if err := json.Unmarshal(a.body, &input); err != nil || input.ReadKey != key || input.Voucher == "" {
 			return auth.ErrForbidden
 		}
-	} else if !strings.HasPrefix(r.URL.Path, "/v1/invites/") {
+	case inviteID != "" && (r.Method == "GET" || r.Method == "POST" && strings.HasSuffix(r.URL.Path, "/claims")):
+		// Discovery and claim use bootstrap capacity, never owner control capacity.
+	default:
 		return auth.ErrForbidden
 	}
 	if !s.allowAnonymous(s.now()) {

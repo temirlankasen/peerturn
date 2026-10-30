@@ -18,28 +18,32 @@ func (s *Store) PutInvite(ctx context.Context, invite Invite) error {
 		voucherHash = digest([]byte(invite.Voucher))
 	}
 	return s.transact(ctx, s.clockNow(), func(tx *sql.Tx) error {
-		var key string
-		var existingDigest, existingVoucher []byte
-		var expires int64
-		err := tx.QueryRowContext(ctx, `SELECT proof_key,digest,expires_ns,voucher_hash FROM invites WHERE id=?`, invite.ID).Scan(&key, &existingDigest, &expires, &existingVoucher)
-		if err == nil {
-			if key == invite.ProofKey && expires == invite.ExpiresAt.UnixNano() && bytes.Equal(existingDigest, digest(invite.Packet)) && bytes.Equal(existingVoucher, voucherHash) {
-				return nil
-			}
-			return conflict()
-		}
-		if !errors.Is(err, sql.ErrNoRows) {
-			return unavailable()
-		}
-		if roomErr := s.room(ctx, tx, len(invite.Packet)); roomErr != nil {
-			return roomErr
-		}
-		_, err = tx.ExecContext(ctx, `INSERT INTO invites(id,proof_key,packet,digest,expires_ns,voucher_hash) VALUES(?,?,?,?,?,?)`, invite.ID, invite.ProofKey, invite.Packet, digest(invite.Packet), invite.ExpiresAt.UnixNano(), voucherHash)
-		if err != nil {
-			return unavailable()
-		}
-		return nil
+		return s.putInvite(ctx, tx, invite, voucherHash)
 	})
+}
+
+func (s *Store) putInvite(ctx context.Context, tx *sql.Tx, invite Invite, voucherHash []byte) error {
+	var key string
+	var existingDigest, existingVoucher []byte
+	var expires int64
+	err := tx.QueryRowContext(ctx, `SELECT proof_key,digest,expires_ns,voucher_hash FROM invites WHERE id=?`, invite.ID).Scan(&key, &existingDigest, &expires, &existingVoucher)
+	if err == nil {
+		if key == invite.ProofKey && expires == invite.ExpiresAt.UnixNano() && bytes.Equal(existingDigest, digest(invite.Packet)) && bytes.Equal(existingVoucher, voucherHash) {
+			return nil
+		}
+		return conflict()
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return unavailable()
+	}
+	if roomErr := s.room(ctx, tx, len(invite.Packet)); roomErr != nil {
+		return roomErr
+	}
+	_, err = tx.ExecContext(ctx, `INSERT INTO invites(id,proof_key,packet,digest,expires_ns,voucher_hash) VALUES(?,?,?,?,?,?)`, invite.ID, invite.ProofKey, invite.Packet, digest(invite.Packet), invite.ExpiresAt.UnixNano(), voucherHash)
+	if err != nil {
+		return unavailable()
+	}
+	return nil
 }
 
 // GetInvite never reveals the enrollment voucher, which is hashed at rest.
@@ -71,7 +75,9 @@ func (s *Store) ClaimInvite(ctx context.Context, id string, claim Claim, now tim
 		var revoked bool
 		var usedID, usedReader sql.NullString
 		var usedDigest []byte
-		err := tx.QueryRowContext(ctx, `SELECT expires_ns,revoked,claim_id,claim_reader,claim_digest FROM invites WHERE id=?`, id).Scan(&expires, &revoked, &usedID, &usedReader, &usedDigest)
+		err := tx.QueryRowContext(ctx, `SELECT i.expires_ns,(i.revoked OR COALESCE(r.revoked,0)),i.claim_id,i.claim_reader,i.claim_digest
+		 FROM invites i LEFT JOIN relay_inviters r ON r.routing_key=i.inviter_key WHERE i.id=?`, id).
+			Scan(&expires, &revoked, &usedID, &usedReader, &usedDigest)
 		if errors.Is(err, sql.ErrNoRows) {
 			return gone()
 		}

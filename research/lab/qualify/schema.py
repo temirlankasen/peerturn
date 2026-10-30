@@ -1,8 +1,9 @@
-"""Model-free check of schemas emitted by the actual installed Codex binary."""
+"""Model-free checks of actual native Claude modules and Codex schemas."""
 import json
 from pathlib import Path
 import sys
 import tempfile
+import runpy
 
 
 HERE = Path(__file__).resolve().parent
@@ -59,6 +60,17 @@ def validate(found):
     return True
 
 
+def validate_claude(binary, version, env, cwd):
+    native = runpy.run_path(str(HERE.parents[2] / "scripts/native_module.py"))
+    plugin = HERE.parents[2] / "adapters/claude"
+    try:
+        native["validate"](binary, version, str(plugin),
+                           lambda argv, timeout: command(argv, env, cwd, timeout=timeout))
+    except ValueError as error:
+        raise Failure("version_mismatch" if str(error) == "version_mismatch" else
+                      "native_contract_changed") from None
+
+
 def main():
     require(len(sys.argv) == 3, "invalid_input")
     runtime, version = sys.argv[1:]
@@ -66,6 +78,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix="pq-schema-", dir="/tmp") as temporary:
         root = Path(temporary).resolve()
         env = child_environment(root / "profile")
+        validate_claude(executable("claude"), pair["claude"], env, root)
         binary = executable("codex")
         require(command([binary, "--version"], env, root, timeout=15).decode().strip() ==
                 "codex-cli " + pair["codex"], "version_mismatch")
@@ -75,9 +88,9 @@ def main():
         validate(schemas(output))
     private_json(Path.cwd() / "qualification-schema.json", {
         "schema": 1, "runtime": runtime, "version": version,
-        "codex_schema": "passed", "claude_native_shapes": "not_tested",
+        "codex_schema": "passed", "claude_module": "passed", "claude_native_shapes": "not_tested",
         "live_semantics": "not_tested"})
-    print("Codex generated schema fields matched; native semantics require live qualification")
+    print("Claude module and Codex schemas validated; native semantics require live qualification")
     return 0
 
 

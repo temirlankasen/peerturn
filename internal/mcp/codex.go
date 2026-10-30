@@ -26,11 +26,17 @@ type sessionBinding struct {
 }
 
 func newSessionBinding(ctx context.Context, options Options) (*sessionBinding, error) {
-	if options.ResolveCodex == nil && (options.Session == "" || options.Caller == nil) {
+	mixedCurrent := options.ResolveCodex != nil || options.CodexThread != "" || options.Session != "" ||
+		options.Caller != nil || options.ExpectedBindingEpoch != "" || options.ExpectedRuntimeVersion != ""
+	if options.ResolveCurrent != nil && mixedCurrent {
+		return nil, localipc.NewError("binding_mismatch", "needs_rebind")
+	}
+	deferred := options.ResolveCodex != nil || options.ResolveCurrent != nil
+	if !deferred && (options.Session == "" || options.Caller == nil) {
 		return nil, localipc.NewError("unbound", "unbound")
 	}
 	s := &sessionBinding{options: options, nativeThread: options.CodexThread}
-	if options.ResolveCodex == nil && options.CodexThread == "" {
+	if !deferred && options.CodexThread == "" {
 		var err error
 		s.bound, err = bindCapability(ctx, options)
 		if err != nil {
@@ -48,6 +54,9 @@ func (s *sessionBinding) Close() error {
 }
 
 func (s *sessionBinding) Call(ctx context.Context, command localipc.Request, meta json.RawMessage) (json.RawMessage, error) {
+	if s.options.ResolveCurrent != nil {
+		return s.callCurrent(ctx, command, meta)
+	}
 	if s.codexFailure != nil {
 		return nil, localipc.RuntimeError(s.codexFailure)
 	}
@@ -112,6 +121,9 @@ func (s *sessionBinding) rememberCodexFailure(err error) {
 }
 
 func (s *sessionBinding) qualifyCodexClient(params json.RawMessage) {
+	if s.options.ResolveCurrent != nil {
+		return
+	}
 	s.codexClient = qualifiedCodexClient(params)
 	var input map[string]json.RawMessage
 	var name, version string

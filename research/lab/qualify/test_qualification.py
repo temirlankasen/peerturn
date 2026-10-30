@@ -273,6 +273,44 @@ class QualificationTests(unittest.TestCase):
         with self.assertRaises(self.core.Failure):
             schema.validate(found)
 
+    def test_claude_module_validation_uses_exact_native_binary_without_model(self):
+        import schema
+        report = {"success": True, "manifest": {"errors": []}, "contents": [{
+            "type": "hooks", "errors": [], "gatingHooks": [
+                {"module": "./register.js", "hook": "prompt.submit"},
+                {"module": "./register.js", "hook": "session.receive"}]}]}
+        with patch.object(schema, "command", side_effect=[
+                b"2.1.308 (Claude Code)\n", json.dumps(report).encode()]) as command:
+            schema.validate_claude("/fixture/claude", "2.1.308", {"HOME": "/fixture/home"}, Path("/fixture"))
+        self.assertEqual(command.call_args_list[0].args[0], ["/fixture/claude", "--version"])
+        self.assertEqual(command.call_args_list[1].args[0], ["/fixture/claude", "plugin", "validate",
+                         str(HERE.parents[2] / "adapters/claude"), "--json"])
+        self.assertEqual(command.call_args_list[1].kwargs["timeout"], 90)
+
+    def test_claude_module_validation_rejects_false_success_and_unscanned_modules(self):
+        import schema
+        good = {"success": True, "manifest": {"errors": []}, "contents": [{
+            "type": "hooks", "errors": [], "gatingHooks": [
+                {"module": "./register.js", "hook": "prompt.submit"},
+                {"module": "./register.js", "hook": "session.receive"}]}]}
+        for name, change in (
+                ("failure", lambda r: r.update(success=False)),
+                ("truthy success", lambda r: r.update(success="true")),
+                ("manifest error", lambda r: r["manifest"].update(errors=[{"message": "invalid"}])),
+                ("computed access", lambda r: r["contents"][0].update(errors=[{"message": "computed member access on $"}])),
+                ("unscanned module", lambda r: r["contents"][0].update(gatingHooks=[])),
+                ("wrong module", lambda r: r["contents"][0]["gatingHooks"][0].update(module="./other.js")),
+                ("missing hooks", lambda r: r.update(contents=[]))):
+            report = json.loads(json.dumps(good))
+            change(report)
+            with self.subTest(name=name), patch.object(schema, "command", side_effect=[
+                    b"2.1.308 (Claude Code)", json.dumps(report).encode()]), self.assertRaises(self.core.Failure):
+                schema.validate_claude("/fixture/claude", "2.1.308", {}, Path("/fixture"))
+        with patch.object(schema, "command", return_value=b"2.1.306 (Claude Code)") as command, \
+                self.assertRaises(self.core.Failure):
+            schema.validate_claude("/fixture/claude", "2.1.308", {}, Path("/fixture"))
+        self.assertEqual(command.call_count, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

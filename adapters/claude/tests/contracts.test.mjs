@@ -7,8 +7,8 @@ const notice = 'PeerTurn: 1 inform message(s) from sender/session. Use peer_inbo
 test('missing clock.sleep is a global prerequisite failure and owner work continues', async () => {
   const h = await harness('2.1.308', false, $ => { $.clock.sleep = undefined; });
   const result = await h.mod.inspectRuntimeContract(h.$);
-  const failure = result.failures.find(value => value.contract_id === 'claude.clock.sleep');
-  assert.deepEqual(failure.affected_capabilities,
+  assert.ok(result.failures.length > 0);
+  for (const failure of result.failures) assert.deepEqual(failure.affected_capabilities,
     ['coauthor', 'owner_invitation', 'inform_boundary', 'inform_notification']);
   assert.equal(h.launched.length, 0);
   const owner = { text: 'Owner request', origin: { kind: 'composer' } };
@@ -18,7 +18,11 @@ test('missing clock.sleep is a global prerequisite failure and owner work contin
 test('runtime inspection is model-free and distinguishes unobserved lifecycle semantics', async () => {
   const h = await harness('2.1.308');
   const before = [h.launched.length, h.requests.length, h.submitted.length];
-  const result = await h.mod.inspectRuntimeContract(h.$);
+  const factsOnly = new Proxy(h.$, { get(target, key) {
+    assert.ok(['session', 'clock'].includes(key), 'inspection must not reflect on effectful APIs');
+    return target[key];
+  } });
+  const result = await h.mod.inspectRuntimeContract(factsOnly);
   assert.equal(result.version, '2.1.308');
   assert.equal(result.failures.length, 0);
   assert.equal(result.lifecycle, 'not_observed');
@@ -29,7 +33,8 @@ for (const change of [
   $ => { $.session.version = async () => null; },
   $ => { $.session.version = async () => ({ version: '2.1.308', base: '2.1.306' }); },
   $ => { $.session.id = async () => 'not-a-uuid'; },
-  $ => { $.http.fetch = undefined; },
+  $ => { $.session.id = async () => { throw new Error('private runtime error'); }; },
+  $ => { $.session.version = undefined; },
 ]) {
   test('malformed core contracts stop admission and preserve owner continuation', async () => {
     const h = await harness('2.1.308', false, change);
@@ -41,7 +46,7 @@ for (const change of [
   });
 }
 
-test('missing submit API closes coauthor while newer runtime owner invitations and notices work', async () => {
+test('a missing submit API reports uncertainty while owner invitations and notices work', async () => {
   const h = await harness('2.1.308', true, $ => { $.prompt.submit = undefined; });
   assert.equal(h.launched.length, 1);
   const fetch = h.$.http.fetch;
@@ -57,8 +62,31 @@ test('missing submit API closes coauthor while newer runtime owner invitations a
   await h.hooks.get('turn.complete')(h.$, {}, async value => value);
   await h.tick();
   assert.equal(h.submitted.length, 0);
-  assert.ok(h.requests.some(value => value.url.endsWith('/contract') && JSON.parse(value.init.body).contract_id === 'claude.prompt.submit'));
+  const results = () => h.requests.filter(value => value.url.endsWith('/result'));
+  assert.equal(results().length, 1);
+  assert.deepEqual(JSON.parse(results()[0].init.body).result, { error: 'submit_failed', in_doubt: true });
+  assert.equal(h.requests.filter(value => value.url.endsWith('/authorize')).length, 1);
+  await h.tick();
+  assert.equal(results().length, 1);
 });
+
+for (const [name, change] of [
+  ['http.fetch', $ => { $.http.fetch = undefined; }],
+  ['process.spawn', $ => { $.process.spawn = undefined; }],
+  ['clock.every', $ => { $.clock.every = undefined; }],
+  ['env.get', $ => { $.env.get = undefined; }],
+]) {
+  test(`a failed ${name} call cannot submit a peer prompt or block owner continuation`, async () => {
+    const h = await harness('2.1.308', true, change);
+    const owner = { text: 'Owner request', origin: { kind: 'composer' } };
+    assert.equal(await h.hooks.get('prompt.submit')(h.$, owner, async value => value), owner);
+    h.inbox.push({ type: 'live', message_id: 'm1', attempt_id: 'a1', text: 'Private peer text' });
+    for (let tick = 0; tick < 8; tick += 1) await h.tick();
+    assert.equal(h.submitted.length, 0);
+    assert.ok(!h.requests.some(value => value.url.endsWith('/authorize')));
+    assert.ok(h.statuses.includes('adapter_unavailable'));
+  });
+}
 
 test('malformed lifecycle closes only coauthor and never blocks the owner', async () => {
   const h = await harness('2.1.308');
@@ -78,6 +106,8 @@ test('missing toast API preserves native coauthor admission', async () => {
   h.inbox.push({ type: 'live', message_id: 'm1', attempt_id: 'a1', text: 'Framed peer text' });
   await h.tick();
   assert.equal(h.submitted.length, 1);
+  assert.ok(h.requests.some(value => value.url.endsWith('/contract')
+    && JSON.parse(value.init.body).contract_id === 'claude.ui.toast'));
 });
 
 test('newer runtimes keep normal coauthor and exact native nonce checks', async () => {

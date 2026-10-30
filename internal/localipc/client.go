@@ -13,7 +13,7 @@ import (
 )
 
 // Client connects only to the private Unix endpoint in RuntimeDir.
-type Client struct{ RuntimeDir, NativeThread, BindingEpoch string }
+type Client struct{ RuntimeDir, NativeThread, BindingEpoch, ProfileID string }
 
 // Call authenticates the daemon uid and exchanges one bounded request.
 func (c Client) Call(ctx context.Context, request Request) (json.RawMessage, error) {
@@ -25,6 +25,12 @@ func (c Client) Call(ctx context.Context, request Request) (json.RawMessage, err
 }
 
 func (c Client) exchange(ctx context.Context, request Request) (_ json.RawMessage, connection *net.UnixConn, result error) {
+	if c.ProfileID != "" {
+		if request.ProfileID != "" && request.ProfileID != c.ProfileID {
+			return nil, nil, NewError("conflict", "rejected")
+		}
+		request.ProfileID = c.ProfileID
+	}
 	if request.Method == "hello" && request.BindingEpoch == "" {
 		request.BindingEpoch = c.BindingEpoch
 	}

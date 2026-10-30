@@ -10,6 +10,7 @@ import (
 	"github.com/temirlankasen/peerturn/internal/codec"
 	ptcrypto "github.com/temirlankasen/peerturn/internal/crypto"
 	"github.com/temirlankasen/peerturn/internal/invite"
+	"github.com/temirlankasen/peerturn/internal/relay/config"
 	"github.com/temirlankasen/peerturn/internal/relay/store"
 )
 
@@ -21,7 +22,11 @@ func (s *Server) discovery(w http.ResponseWriter, r *http.Request) {
 		storageError(w, err)
 		return
 	}
-	reply(w, 200, map[string]any{"wire_versions": []int{1}, "relay_key": s.relayKey, "backup_epoch": epoch, "limits": map[string]any{"ciphertext_bytes": s.cfg.Limits.CiphertextBytes, "batch_items": s.cfg.Limits.BatchItems, "mailbox_items": s.cfg.Limits.MailboxItems, "mailbox_bytes": s.cfg.Limits.MailboxBytes, "long_poll_seconds": s.cfg.Limits.LongPollSeconds}})
+	response := map[string]any{"wire_versions": []int{1}, "relay_key": s.relayKey, "backup_epoch": epoch, "limits": map[string]any{"ciphertext_bytes": s.cfg.Limits.CiphertextBytes, "batch_items": s.cfg.Limits.BatchItems, "mailbox_items": s.cfg.Limits.MailboxItems, "mailbox_bytes": s.cfg.Limits.MailboxBytes, "long_poll_seconds": s.cfg.Limits.LongPollSeconds}}
+	if s.cfg.AdmissionMode == config.AdmissionSelfService {
+		response["admission_mode"] = config.AdmissionSelfService
+	}
+	reply(w, 200, response)
 }
 
 func (s *Server) getInvite(w http.ResponseWriter, r *http.Request, key string, _ []byte) {

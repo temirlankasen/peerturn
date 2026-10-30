@@ -8,11 +8,29 @@ JavaScript mod handles the runtime API and UI. The Go helper owns binding,
 authorization, custody, framing and receipts. Installing the plugin does not
 authorize peers or automatically attach other sessions.
 
+The prepared **0.1.3-preview candidate is not yet published**. It fixes the
+historical v0.1.2-preview native loader rejection with literal `$` API calls,
+adds model-free cold MCP recovery and [Claude-only connect](../../docs/connect.md).
+Use its [pinned installer](../../docs/install.md) only after signed assets and
+attestations exist. Source CI and Claude 2.1.308 functional link/current-MCP/
+reuse/25-second idle checks passed, with a first-warning ordering deviation.
+Signed install, Haiku, two hosts, owner-pasted join and model reply for `.3`
+remain unqualified; native static validation alone cannot establish them.
+
 Configure `peerturn_binary` as the absolute path to the installed executable.
 The repository includes a local marketplace at `.claude-plugin/marketplace.json`;
 the plugin source is `adapters/claude`. Installation and enabling require the
 owner's explicit instruction. Native activation must be checked after reload or
 resume; a successful plugin install alone is not delivery evidence.
+
+Explain coauthor strong trust before identity/access creation. From this selected
+session's tool child, `peerturn connect --relay https://relay.example` initializes
+or reuses its profile, starts or reuses the daemon and proves one native binding
+before returning a link. `--no-invite` prepares a receiver. Default closed relay
+policy remains; only the operator can enable bounded self-service. No account,
+production configuration or ACL change follows from plugin installation.
+Cold MCP tool discovery can precede binding and recover after first confirmation
+on the same connection; an already pinned epoch cannot follow a replacement.
 
 The mod starts `peerturn adapter claude --native-session UUID --runtime-version
 DETECTED_VERSION --provider gateway|anthropic` using an argv array. It forwards
@@ -87,15 +105,27 @@ off without `/close`; unknown submit outcomes require owner reconciliation via
 helpers idle without authenticated requests exit.
 Owner permissions, model, effort and tools are not modified by this plugin.
 
-`inspectRuntimeContract($)` inspects callable APIs, the version object and native
-UUID without starting a helper, submitting a prompt or sending a native frame.
-Lifecycle semantics start as `not_observed`; malformed events close coauthor.
-Missing submit capability leaves owner invitations and notices available; a missing
-toast leaves coauthor available. Contract failures report `runtime_contract_changed`
-with an update / doctor / rebind action and appear in daemon status after helper
-reporting. Hooks always continue owner work. Shape checks cannot qualify origin,
+`inspectRuntimeContract($)` makes bounded calls for the native UUID and version
+object without starting a helper, submitting a prompt or sending a native frame.
+Native `$` APIs must be spelled as literal calls; reflecting on their existence
+prevents the host from loading the entire module. The native validator checks
+static module loading and lists API calls; it does not prove those APIs exist.
+Unavailable or failed calls close the affected capability at runtime. Lifecycle
+semantics start as `not_observed`; malformed events close coauthor. Failed toast
+calls disable only notifications. Exceptions during an authorized submit remain `in_doubt`, without
+automatic resubmission; owner invitations and notices remain independent.
+Observed shape/notification failures report `runtime_contract_changed` with an
+update / doctor / rebind action and appear in daemon status after helper reporting.
+Hooks always continue owner work. Shape checks cannot qualify origin,
 nonce-consumption or lifecycle semantics of a future runtime.
 
-Targeted fixtures: `node --test adapters/claude/tests/*.test.mjs`.
-Validate the actual runtime with `claude plugin validate adapters/claude
---json`. Mock fixtures do not prove live binding, lifecycle or delivery.
+Run `make runtime-module-check` for mocked fixtures. Before accepting an adapter
+change, also run `make runtime-native-module-check CLAUDE=/absolute/path/to/claude CLAUDE_VERSION=2.1.308`
+with the exact runtime version under test. It invokes `claude plugin validate`, which scans the
+module as the native loader does; Node imports cannot replace that check. Runtime
+qualification also requires this validation with the exact installed Claude version.
+The Node suite also has a conservative source-text guard for known computed,
+optional and method-as-value `$` regressions; it is not a complete native parser.
+The Make target and qualification share the same strict version/report verifier.
+Neither validation nor mocked fixtures prove server-side feature availability,
+live binding, lifecycle or delivery.

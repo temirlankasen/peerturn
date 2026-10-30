@@ -8,6 +8,7 @@ import (
 	"crypto/subtle"
 	"crypto/tls"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"io"
 	"mime"
@@ -185,9 +186,19 @@ func (c *Client) checkConsistency(ctx context.Context) error {
 // Discovery compares the optional expected key with unsigned advertised metadata.
 // This does not prove relay-key possession; relay authentication uses TLS/WebPKI.
 func (c *Client) Discovery(ctx context.Context) (Discovery, error) {
-	var d Discovery
-	if err := c.exchange(ctx, "GET", "/.well-known/peerturn", nil, nil, &d, 200, false); err != nil {
-		return d, err
+	var response struct {
+		Discovery
+		AdmissionMode json.RawMessage `json:"admission_mode"`
+	}
+	if err := c.exchange(ctx, "GET", "/.well-known/peerturn", nil, nil, &response, 200, false); err != nil {
+		return Discovery{}, err
+	}
+	d := response.Discovery
+	// Raw presence keeps an omitted legacy hint distinct from empty or null.
+	if response.AdmissionMode != nil {
+		if err := codec.Decode(response.AdmissionMode, maxResponseBytes, &d.AdmissionMode); err != nil || d.AdmissionMode != AdmissionSelfService {
+			return Discovery{}, malformed()
+		}
 	}
 	if !auth.ValidRoutingKey(d.RelayKey) || d.BackupEpoch <= 0 || len(d.WireVersions) == 0 || len(d.WireVersions) > 16 || d.Limits.CiphertextBytes <= 0 || d.Limits.BatchItems <= 0 || d.Limits.MailboxItems <= 0 || d.Limits.MailboxBytes <= 0 || d.Limits.LongPollSeconds < 0 {
 		return Discovery{}, malformed()
@@ -219,6 +230,8 @@ func responseError(response *http.Response) error {
 
 func knownCode(code string) bool {
 	switch code {
+	case "not_found":
+		return true
 	case "invalid", "forbidden", "conflict", "gone", "expired_message", "quota", "storage_unavailable", "invalid_body", "invalid_client_address", "too_large", "rate_limit", "headers_too_large", "backpressure", "unavailable", "unauthorized", "invalid_query", "invalid_ticket", "insecure_transport", "stream_limit", "invalid_schema", "invalid_claim", "invalid_invite_proof", "claim_reader_mismatch", "expired_invite", "unsupported_version", "enrollment_denied", "destination_mismatch", "invalid_cursor", "invalid_expiry", "invalid_limit", "invalid_wait", "poll_limit", "poll_backpressure", "request_cancelled", "shutdown":
 		return true
 	}

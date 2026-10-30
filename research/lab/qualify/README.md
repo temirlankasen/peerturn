@@ -112,10 +112,14 @@ grant revocation and shutdown of recorded process groups. Detached Codex daemons
 are identified through their run-owned native socket's kernel peer PID/UID and
 stable process identity. Teardown failure prevents green.
 
-The schema command has no provider credential. It inspects JSON Schema emitted
-by the installed Codex CLI for consumed initialize, metadata, turn and queue
-fields. Claude native API shapes and all native semantics are explicitly
-`not_tested` by that step. Shape matches never substitute for the paid suite.
+The schema command has no provider credential. It requires the exact installed
+Claude version and runs its native `plugin validate` against the adapter. A false
+success, source/manifest error or report that did not scan the module fails the
+step. It also inspects JSON Schema emitted by the installed Codex CLI for consumed
+initialize, metadata, turn and queue fields. The separate `claude_module` result
+means native static validation only: Claude native API return shapes, server-side
+feature availability and all native semantics remain `not_tested`. Static matches
+never substitute for the paid suite.
 
 Offline tests, including negative proof/parser and credential-boundary checks:
 

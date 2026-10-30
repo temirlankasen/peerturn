@@ -56,7 +56,9 @@ func (s *Store) transactLocked(ctx context.Context, now time.Time, fn func(*sql.
 		}
 	}
 	s.pending = s.stats
-	if err := s.transaction(ctx, fn); err != nil {
+	if err := s.transaction(ctx, func(tx *sql.Tx) error {
+		return s.transactSelfServiceBudget(ctx, tx, fn)
+	}); err != nil {
 		return err
 	}
 	s.stats = s.pending

@@ -46,7 +46,7 @@ func TestMCPCurrentCodexJoinUsesExactNativeBinding(t *testing.T) {
 }
 
 func TestMCPClaudeHostEpoch(t *testing.T) {
-	for _, mode := range []string{"same", "replaced", "missing"} {
+	for _, mode := range []string{"same", "replaced", "missing", "foreign"} {
 		t.Run(mode, func(t *testing.T) { checkMCPCurrentClaudeEpoch(t, mode) })
 	}
 }
@@ -84,7 +84,11 @@ func checkMCPCurrentClaudeEpoch(t *testing.T, mode string) {
 	}
 	input := compact.String() + "\n" + `{"jsonrpc":"2.0","id":1,"method":"tools/list"}` + "\n" +
 		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"peer_status","arguments":{}}}` + "\n"
-	code, output, diagnostic := currentCommandProcess(t, []string{"mcp", "--current"}, input)
+	args := []string{"mcp", "--current"}
+	if mode == "foreign" {
+		args = append(args, "--session", "foreign")
+	}
+	code, output, diagnostic := currentCommandProcess(t, args, input)
 	stdout, stderr := bytes.NewBufferString(output), bytes.NewBufferString(diagnostic)
 	assertCurrentNoNativeBytes(t, nativeDone)
 	requests := calls()
@@ -107,11 +111,13 @@ func checkMCPCurrentClaudeEpoch(t *testing.T, mode string) {
 		return
 	}
 	expectedRequests := 3
-	if mode == "missing" {
+	if mode == "missing" || mode == "foreign" {
 		expectedRequests = 1
 	}
-	if code != 3 || stdout.Len() != 0 || !strings.Contains(stderr.String(), "needs_rebind") || len(requests) != expectedRequests || (mode == "replaced" && requests[2].Method != "bye") {
-		t.Fatalf("startup changed Claude incarnation without fresh proof: code=%d requests=%d stdout=%s stderr=%s", code, len(requests), stdout.String(), stderr.String())
+	refused := strings.Contains(stdout.String(), `"isError":true`) && strings.Contains(stdout.String(), "needs_rebind")
+	wrongRequests := len(requests) != expectedRequests || (mode == "replaced" && requests[2].Method != "bye")
+	if code != 0 || stderr.Len() != 0 || !refused || wrongRequests {
+		t.Fatalf("tool admitted a changed Claude incarnation: code=%d requests=%d stdout=%s stderr=%s", code, len(requests), stdout.String(), stderr.String())
 	}
 }
 
@@ -121,7 +127,7 @@ type rpcCurrentResponse struct {
 }
 
 func TestMCPCurrentBindingFailures(t *testing.T) {
-	for _, mode := range []string{"ambiguous", "foreign", "claude_missing"} {
+	for _, mode := range []string{"ambiguous", "foreign"} {
 		t.Run(mode, func(t *testing.T) {
 			calls := serveHook(t, func(localipc.Request) (any, error) {
 				return map[string]string{"state": "unexpected"}, nil
@@ -135,10 +141,6 @@ func TestMCPCurrentBindingFailures(t *testing.T) {
 				t.Setenv("CLAUDE_CODE_MESSAGING_SOCKET", "/synthetic/native.sock")
 			case "foreign":
 				args = append(args, "--session", "foreign")
-			case "claude_missing":
-				t.Setenv("CODEX_THREAD_ID", "")
-				t.Setenv("CLAUDE_CODE_MESSAGING_SOCKET", "/synthetic/native.sock")
-				t.Setenv("CLAUDE_CODE_MESSAGING_TOKEN", "synthetic-private-native-token")
 			}
 			var stdout, stderr bytes.Buffer
 			code := runInput(args, strings.NewReader(""), &stdout, &stderr)

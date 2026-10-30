@@ -1,4 +1,8 @@
 GO ?= go
+CLAUDE ?= claude
+CLAUDE_VERSION ?=
+TEST_PACKAGES ?= ./...
+TEST_FLAGS ?=
 GOLANGCI_LINT ?= $(GO) run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
 GOVULNCHECK ?= $(GO) run golang.org/x/vuln/cmd/govulncheck@v1.9.0
 ACTIONLINT ?= $(GO) run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
@@ -10,14 +14,14 @@ BUILD_DATE ?= $(shell git log -1 --format=%cI 2>/dev/null || printf unknown)
 VERSION_PACKAGE := github.com/temirlankasen/peerturn/internal/version
 LDFLAGS := -s -w -X $(VERSION_PACKAGE).Version=$(VERSION) -X $(VERSION_PACKAGE).Commit=$(COMMIT) -X $(VERSION_PACKAGE).Date=$(BUILD_DATE)
 
-.PHONY: build test vet lint vuln fmt fmt-check tidy tidy-check workflow-check release-check public-check ci runtime-contract-check runtime-module-check runtime-automation-check
+.PHONY: build test vet lint vuln fmt fmt-check tidy tidy-check workflow-check release-check public-check ci runtime-contract-check runtime-module-check runtime-native-module-check runtime-native-report-check runtime-automation-check
 
 build:
 	mkdir -p bin
 	CGO_ENABLED=0 $(GO) build -trimpath -ldflags '$(LDFLAGS)' -o bin/peerturn ./cmd/peerturn
 
 test:
-	$(GO) test -race ./...
+	$(GO) test -race $(TEST_FLAGS) $(TEST_PACKAGES)
 
 vet:
 	$(GO) vet ./...
@@ -59,6 +63,12 @@ runtime-contract-check: runtime-module-check
 runtime-module-check:
 	node --test adapters/claude/tests/*.test.mjs
 
+runtime-native-module-check:
+	python3 -I -B scripts/native_module.py "$(CLAUDE)" "$(CLAUDE_VERSION)"
+
+runtime-native-report-check:
+	python3 -I -B scripts/native_module_test.py
+
 runtime-automation-check:
 	python3 -I -B scripts/runtime_automation_test.py
 	python3 -I -B scripts/runtime_watch_test.py
@@ -67,6 +77,8 @@ runtime-automation-check:
 	python3 -I -B scripts/runtime_evidence_test.py
 	python3 -I -B scripts/runtime_install_test.py
 	python3 -I -B scripts/runtime_npm_test.py
+	python3 -I -B scripts/runtime_native_test.py
+	python3 -I -B scripts/native_module_test.py
 	python3 -I -B scripts/runtime_report_test.py
 	python3 -I -B research/lab/qualify/test_qualification.py
 

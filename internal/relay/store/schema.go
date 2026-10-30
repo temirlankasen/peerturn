@@ -1,6 +1,6 @@
 package store
 
-const schema = `
+const baseSchema = `
 CREATE TABLE IF NOT EXISTS relay_state (
  singleton INTEGER PRIMARY KEY CHECK(singleton=1), backup_epoch INTEGER NOT NULL CHECK(backup_epoch>0)
 );
@@ -42,13 +42,31 @@ CREATE TABLE IF NOT EXISTS tickets (
  permit_epoch INTEGER NOT NULL, expires_ns INTEGER NOT NULL, consumed INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS tickets_expiry ON tickets(expires_ns);
-PRAGMA user_version=1;
+`
+
+// Fresh databases and v1 upgrades apply the same additive changes in one
+// transaction, leaving legacy invitation ownership unknown rather than guessed.
+const schemaV2 = `
+CREATE TABLE relay_inviters (
+ routing_key TEXT PRIMARY KEY NOT NULL CHECK(length(routing_key)=43),
+ revoked INTEGER NOT NULL DEFAULT 0 CHECK(revoked IN (0,1))
+);
+ALTER TABLE invites ADD COLUMN inviter_key TEXT
+ REFERENCES relay_inviters(routing_key);
+ALTER TABLE invites ADD COLUMN created_ns INTEGER
+ CHECK (
+  (inviter_key IS NULL AND created_ns IS NULL)
+  OR
+  (inviter_key IS NOT NULL AND created_ns IS NOT NULL AND created_ns>0)
+ );
+CREATE INDEX invites_inviter_created ON invites(inviter_key,created_ns);
+PRAGMA user_version=2;
 `
 
 const metadataCount = `SELECT
  (SELECT COUNT(*) FROM mailboxes)+(SELECT COUNT(*) FROM permits)+
  (SELECT COUNT(*) FROM invites)+(SELECT COUNT(*) FROM messages)+
- (SELECT COUNT(*) FROM tickets)`
+ (SELECT COUNT(*) FROM tickets)+(SELECT COUNT(*) FROM relay_inviters)`
 
 const storedBytes = `SELECT
  COALESCE((SELECT SUM(LENGTH(packet)) FROM messages),0)+

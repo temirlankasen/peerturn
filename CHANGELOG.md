@@ -2,7 +2,53 @@
 
 Notable user-facing changes will be recorded here, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioned releases follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## Unreleased — 0.1.3-preview candidate
+
+Prepared release notes; the tag, signed assets and publication are still pending.
+
+### Fixed
+
+- Claude hooks use literal native API calls accepted by the module loader,
+  fixing the first-run loader rejection in the published 0.1.2-preview package.
+- Cold Claude MCP can discover tools before daemon startup or binding, return
+  `needs_rebind`, then recover on the same connection after the first proven
+  binding. Recovery is model-free; an already pinned epoch cannot follow a
+  replacement session.
+- An acknowledged idle invitation polls claim GET without repeating publication
+  POST and exhausting the default eight-nonce budget. Confirmation is transient,
+  bound to exact retained publication material, and set only after validated
+  receipt and required enrollment save. A new claim requires fresh publication
+  revalidation before grants or peer state; failed retries back off without
+  clearing diagnostics or stopping other peers' Fetch/ACK.
+
+### Added
+
+- Claude-only `peerturn connect`: initialize or reuse the selected profile,
+  start or reuse its daemon, prove one native binding and return one invitation.
+  Existing identities, storage policy and binding epochs are preserved;
+  uncertain bind submission remains `in_doubt` without blind replay. Codex keeps
+  its documented shared-daemon setup; an environment thread ID is not authority
+  for a CLI connect fallback.
+- Operator opt-in relay `self_service`, default **closed**, with atomic signed
+  own-mailbox publication, TTL ≤600 seconds and durable per-key quotas
+  (4 active / 20 daily / 128 lifetime invitations; 100 inviter keys by default).
+  Discovery is only a compatibility hint. Signer-derived mailbox receipts,
+  author/admin invitation revoke and durable admin inviter block preserve
+  admission fences; no general public mailbox signup is added.
+
+### Upgrade and qualification limits
+
+- Relay SQLite schema v2 migrates v1 transactionally on open, including in closed
+  mode. Back up consistently before an operator-authorized upgrade and retain a
+  compatible binary. No automatic downgrade, quota reset or live migration is
+  claimed. See [operator policy](docs/operators/self-service.md).
+- Integrated source full CI passed. Claude Code 2.1.308 native checks exercised
+  fresh nonadmin link creation, current MCP recovery, binding reuse and 25 seconds
+  of idle waiting. A trust-warning ordering deviation means this is functional
+  evidence, not full procedural acceptance.
+- Signed-package installation, Haiku, two-host acceptance, owner-pasted join and
+  model reply for this candidate remain pending. Earlier pinned lab results keep
+  their original scope; they do not qualify these new signed assets.
 
 ## [0.1.2-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.2-preview) — 2026-10-29
 

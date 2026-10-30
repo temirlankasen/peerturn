@@ -16,6 +16,7 @@ import urllib.parse
 
 C = runpy.run_path(str(Path(__file__).with_name("runtime_common.py")))
 N = runpy.run_path(str(Path(__file__).with_name("runtime_npm.py")))
+NATIVE = runpy.run_path(str(Path(__file__).with_name("runtime_native.py")))
 
 
 def download(url, hosts, limit=150_000_000):
@@ -67,8 +68,11 @@ def install(runtime, version, root, api, expected=None, npm_lock=None):
     C["version_tuple"](runtime, version)
     if runtime == "claude":
         tree_identity = N["install"](version, expected, npm_lock, root, command)
-        binary = root / "node_modules/.bin/claude"
-        (root / "bin/claude").symlink_to(binary.resolve())
+        # --ignore-scripts leaves node_modules/.bin/claude pointing at a stub; the real executable is
+        # only taken from the pinned platform package, verified before it is ever run.
+        _, packages, installed = N["load"](root, version, expected, npm_lock)
+        binary = NATIVE["select"](root, version, packages, installed)
+        (root / "bin/claude").symlink_to(binary)
         source = expected
     else:
         os_name = {"Linux": "unknown-linux-musl", "Darwin": "apple-darwin"}[platform.system()]

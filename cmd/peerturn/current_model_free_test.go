@@ -56,6 +56,11 @@ func currentCommandProcess(t *testing.T, args []string, input string) (int, stri
 
 func currentNativeFixture(t *testing.T) (string, <-chan error) {
 	t.Helper()
+	return currentNativeProbesFixture(t, 1)
+}
+
+func currentNativeProbesFixture(t *testing.T, count int) (string, <-chan error) {
+	t.Helper()
 	dir := currentNativeDirectory(t)
 	socket := filepath.Join(dir, "native.sock")
 	listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: socket, Net: "unix"})
@@ -70,25 +75,23 @@ func currentNativeFixture(t *testing.T) (string, <-chan error) {
 	if err = os.Chmod(socket, 0600); err != nil {
 		t.Fatal(err)
 	}
-	done := make(chan error, 1)
+	done := make(chan error, count)
 	go func() {
-		connection, acceptErr := listener.AcceptUnix()
-		if acceptErr != nil {
-			done <- acceptErr
-			return
-		}
-		defer func() {
-			if closeErr := connection.Close(); closeErr != nil {
-				t.Error(closeErr)
+		for range count {
+			connection, acceptErr := listener.AcceptUnix()
+			if acceptErr != nil {
+				done <- acceptErr
+				return
 			}
-		}()
-		data := make([]byte, 1)
-		count, readErr := connection.Read(data)
-		if count != 0 || !errors.Is(readErr, io.EOF) {
-			done <- io.ErrUnexpectedEOF
-			return
+			data := make([]byte, 1)
+			n, readErr := connection.Read(data)
+			closeErr := connection.Close()
+			if n != 0 || !errors.Is(readErr, io.EOF) {
+				done <- io.ErrUnexpectedEOF
+				return
+			}
+			done <- closeErr
 		}
-		done <- nil
 	}()
 	return socket, done
 }

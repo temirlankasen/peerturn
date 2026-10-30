@@ -5,6 +5,7 @@ import (
 	"crypto/ed25519"
 	"errors"
 	"slices"
+	"time"
 
 	"github.com/temirlankasen/peerturn/internal/codec"
 	"github.com/temirlankasen/peerturn/internal/fault"
@@ -84,10 +85,17 @@ func (d *Daemon) syncInvites(ctx context.Context) error {
 	var result error
 	for _, i := range d.state.Issued {
 		if i.Terminal {
+			i.publication = invitePublication{}
 			continue
 		}
 		err := d.syncInvite(ctx, i)
+		if err != nil && i.Claim == nil && !i.Sent {
+			i.publication.failed(err, time.Now())
+		}
 		err = d.onboardingResult(&i.Failure, &i.Terminal, err, i.Claim != nil)
+		if i.Terminal || i.Sent || i.Claim != nil {
+			i.publication = invitePublication{}
+		}
 		result = onboardingErrors(result, err)
 		if retryCustody(err) {
 			return result
@@ -98,18 +106,21 @@ func (d *Daemon) syncInvites(ctx context.Context) error {
 
 func (d *Daemon) syncInvite(ctx context.Context, i *issuedInvite) error {
 	if i.Sent {
+		i.publication = invitePublication{}
 		return nil
 	}
 	if i.Claim != nil {
+		i.publication = invitePublication{}
 		return d.finishInvite(ctx, i)
 	}
 	if unixNow() >= i.Descriptor.ExpiresAt {
+		i.publication = invitePublication{}
 		return fault.New(fault.Expired)
 	}
 	if err := d.db.CreateInvite(ctx, i.Descriptor.InviteID, i.Descriptor.ExpiresAt); err != nil {
 		return err
 	}
-	if err := d.publishInvite(ctx, i); err != nil {
+	if err := d.ensureInvitePublished(ctx, i); err != nil {
 		return err
 	}
 	link, err := invite.ParseLink(i.URL)
@@ -130,6 +141,15 @@ func (d *Daemon) syncInvite(ctx context.Context, i *issuedInvite) error {
 	}
 	if remote.ClaimPacket == nil {
 		return nil
+	}
+	// GET can return a claim after publication ownership, mailbox or revocation
+	// changed. Revalidate exact custody before validating a new claim for effects.
+	if err = d.publishInvite(ctx, i); err != nil {
+		return err
+	}
+	if unixNow() >= i.Descriptor.ExpiresAt {
+		i.publication = invitePublication{}
+		return fault.New(fault.Expired)
 	}
 	claim, err := invite.OpenClaim(link, i.Descriptor, *remote.ClaimPacket, d.key, "", 1, unixNow())
 	if err != nil {
@@ -159,6 +179,7 @@ func (d *Daemon) syncInvite(ctx context.Context, i *issuedInvite) error {
 		return err
 	}
 	i.Claim = &claim
+	i.publication = invitePublication{}
 	i.ClaimDigest = digest
 	i.ForwardGrant = forward
 	i.Response = &response

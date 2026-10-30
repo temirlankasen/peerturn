@@ -52,6 +52,7 @@ type Capabilities struct {
 
 // Status distinguishes preview bindings, native probes and observed hook activation.
 type Status struct {
+	ProfileID        string                     `json:"profile_id,omitempty"`
 	RuntimePolicy    *runtimepolicy.Report      `json:"runtime_policy,omitempty"`
 	OwnerInvitations []localipc.OwnerInvitation `json:"owner_invitations,omitempty"`
 	RuntimeVersion   string                     `json:"runtime_version,omitempty"`
@@ -116,6 +117,8 @@ type peerState struct {
 }
 
 type issuedInvite struct {
+	// Runtime scheduling and ACK confirmation never enter the sealed journal.
+	publication  invitePublication
 	Failure      string                    `json:"failure,omitempty"`
 	Terminal     bool                      `json:"terminal"`
 	URL          string                    `json:"url"`

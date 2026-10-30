@@ -18,6 +18,8 @@ func TestDarwinMCPRuntime(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("TMPDIR", base)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(base, "config"))
+	t.Setenv("XDG_STATE_HOME", filepath.Join(base, "state"))
 	dir, err := DefaultRuntimeDir()
 	if err != nil || dir != filepath.Join(base, "peerturn-"+strconv.Itoa(os.Geteuid())) {
 		t.Fatalf("CLI/MCP macOS runtime: %s %v", dir, err)

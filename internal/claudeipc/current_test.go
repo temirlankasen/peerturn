@@ -148,7 +148,9 @@ func TestBindCurrentResolveTimeout(t *testing.T) {
 	defer cancel()
 	started := time.Now()
 	_, err := BindCurrent(ctx, client)
-	assertCurrentRebind(t, err)
+	if err == nil || localipc.PublicError(err).Code != "in_doubt" {
+		t.Fatalf("unknown native binding outcome was not fenced: %v", err)
+	}
 	if resolves.Load() == 0 || time.Since(started) > time.Second {
 		t.Fatal("resolve was not bounded by the caller deadline")
 	}

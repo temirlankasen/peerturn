@@ -27,8 +27,14 @@ func (d *Daemon) createInvite(ctx context.Context) (any, error) {
 	if d.activeInvites() >= 32 {
 		return nil, fault.New(fault.BudgetExceeded)
 	}
-	if err := d.enroll(ctx, ""); err != nil {
+	mode, err := d.inviteAdmission(ctx)
+	if err != nil {
 		return nil, err
+	}
+	if mode != relayclient.AdmissionSelfService {
+		if err = d.enroll(ctx, ""); err != nil {
+			return nil, err
+		}
 	}
 	now := unixNow()
 	voucher := randomID() + randomID()
@@ -47,6 +53,10 @@ func (d *Daemon) createInvite(ctx context.Context) (any, error) {
 		return nil, err
 	}
 	if err = d.publishInvite(ctx, entry); err != nil {
+		err = d.onboardingResult(&entry.Failure, &entry.Terminal, err, false)
+		if entry.Terminal {
+			entry.publication = invitePublication{}
+		}
 		return nil, err
 	}
 	d.signal()
@@ -57,7 +67,24 @@ func (d *Daemon) createInvite(ctx context.Context) (any, error) {
 	return map[string]any{"url": link.SecretURL(), "expires_at": descriptor.ExpiresAt, "scope": "coauthor", "binding": binding}, nil
 }
 
-func (d *Daemon) publishInvite(ctx context.Context, i *issuedInvite) error {
+func (d *Daemon) inviteAdmission(ctx context.Context) (string, error) {
+	discovery, err := networkCall(ctx, d, func() (relayclient.Discovery, error) { return d.relay.Discovery(ctx) })
+	return discovery.AdmissionMode, err
+}
+
+func (d *Daemon) publishInvite(ctx context.Context, i *issuedInvite) (result error) {
+	publication, err := d.invitePublication(i)
+	if err != nil {
+		return err
+	}
+	if err = publication.deferred(time.Now()); err != nil {
+		return err
+	}
+	defer func() {
+		if result != nil {
+			publication.failed(result, time.Now())
+		}
+	}()
 	link, err := invite.ParseLink(i.URL)
 	if err != nil {
 		return err
@@ -66,9 +93,29 @@ func (d *Daemon) publishInvite(ctx context.Context, i *issuedInvite) error {
 	if err != nil {
 		return err
 	}
-	return networkDo(ctx, d, func() error {
-		return d.relay.CreateInvite(ctx, relayclient.InviteRequest{ID: link.ID(), ProofKey: publicKey(key[32:]), Packet: i.Packet, ExpiresAt: i.Descriptor.ExpiresAt, Voucher: i.Descriptor.EnrollmentVoucher})
+	// A retained publication requires proof until enrollment is confirmed, even
+	// after restart or when discovery no longer advertises self-service.
+	requireOwnMailbox := !d.state.Enrolled
+	receipt, err := networkCall(ctx, d, func() (relayclient.InviteReceipt, error) {
+		return d.relay.CreateInviteWithReceipt(ctx, relayclient.InviteRequest{ID: link.ID(), ProofKey: publicKey(key[32:]), Packet: i.Packet, ExpiresAt: i.Descriptor.ExpiresAt, Voucher: i.Descriptor.EnrollmentVoucher, RequireOwnMailbox: requireOwnMailbox})
 	})
+	if err != nil {
+		return err
+	}
+	if requireOwnMailbox {
+		if receipt.Mailbox != d.mailbox() {
+			return &relayclient.Error{Code: "invalid_response"}
+		}
+		d.state.Enrolled = true
+		if err = d.save(); err != nil {
+			return err
+		}
+	}
+	publication.confirmed = true
+	publication.failure = nil
+	publication.retryAt = time.Time{}
+	publication.delay = 0
+	return nil
 }
 
 func inviteProofKey(link invite.Link) (ed25519.PrivateKey, error) {
@@ -241,6 +288,12 @@ func (d *Daemon) peers() []Peer {
 }
 
 func (d *Daemon) sessionCheck(r localipc.Request) error {
+	if r.BindingEpoch != "" && r.Method != "hello" {
+		if !d.claudeBinding.Ready(time.Now()) || r.BindingEpoch != d.claudeBinding.MCPEpoch() ||
+			d.claudeBinding.NativeSessionID != d.state.NativeSessionID {
+			return rebindError()
+		}
+	}
 	if r.Capability == "" && r.Session == "" {
 		switch r.Method {
 		case "status", "doctor", "stop", "delivery.resolve", "session.unbind":

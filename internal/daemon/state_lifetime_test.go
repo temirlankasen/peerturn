@@ -130,6 +130,8 @@ func TestPlatformDefaultsKeepFinalSymlinkUnresolved(t *testing.T) {
 }
 
 func TestRuntimeDefaultFailsClosedWithoutPrivateEnvironment(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
 	t.Setenv("XDG_RUNTIME_DIR", "")
 	t.Setenv("TMPDIR", "")
 	if _, err := DefaultRuntimeDir(); localipc.PublicError(err).Code != "runtime_unavailable" {

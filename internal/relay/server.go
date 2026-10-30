@@ -114,6 +114,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("DELETE /v1/mailboxes/{mailbox}", s.protected(s.deleteMailbox))
 	mux.HandleFunc("GET /v1/invites/{invite}", s.protected(s.getInvite))
 	mux.HandleFunc("POST /v1/invites/{invite}", s.protected(s.createInvite))
+	mux.HandleFunc("DELETE /v1/invites/{invite}", s.protected(s.revokeInvite))
+	mux.HandleFunc("DELETE /v1/admin/inviters/{inviter}", s.protected(s.blockInviter))
 	mux.HandleFunc("POST /v1/invites/{invite}/claims", s.protected(s.claimInvite))
 	mux.HandleFunc("PUT /v1/mailboxes/{mailbox}/permits/{permit}", s.protected(s.putPermit))
 	mux.HandleFunc("DELETE /v1/mailboxes/{mailbox}/permits/{permit}", s.protected(s.revokePermit))
@@ -175,8 +177,27 @@ func failure(w http.ResponseWriter, status int, code string) {
 }
 func storageError(w http.ResponseWriter, err error) {
 	if e, ok := errors.AsType[*store.Error](err); ok {
-		failure(w, e.Status, e.Code)
-		return
+		var status int
+		switch e.Code {
+		case "invalid":
+			status = 400
+		case "forbidden":
+			status = 403
+		case "not_found":
+			status = 404
+		case "conflict", "replay":
+			status = 409
+		case "gone", "expired_message":
+			status = 410
+		case "quota":
+			status = 429
+		case "storage_unavailable":
+			status = 503
+		}
+		if status != 0 && e.Status == status {
+			failure(w, status, e.Code)
+			return
+		}
 	}
 	failure(w, 503, "storage_unavailable")
 }

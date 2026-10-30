@@ -1,6 +1,25 @@
 # Support
 
-PeerTurn is pre-alpha, with **0.1.2-preview as the current experimental release**. The preview implements transport, encryption, grants, onboarding and experimental Claude/Codex adapters with platform-specific acceptance limits. The [support matrix](README.md#agent-support-and-laboratory-evidence) records pinned Linux and macOS 27.0 arm64 qualification and limits. The version policy accepts Claude >=2.1.306 and Codex >=0.163.0 without an upper bound; newer versions retain full existing capabilities with `newer_unverified`. Ask is separately verified-only; receivers remain closed on macOS and Codex. There is no production support SLA.
+PeerTurn is pre-alpha. **0.1.3-preview is a prepared candidate, not yet published**;
+v0.1.2-preview remains the last published release, with its historical Claude
+loader failure fixed in the candidate. The new installer pins are usable once
+the exact signed assets and attestations are published. There is no production
+support SLA.
+
+The preview implements transport, encryption, grants, onboarding and experimental
+Claude/Codex adapters. The [support matrix](README.md#agent-support-and-laboratory-evidence)
+keeps pinned Linux/macOS qualification separate from new source/native results.
+Integrated source CI and Claude 2.1.308 fresh nonadmin link/current-MCP/reuse/
+25-second idle checks passed, with a first-warning ordering deviation. Signed
+installation, Haiku, two-host, owner-pasted join and model reply acceptance for
+`.3` remain pending. A functional check is not full procedural qualification.
+
+The version policy accepts Claude >=2.1.306 and Codex >=0.163.0 without an upper
+bound; newer versions retain existing capabilities with `newer_unverified`.
+Ask is separately verified-only; receivers remain closed on macOS and Codex.
+Claude supports [connect](docs/connect.md); Codex retains its documented setup.
+Relay self-service is operator opt-in, closed by default. A client installer
+does not authorize production, accounts or ACL changes.
 
 Start with the [README](README.md), [documentation index](docs/README.md), and [capability evidence](research/lab/results/l1-platform/README.md). The specification is available in English, with [Russian originals](docs/spec/ru/) preserved.
 

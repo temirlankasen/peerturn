@@ -12,6 +12,9 @@ import (
 )
 
 func TestClientBindingAndStdinValidation(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
+	t.Setenv("XDG_RUNTIME_DIR", t.TempDir())
 	t.Setenv("CLAUDE_CODE_MESSAGING_SOCKET", "")
 	t.Setenv("CLAUDE_CODE_MESSAGING_TOKEN", "")
 	t.Setenv("CODEX_THREAD_ID", "")

@@ -138,21 +138,25 @@ Claude 2.1.306's captured MCP environment includes
 `CLAUDE_CODE_MESSAGING_SOCKET`, `CLAUDE_CODE_MESSAGING_TOKEN` and
 `XDG_RUNTIME_DIR`; the fixture stores the initialize request only, with no
 credentials. An explicit `peerturn session bind --current` uses the native nonce
-round trip. MCP startup and diagnostic/current commands instead read an already
-confirmed binding: the native socket's kernel UID/PID/start identity must match
-an ancestor of the caller, remain stable, and match the live daemon helper's
-socket/epoch. They write no native auth/user frames. The resolved binding epoch
-must match the subsequent daemon capability handshake.
-A missing/unsafe native socket, absent confirmed binding or changed/missing epoch
-fails closed before protocol output. If both messaging variables are absent,
-discovery can initialize without authority, but Claude tool calls fail closed:
-only the qualified Codex profile can use deferred binding. No UUID is taken
-from initialize metadata.
+round trip. MCP discovery (`initialize`, `tools/list` and `ping`) requires neither
+a daemon nor a binding and sends no daemon requests. It grants no authority.
+Before each `tools/call`, MCP reads an already confirmed binding: the native
+socket's kernel UID/PID/start identity must match an ancestor of the caller,
+remain stable, and match the live daemon helper's socket/epoch. Current-session
+diagnostics use the same read-only proof. Neither writes native auth/user frames.
+The first valid proof pins the exact session, epoch and IPC caller before the
+capability handshake, even if that handshake fails. Its returned epoch must match.
+A missing/unsafe native socket, absent binding or changed/missing epoch refuses
+the tool call without closing the discovery connection. No effect or capability
+is admitted without proof. If both messaging variables are absent, only the
+qualified Codex profile can resolve a binding. Initialize metadata supplies no UUID.
 
-Run explicit `peerturn session bind --current` from that session's tool child
-before connecting MCP or using current-session diagnostics. If startup preceded
-binding, reconnect MCP after binding succeeds. Read-only resolution does not use
-or collect the messaging token and cannot establish a new binding.
+Run explicit `peerturn session bind --current` from that session's tool child,
+then call `peer_status` again. Starting MCP before the daemon or binding no longer
+requires reconnecting it. A connection that has already pinned an earlier epoch
+cannot follow a replacement: reconnect that MCP instance after explicit rebind.
+Read-only resolution neither uses nor collects the messaging token and cannot
+establish a new binding.
 
 The regression fixtures exercise explicit challenge separately from read-only
 current resolution, captured initialize, tool listing
@@ -316,14 +320,16 @@ After setup, perform these steps in the **same selected native session**:
 1. Activate the plugin through normal hook trust and reload/resume. Initialize
    the native profile and keep its daemon running under the same private runtime
    environment. For Claude, run `peerturn session bind --current` from its tool child.
-2. Open `/mcp` and reconnect `peerturn` after binding is ready. Reload/resume that
-   same session if the host requires it; do not create a replacement session.
+2. Confirm `peerturn` MCP is connected. If it started before daemon/binding,
+   retry `peer_status` after binding succeeds; no reconnect is required for that
+   first binding. Reload/resume only for native plugin activation or reconnect an
+   MCP instance already pinned to an earlier epoch; do not substitute a session.
 3. Confirm `peer_join` is listed. Call `peer_status` with `{}` and compare its
    `session` to `peerturn status --current --json` run from that session's tool child.
    Require `binding: native_claude` or `binding: codex_shared_daemon` as appropriate,
    and `capabilities.attach_existing: true`.
-4. Tool listing alone is not binding evidence: Codex binds only on its first
-   proven tool call. If native proof is unavailable, report the typed failure
+4. Tool listing alone is not binding evidence: both current-session profiles
+   acquire authority only on a proven tool call. If proof is unavailable, report the typed failure
    and stop agent joining. The owner may use the existing
    [interactive current-session alternative](install.md#human-stdin-and-private-file-alternative):
    run `peerturn join --current --link-stdin` in that selected session's tool

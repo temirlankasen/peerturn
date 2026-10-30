@@ -13,14 +13,34 @@ import (
 )
 
 func runMCP(ctx context.Context, command cliCommand, stdin io.Reader, stdout, stderr io.Writer) int {
+	options, err := mcpOptions(ctx, command)
+	if err != nil {
+		return writeMCPFailure(stderr, err)
+	}
+	if err := mcp.Serve(ctx, stdin, stdout, options); err != nil {
+		return writeMCPFailure(stderr, err)
+	}
+	return 0
+}
+
+func mcpOptions(ctx context.Context, command cliCommand) (mcp.Options, error) {
+	claude := os.Getenv("CLAUDE_CODE_MESSAGING_SOCKET") != "" || os.Getenv("CLAUDE_CODE_MESSAGING_TOKEN") != ""
+	if command.flags["current"] && claude {
+		if os.Getenv("CODEX_THREAD_ID") != "" {
+			return mcp.Options{}, localipc.NewError("binding_mismatch", "needs_rebind")
+		}
+		return mcp.Options{ResolveCurrent: func(ctx context.Context) (mcp.CurrentBinding, error) {
+			return resolveClaudeMCPBinding(ctx, command)
+		}}, nil
+	}
 	var bindingEpoch string
 	if command.flags["current"] {
 		session, epoch, err := currentMCPBinding(ctx, command)
 		if err != nil {
-			return writeMCPFailure(stderr, err)
+			return mcp.Options{}, err
 		}
 		if explicit := command.values["session"]; explicit != "" && explicit != session {
-			return writeMCPFailure(stderr, localipc.NewError("binding_mismatch", "needs_rebind"))
+			return mcp.Options{}, localipc.NewError("binding_mismatch", "needs_rebind")
 		}
 		command.values["session"] = session
 		bindingEpoch = epoch
@@ -34,7 +54,7 @@ func runMCP(ctx context.Context, command cliCommand, stdin io.Reader, stdout, st
 	}
 	deferred := command.flags["current"] && command.values["session"] == ""
 	if command.values["session"] == "" && !deferred {
-		return writeMCPFailure(stderr, localipc.NewError("unbound", "unbound"))
+		return mcp.Options{}, localipc.NewError("unbound", "unbound")
 	}
 	options := mcp.Options{Session: command.values["session"], Caller: &mcpRuntimeCaller{nativeThread: thread, bindingEpoch: bindingEpoch}, ExpectedBindingEpoch: bindingEpoch, CodexThread: thread}
 	if deferred {
@@ -42,10 +62,7 @@ func runMCP(ctx context.Context, command cliCommand, stdin io.Reader, stdout, st
 			return &mcpRuntimeCaller{nativeThread: nativeThread}, nil
 		}
 	}
-	if err := mcp.Serve(ctx, stdin, stdout, options); err != nil {
-		return writeMCPFailure(stderr, err)
-	}
-	return 0
+	return options, nil
 }
 
 type mcpRuntimeCaller struct {

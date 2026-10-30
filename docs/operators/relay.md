@@ -11,6 +11,11 @@ Use Go 1.27.3, including for image builds. This includes the
 `GO-2026-6809`. The Docker builder is pinned by digest and asserts its exact Go
 version before compiling. Local checks and their limits are in [M2 evidence](m2-evidence.md).
 
+The development [self-service admission candidate](self-service.md) keeps closed
+admission by default and proposes a bounded operator opt-in without per-inviter
+administrator entries. It is not in the published v0.1.2-preview; do not infer
+production readiness or permission to migrate/deploy from that guide.
+
 ## Start and isolate
 
 Use Go 1.27.3 and `make build`, or build the image from the repository root:

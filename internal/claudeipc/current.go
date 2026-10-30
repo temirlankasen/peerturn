@@ -14,7 +14,7 @@ import (
 // Startup and diagnostics use ResolveCurrentEvidence, which never writes frames.
 // The exported token is used only on its native socket, never returned or logged.
 func BindCurrent(ctx context.Context, client localipc.Client) (string, error) {
-	evidence, err := bindCurrent(ctx, client)
+	evidence, err := bindCurrent(ctx, client, false)
 	return evidence.Session, err
 }
 
@@ -24,7 +24,7 @@ type CurrentEvidence struct {
 	BindingEpoch string `json:"binding_epoch,omitempty"`
 }
 
-func bindCurrent(ctx context.Context, client localipc.Client) (CurrentEvidence, error) {
+func bindCurrent(ctx context.Context, client localipc.Client, waitForHelper bool) (CurrentEvidence, error) {
 	socket, token := os.Getenv("CLAUDE_CODE_MESSAGING_SOCKET"), os.Getenv("CLAUDE_CODE_MESSAGING_TOKEN")
 	if token == "" || len(token) > 4096 {
 		return CurrentEvidence{}, rebind()
@@ -32,7 +32,7 @@ func bindCurrent(ctx context.Context, client localipc.Client) (CurrentEvidence, 
 	if _, err := nativeSocketInfo(socket); err != nil {
 		return CurrentEvidence{}, rebind()
 	}
-	raw, err := client.Call(ctx, localipc.Request{Method: "adapter.challenge", NativeSocket: socket})
+	raw, err := currentChallenge(ctx, client, socket, waitForHelper)
 	if err != nil {
 		return CurrentEvidence{}, rebind()
 	}
@@ -62,7 +62,7 @@ func bindCurrent(ctx context.Context, client localipc.Client) (CurrentEvidence, 
 	}
 	frame := map[string]any{"type": "user", "message": map[string]string{"role": "user", "content": "<peerturn-bind>" + challenge.Nonce + "</peerturn-bind>"}, "priority": "next"}
 	if err = encoder.Encode(frame); err != nil {
-		return CurrentEvidence{}, rebind()
+		return CurrentEvidence{}, bindingInDoubt()
 	}
 	resolveCtx, cancel := context.WithTimeout(ctx, 8*time.Second)
 	defer cancel()
@@ -74,7 +74,7 @@ func bindCurrent(ctx context.Context, client localipc.Client) (CurrentEvidence, 
 			var resolved CurrentEvidence
 			current, peerErr := processIdentity(peer.pid)
 			if peerErr != nil || current != peer {
-				return CurrentEvidence{}, rebind()
+				return CurrentEvidence{}, bindingInDoubt()
 			}
 			if json.Unmarshal(raw, &resolved) == nil && resolved.Session != "" {
 				return resolved, nil
@@ -82,7 +82,7 @@ func bindCurrent(ctx context.Context, client localipc.Client) (CurrentEvidence, 
 		}
 		select {
 		case <-resolveCtx.Done():
-			return CurrentEvidence{}, rebind()
+			return CurrentEvidence{}, bindingInDoubt()
 		case <-ticker.C:
 		}
 	}

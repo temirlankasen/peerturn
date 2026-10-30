@@ -71,7 +71,7 @@ func Open(path string, limits Limits) (*Store, error) {
 	s := &Store{db: db, limits: limits, now: time.Now, dataBudget: pages*4096/2 - (64 << 10)}
 	capacity := min(limits.MetadataItems, int(pages*4096/(8*512)))
 	s.nonceLimits = [3]int{capacity, capacity, max(1, min(128, capacity/16))}
-	if _, initErr := db.ExecContext(context.Background(), schema); initErr != nil {
+	if initErr := s.initializeSchema(context.Background()); initErr != nil {
 		if closeErr := db.Close(); closeErr != nil {
 			return nil, unavailable()
 		}
@@ -107,7 +107,7 @@ func verifyDatabase(db *sql.DB, maxPages int64) error {
 	if err := db.QueryRowContext(context.Background(), `PRAGMA journal_mode`).Scan(&journal); err != nil {
 		return unavailable()
 	}
-	if pageSize != 4096 || pageCount > maxPages || actualMax != maxPages || (version != 0 && version != 1) || synchronous != 2 || journal != "wal" {
+	if pageSize != 4096 || pageCount > maxPages || actualMax != maxPages || version < 0 || version > 2 || synchronous != 2 || journal != "wal" {
 		return unavailable()
 	}
 	return nil

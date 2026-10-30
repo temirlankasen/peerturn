@@ -124,6 +124,14 @@ Threat delta: the daemon now holds up to eight pending capabilities per session 
 
 The daemon's runtime pointer is nonsecret discovery data in its private state directory, written atomically and removed on clean stop. CLI/MCP consult it only without explicit `XDG_RUNTIME_DIR`, before macOS TMPDIR fallback. Bounded no-follow reads, owner/private-permission checks and validation of the pointed directory/socket's UID/private permissions are mandatory. A hostile pointer fails closed without scanning or fallback. It never replaces native-session proof or authorizes another session.
 
+Claude MCP discovery opens no daemon capability. Tool calls resolve native socket
+kernel identity/ancestry and a confirmed binding epoch before admission, pinning
+the exact session/epoch/IPC caller even when the first capability handshake fails.
+Every later tool call rechecks that proof. Delaying the first binding permits a
+cold-start connection to remain available; it never grants authority from client
+metadata or follows another session, epoch or runtime endpoint. Discovery and
+read-only resolution send no native user/auth frames and collect no messaging token.
+
 Revoke:
 
 1. Owner `grant revoke` atomically raises authoritative epoch, closes new live/fork/inform admissions and reply commits, quarantines pending inbox, cancels responder runs; audit/receipt outbox committed together. Already admitted unrestricted coauthor has no per-tool fence: no effect rollback or promise to stop every dispatch.

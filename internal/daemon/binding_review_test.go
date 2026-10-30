@@ -22,6 +22,9 @@ func TestDescriptorRoutingAndIdentityCollisionsHaveNoEffects(t *testing.T) {
 			b := openRecoveryDaemon(t, f, routingKey(t))
 			c := openRecoveryDaemon(t, f, routingKey(t))
 			attachPair(t, a, b)
+			if err := a.enroll(t.Context(), ""); err != nil {
+				t.Fatal(err)
+			}
 			issuer, route := c, c.routingPublic()
 			switch collision {
 			case "peer_route":
@@ -74,6 +77,9 @@ func TestClaimRoutingAndIdentityCollisionsHaveNoEffects(t *testing.T) {
 			b := openRecoveryDaemon(t, f, routingKey(t))
 			c := openRecoveryDaemon(t, f, routingKey(t))
 			attachPair(t, a, b)
+			if err := a.enroll(t.Context(), ""); err != nil {
+				t.Fatal(err)
+			}
 			claimant, route := c, c.routingPublic()
 			switch collision {
 			case "peer_route":

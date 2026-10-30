@@ -30,6 +30,8 @@ type Options struct {
 	CodexThread            string
 	// ResolveCodex selects a caller, never authority; hello verifies the native binding.
 	ResolveCodex func(string) (Caller, error)
+	// ResolveCurrent proves the same native session before each tool call.
+	ResolveCurrent func(context.Context) (CurrentBinding, error)
 }
 
 type rpcRequest struct {

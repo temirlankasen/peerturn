@@ -33,6 +33,9 @@ func (d *Daemon) Dispatch(ctx context.Context, r localipc.Request) (any, error) 
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+	if r.ProfileID != "" && r.ProfileID != ProfileID(d.options.StateDir, d.state.RelayURL) {
+		return nil, localipc.NewError("conflict", "rejected")
+	}
 	d.expireCapabilities()
 	if strings.HasPrefix(r.Method, "adapter.") {
 		if r.Capability != "" || d.persistenceFailed {
@@ -85,6 +88,7 @@ func (d *Daemon) Dispatch(ctx context.Context, r localipc.Request) (any, error) 
 			state = "store_unavailable"
 		}
 		status := statusFor(d.state, state, d.verified, d.lastError)
+		status.ProfileID = ProfileID(d.options.StateDir, d.state.RelayURL)
 		if err := d.claudeStatus(ctx, &status); err != nil {
 			return nil, err
 		}

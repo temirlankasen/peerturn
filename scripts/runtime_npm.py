@@ -150,7 +150,8 @@ def install(version, source, value, root, command):
     return result
 
 
-def verify(root, version, source, value):
+def load(root, version, source, value):
+    """Return the verified identity plus the locked and actually installed package maps."""
     data, result = unbundle(value, version, source)
     if (root / "package-lock.json").read_bytes() != data:
         raise ValueError("installed npm lock differs from contracts")
@@ -166,4 +167,8 @@ def verify(root, version, source, value):
     if any(not path or package != packages.get(path) for path, package in tree["installed"].items()):
         raise ValueError("unlocked installed npm dependency")
     result["npm_installed_tree_sha256"] = digest(canonical(tree["installed"]))
-    return result
+    return result, packages, tree["installed"]
+
+
+def verify(root, version, source, value):
+    return load(root, version, source, value)[0]

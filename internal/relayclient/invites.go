@@ -2,28 +2,50 @@ package relayclient
 
 import (
 	"context"
+	"crypto/ed25519"
 	"encoding/base64"
+	"encoding/json"
 
 	"github.com/temirlankasen/peerturn/internal/codec"
+	peercrypto "github.com/temirlankasen/peerturn/internal/crypto"
 	"github.com/temirlankasen/peerturn/internal/invite"
 	"github.com/temirlankasen/peerturn/internal/relay/auth"
 )
 
-// CreateInvite stores the encrypted descriptor under a configured admin signature.
+// CreateInvite stores the encrypted descriptor under the routing key's signature.
 func (c *Client) CreateInvite(ctx context.Context, input InviteRequest) error {
+	_, err := c.CreateInviteWithReceipt(ctx, input)
+	return err
+}
+
+// CreateInviteWithReceipt validates the publication ACK independently of
+// discovery. Requiring own admission never accepts a legacy id-only ACK.
+func (c *Client) CreateInviteWithReceipt(ctx context.Context, input InviteRequest) (InviteReceipt, error) {
 	if !validInviteID(input.ID) || input.Packet.InviteID != input.ID || !auth.ValidRoutingKey(input.ProofKey) || !validExpiry(input.ExpiresAt) || len(input.Voucher) < 32 || len(input.Voucher) > 256 || !validInvitePacket(input.Packet) {
-		return invalid()
+		return InviteReceipt{}, invalid()
 	}
 	var result struct {
-		ID string `json:"id"`
+		ID      string          `json:"id"`
+		Mailbox json.RawMessage `json:"mailbox"`
 	}
 	if err := c.do(ctx, "POST", "/v1/invites/"+input.ID, nil, input, &result, 201); err != nil {
-		return err
+		return InviteReceipt{}, err
 	}
 	if result.ID != input.ID {
-		return malformed()
+		return InviteReceipt{}, malformed()
 	}
-	return nil
+	receipt := InviteReceipt{ID: result.ID}
+	// Preserve presence so explicit null/empty values cannot masquerade as an
+	// omitted legacy field. The mailbox belongs to the routing signer, not proof_key.
+	if result.Mailbox != nil {
+		if err := codec.Decode(result.Mailbox, maxResponseBytes, &receipt.Mailbox); err != nil || receipt.Mailbox != peercrypto.Digest(c.key[ed25519.SeedSize:]) {
+			return InviteReceipt{}, malformed()
+		}
+	}
+	if input.RequireOwnMailbox && receipt.Mailbox == "" {
+		return InviteReceipt{}, malformed()
+	}
+	return receipt, nil
 }
 
 // GetInvite fetches encrypted material without redeeming or interpreting a link.
