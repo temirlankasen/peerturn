@@ -7,7 +7,7 @@ The supported user procedure is [Installing the coauthor preview](install.md).
 
 Only with an explicit **`--lab`** opt-in, `PEERTURN_RELEASE_BASE_URL` may point
 to a local **HTTPS** file server; the installer appends
-`/v0.1.3-preview/ARTIFACT`. Production signer identity checks remain fixed.
+`/v0.1.4-preview/ARTIFACT`. Production signer identity checks remain fixed.
 The lab-only `--verify-key /trusted/lab-cosign.pub` option instead verifies a
 local key-signed cosign bundle without transparency-log requirements. This is a
 different laboratory trust root. A warning prints the effective source/trust
@@ -16,6 +16,6 @@ There is no unsigned or checksum-only mode.
 
 The [installation lab](../research/lab/results/install-by-link/README.md)
 records real verification separately from native-session acceptance. It does
-not qualify a public GitHub OIDC release. The `.3` pins prepare a candidate;
+not qualify a public GitHub OIDC release. The `.4` pins prepare a candidate;
 neither local lab artifacts nor source/native tests establish its publication
 or signed-package installation acceptance.

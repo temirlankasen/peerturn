@@ -1,6 +1,6 @@
 # One-command session setup
 
-**Supported Claude workflow in the prepared 0.1.3-preview candidate.** Publication
+**Supported Claude workflow in the prepared 0.1.4-preview candidate.** Publication
 is pending; the pinned [signed installation](install.md) becomes usable once its
 assets and attestations exist. v0.1.2-preview does not contain this workflow and
 has a historical hooks-loader failure. Source/native validation does not upgrade
@@ -150,11 +150,12 @@ Failure retries use bounded backoff and retain diagnostics while Fetch/ACK
 continues. A repeated `connect` invitation request creates a new ID; it is not a
 command to recover a lost URL, and expiry does not regenerate that URL.
 
-Integrated source CI passed. Maintainer-reported Claude Code 2.1.308 functional
+Earlier source CI passed; this candidate still requires its own gates.
+Maintainer-reported Claude Code 2.1.308 functional
 checks exercised fresh nonadmin link creation, current MCP, binding reuse and
 25 seconds idle. The first coauthor warning was presented late in that tester's
 procedure; this is not a full procedural pass. Signed-install, Haiku, two-host,
-owner-pasted join and model-reply acceptance for `.3` remain pending.
+owner-pasted join and model-reply acceptance for `.4` remain pending.
 
 Implementation anchors: [connect orchestration](../cmd/peerturn/connect.go),
 [cold MCP recovery fixtures](../cmd/peerturn/mcp_claude_cold_test.go), and

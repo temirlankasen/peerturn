@@ -1,12 +1,13 @@
 # Self-service invitation admission
 
-_Prepared 0.1.3-preview candidate — operator configuration, not deployment authorization_
+_Prepared 0.1.4-preview candidate — operator configuration, not deployment authorization_
 
 ---
 
 This feature is implemented in the candidate; publication is pending. It is
-absent from v0.1.2-preview. Integrated source CI and real temporary TLS/SQLite
-two-daemon tests passed. Those synthetic sessions are not native binding, model
+absent from v0.1.2-preview. Earlier source CI and real temporary TLS/SQLite
+two-daemon tests passed; this candidate still requires its own gates.
+Those synthetic sessions are not native binding, model
 reply or Internet deployment evidence. Signed-install, Haiku, two-host and
 owner-pasted native join/reply acceptance remain pending. See the
 [relay operator guide](relay.md) and [Claude client workflow](../connect.md).

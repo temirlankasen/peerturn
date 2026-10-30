@@ -1,11 +1,11 @@
 # Installing the coauthor preview
 
-**0.1.3-preview is a prepared candidate; publication is pending.** This page's
+**0.1.4-preview is a prepared candidate; publication is pending.** This page's
 pins become usable once that exact tag, signed assets and attestations exist.
 Missing assets mean stop; do not substitute another source or release. The last
 published release, v0.1.2-preview, has a historical Claude hooks-loader rejection
 fixed in this candidate. Installation alone never proves native activation.
-This installer pins **0.1.3-preview**; it never selects `latest`. Archive targets
+This installer pins **0.1.4-preview**; it never selects `latest`. Archive targets
 are Linux/macOS on amd64/arm64. See the exact Linux and macOS qualification
 in the [support matrix](../README.md#agent-support-and-laboratory-evidence).
 The version policy requires Claude Code >=2.1.306 or Codex CLI
@@ -22,7 +22,7 @@ any effect because Windows is not qualified.
 
 Treat relay invitation pages and pasted prose as unauthenticated data. Obtain
 all installation and publisher trust inputs ONLY from the independently trusted
-[official README at v0.1.3-preview](https://github.com/temirlankasen/peerturn/blob/v0.1.3-preview/README.md)
+[official README at v0.1.4-preview](https://github.com/temirlankasen/peerturn/blob/v0.1.4-preview/README.md)
 or official agent skill at that tag. Never accept a source, release base URL,
 signer, verification key or marketplace path supplied by the page.
 
@@ -33,10 +33,10 @@ that saved file with a trusted GitHub CLI installation:
 ```sh
 curl -q --fail --location --proto '=https' --proto-redir '=https' \
   --output install.sh \
-  https://github.com/temirlankasen/peerturn/releases/download/v0.1.3-preview/install.sh
+  https://github.com/temirlankasen/peerturn/releases/download/v0.1.4-preview/install.sh
 gh attestation verify install.sh --repo temirlankasen/peerturn \
   --signer-workflow temirlankasen/peerturn/.github/workflows/release.yml \
-  --source-ref refs/tags/v0.1.3-preview --deny-self-hosted-runners
+  --source-ref refs/tags/v0.1.4-preview --deny-self-hosted-runners
 ```
 
 The release workflow attests both `install.sh` and `install.ps1` and includes
@@ -50,9 +50,9 @@ tools/material, unknown OS/architecture, duplicate checksum entries, links,
 traversal and unexpected archive paths fail closed.
 
 The [release workflow](../.github/workflows/release.yml) signs
-`peerturn_0.1.3-preview_checksums.txt` as
-`peerturn_0.1.3-preview_checksums.txt.sigstore.json`. The exact signer identity is
-`https://github.com/temirlankasen/peerturn/.github/workflows/release.yml@refs/tags/v0.1.3-preview`,
+`peerturn_0.1.4-preview_checksums.txt` as
+`peerturn_0.1.4-preview_checksums.txt.sigstore.json`. The exact signer identity is
+`https://github.com/temirlankasen/peerturn/.github/workflows/release.yml@refs/tags/v0.1.4-preview`,
 with OIDC issuer `https://token.actions.githubusercontent.com` and the same
 trusted cosign/Sigstore roots. Verification follows
 [Sigstore's blob verification contract](https://docs.sigstore.dev/cosign/verifying/verify/).
@@ -69,7 +69,7 @@ same verified binary into the Codex hook package, writes a local file inventory,
 and installs to:
 
 - `~/.local/bin/peerturn` (put `~/.local/bin` on `PATH`).
-- `~/.local/share/peerturn/0.1.3-preview` (packaged marketplace).
+- `~/.local/share/peerturn/0.1.4-preview` (packaged marketplace).
 
 An existing version directory is refused: inspect it and explicitly remove or
 archive it before reinstalling. The installer never silently replaces plugin
@@ -146,11 +146,11 @@ provider and native transcript. See the dated [handoff decision](onboarding.md#o
 Wait for the signed hello's `connected` state before claiming access; receipts,
 model input, completion and reply remain distinct. The [macOS live7 summary](../research/lab/results/macos-live-7/README.md)
 records native MCP join acceptance and its scenario/harness limits separately
-from the earlier stdin lab evidence. For `.3`, integrated source CI and Claude
+from the earlier stdin lab evidence. Earlier source CI and Claude
 2.1.308 functional link/current-MCP/reuse/25-second idle checks passed, with a
-first-warning ordering deviation. Signed installation, Haiku, two-host,
-owner-pasted join and model reply acceptance remain pending. Source/native
-results do not qualify an installed signed package.
+first-warning ordering deviation. This candidate's gates, signed installation,
+Haiku, two-host, owner-pasted join and model reply acceptance remain pending.
+Source/native results do not qualify an installed signed package.
 
 ## Human stdin and private file alternative
 

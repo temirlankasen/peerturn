@@ -2,7 +2,7 @@
 
 PeerTurn is pre-alpha with an approved design. The [M1a pure core](core-m1a.md), [M1b client store](store-m1b.md), [M2 relay](operators/relay.md) and [M2.5 installed preview](m25.md) provide protocol, encrypted custody, transport and local CLI/MCP. The partial [Claude M3](m3.md) and [Codex M4](m4.md) previews add exact native-session binding, coauthor delivery and no-wake inform notices with explicit inbox body reads. [M6](m6-ask.md) qualifies Linux Claude ask with verified Secret Service and a narrow provider profile. Codex/macOS ask, broader fault recovery, Internet/self-host and performance qualification remain acceptance work.
 
-**0.1.3-preview is prepared, not yet published.** Installer and signer pins target
+**0.1.4-preview is prepared, not yet published.** Installer and signer pins target
 that candidate; use them only once its signed assets and attestations exist.
 The last published release is [v0.1.2-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.2-preview),
 whose historical Claude loader failure is fixed in the candidate.
@@ -12,10 +12,11 @@ and Codex CLI >=0.163.0 without an upper bound. Newer versions get full existing
 functionality with `newer_unverified`; ask remains separately verified-only.
 Below-minimum versions are refused before setup mutations.
 
-Integrated source CI passed; maintainer-reported Claude 2.1.308 functional checks
+Earlier source CI passed; this candidate still requires its own gates.
+Maintainer-reported Claude 2.1.308 functional checks
 covered fresh nonadmin link creation, current MCP, binding reuse and 25 seconds
 idle. A first-warning ordering deviation prevents full procedural acceptance.
-Signed install, Haiku, two hosts, owner-pasted join and model reply for `.3`
+Signed install, Haiku, two hosts, owner-pasted join and model reply for `.4`
 remain pending. The older pinned results below retain their original scope.
 
 | Environment | Live qualification | Limits |
@@ -33,7 +34,7 @@ remain pending. The older pinned results below retain their original scope.
 | [M1b client store](store-m1b.md) | SQLite schema, encryption, atomic custody, limits and local acceptance. |
 | [M2.5 installed client preview](m25.md) | Explicit initialization, relay administrator setup, invitation/join, CLI/MCP and custody limits. |
 | [Verified installation](install.md) | Pinned signed archives, local verified marketplaces, setup and honest host activation steps. |
-| [One-command session setup](connect.md) | Claude-only `connect` in the `.3` candidate: profile/daemon reuse, exact binding, cold MCP recovery and remaining qualification limits. |
+| [One-command session setup](connect.md) | Claude-only `connect` in the `.4` candidate: profile/daemon reuse, exact binding, cold MCP recovery and remaining qualification limits. |
 | [M2.5 evidence](m25-evidence.md) | Two-daemon recovery/revoke/leak acceptance, regression coverage, review and gate results. |
 | [Claude M3 preview](m3.md) | Native binding, installed plugin, coauthor/inform and historical ask limitations; M6 records current Linux qualification. |
 | [Claude M3 evidence](../research/lab/results/m3-claude/README.md) | Pinned runtime and product acceptance, with explicit failed/unqualified scenarios. |
@@ -46,7 +47,7 @@ remain pending. The older pinned results below retain their original scope.
 | [M6b live evidence](../research/lab/results/m6-ask/m6b/README.md) | Useful receiver-only context, signed reply/receipts, unchanged parent, real-provider injection refusal and deterministic native tool denials. |
 | [Install-by-link lab](../research/lab/results/install-by-link/README.md) | Prepublication local release verification, current-session onboarding and explicit native outcome boundaries. |
 | [Relay operators](operators/relay.md) | TLS/configuration, HTTP profile, provisioning, Docker, quotas and recovery. |
-| [Self-service admission](operators/self-service.md) | Default-closed operator opt-in in the `.3` candidate, durable finite quotas, signer-bound receipts, revoke/block and schema v2 backup requirements. |
+| [Self-service admission](operators/self-service.md) | Default-closed operator opt-in in the `.4` candidate, durable finite quotas, signer-bound receipts, revoke/block and schema v2 backup requirements. |
 | [M2 evidence](operators/m2-evidence.md) | Local relay checks, independent review and qualification limits. |
 | [Contributing](../CONTRIBUTING.md) | Development setup, gates, tests, commits, and pull requests. |
 | [Security policy](../SECURITY.md) | Private reporting, supported versions, and threat boundaries. |

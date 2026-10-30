@@ -16,7 +16,7 @@ Changes to security, cryptography, access, money, database schema/migrations, CI
 
 The maintainer controls merge and release permissions. Release approval follows
 passing gates, required evidence, and an honest compatibility statement.
-**0.1.3-preview is prepared, not yet published**; v0.1.2-preview is the last
+**0.1.4-preview is prepared, not yet published**; v0.1.2-preview is the last
 published release. [Installation](docs/install.md) requires the pinned release's
 publisher signature, installer attestation and archive checksum. Preparing pins
 or passing source CI does not publish assets or qualify their installation.

@@ -2,12 +2,15 @@
 
 Notable user-facing changes will be recorded here, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioned releases follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased — 0.1.3-preview candidate
+## Unreleased
 
-Prepared release notes; the tag, signed assets and publication are still pending.
+Prepared notes for **0.1.4-preview**; its tag, signed assets and publication are
+still pending.
 
 ### Fixed
 
+- Align installer, guidance and relay-page release pins, plus native plugin
+  versions, for the 0.1.4-preview candidate.
 - Claude hooks use literal native API calls accepted by the module loader,
   fixing the first-run loader rejection in the published 0.1.2-preview package.
 - Cold Claude MCP can discover tools before daemon startup or binding, return
@@ -42,13 +45,22 @@ Prepared release notes; the tag, signed assets and publication are still pending
   mode. Back up consistently before an operator-authorized upgrade and retain a
   compatible binary. No automatic downgrade, quota reset or live migration is
   claimed. See [operator policy](docs/operators/self-service.md).
-- Integrated source full CI passed. Claude Code 2.1.308 native checks exercised
+- Earlier source full CI passed; this candidate still requires its own release
+  gates. Claude Code 2.1.308 native checks exercised
   fresh nonadmin link creation, current MCP recovery, binding reuse and 25 seconds
   of idle waiting. A trust-warning ordering deviation means this is functional
   evidence, not full procedural acceptance.
 - Signed-package installation, Haiku, two-host acceptance, owner-pasted join and
   model reply for this candidate remain pending. Earlier pinned lab results keep
   their original scope; they do not qualify these new signed assets.
+
+## 0.1.3-preview — tag only, not published
+
+The immutable `v0.1.3-preview` tag points to `73db586`. Validation failed before
+release creation or asset publication because the relay invitation page still
+pinned v0.1.2-preview. The tag is retained unchanged; no signed release or
+installed acceptance is claimed. The next candidate is 0.1.4-preview;
+v0.1.2-preview remains the last published release.
 
 ## [0.1.2-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.2-preview) — 2026-10-29
 

@@ -6,17 +6,17 @@ PeerTurn is **pre-alpha**. The protocol core, HPKE/Ed25519 encryption, direction
 
 | Version | Security support |
 | --- | --- |
-| 0.1.3-preview candidate | Prepared, not yet published. Best-effort preview fixes once released; source/native validation is separate from signed-install qualification. No production qualification. |
-| 0.1.2-preview | Last published preview; historical Claude first-run loader rejection is fixed in the `.3` candidate. Baseline labs cover Claude 2.1.306 / Codex 0.163.0 shared daemon, not the new candidate's installed assets. |
+| 0.1.4-preview candidate | Prepared, not yet published. Best-effort preview fixes once released; source/native validation is separate from signed-install qualification. No production qualification. |
+| 0.1.2-preview | Last published preview; historical Claude first-run loader rejection is fixed in the `.4` candidate. Baseline labs cover Claude 2.1.306 / Codex 0.163.0 shared daemon, not the new candidate's installed assets. |
 | Development branch | Best-effort investigation only; no security support SLA. |
 
 Use the latest preview revision. Older preview snapshots and unqualified host versions have no maintenance guarantee. Signed Linux/macOS archives require SHA-256 and Sigstore bundle verification with cosign >=3.1.3; no Windows release or automatic trust/reload is claimed. A published support window begins only with an explicitly published release. Setup refuses below-minimum or unknown runtime versions before side effects; newer unverified versions retain full existing functionality, with separately verified-only ask. See the [support matrix](README.md#agent-support-and-laboratory-evidence) for exact Linux/macOS qualification and limits.
 
-The prepared `.3` pins require the exact tag's signed assets and attestations;
-their absence is a refusal, not permission to use another source. Integrated
+The prepared `.4` pins require the exact tag's signed assets and attestations;
+their absence is a refusal, not permission to use another source. Earlier
 source CI and Claude 2.1.308 functional checks passed, with a trust-warning
-ordering deviation. Signed install, Haiku, two hosts, owner-pasted join and model
-reply acceptance remain pending.
+ordering deviation. This candidate's gates, signed install, Haiku, two hosts,
+owner-pasted join and model reply acceptance remain pending.
 
 Relay admission stays closed unless the operator explicitly enables
 [self-service](docs/operators/self-service.md). Schema v2 opens/migrates even in
