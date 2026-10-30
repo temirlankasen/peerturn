@@ -8,15 +8,17 @@ JavaScript mod handles the runtime API and UI. The Go helper owns binding,
 authorization, custody, framing and receipts. Installing the plugin does not
 authorize peers or automatically attach other sessions.
 
-The prepared **0.1.4-preview candidate is not yet published**. It fixes the
+**[v0.1.4-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.4-preview)
+was published on 2026-10-30**. It fixes the
 historical v0.1.2-preview native loader rejection with literal `$` API calls,
 adds model-free cold MCP recovery and [Claude-only connect](../../docs/connect.md).
-Use its [pinned installer](../../docs/install.md) only after signed assets and
-attestations exist. Earlier source CI and Claude 2.1.308 functional link/current-MCP/
+Verify its [pinned signed installer](../../docs/install.md) and attestations
+before execution. Earlier source CI and Claude 2.1.308 functional link/current-MCP/
 reuse/25-second idle checks passed, with a first-warning ordering deviation.
-This candidate's gates, signed install, Haiku, two hosts, owner-pasted join and
-model reply for `.4` remain unqualified; native static validation alone cannot
-establish them.
+Publication and scoped external artifact verification passed. Signed-package
+installation, Haiku, two hosts, owner-pasted join and model reply for `.4` remain
+unqualified; native static validation and artifact verification cannot establish
+them.
 
 Configure `peerturn_binary` as the absolute path to the installed executable.
 The repository includes a local marketplace at `.claude-plugin/marketplace.json`;

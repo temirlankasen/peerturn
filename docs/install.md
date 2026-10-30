@@ -1,13 +1,21 @@
 # Installing the coauthor preview
 
-**0.1.4-preview is a prepared candidate; publication is pending.** This page's
-pins become usable once that exact tag, signed assets and attestations exist.
-Missing assets mean stop; do not substitute another source or release. The last
-published release, v0.1.2-preview, has a historical Claude hooks-loader rejection
-fixed in this candidate. Installation alone never proves native activation.
+**[v0.1.4-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.4-preview)
+was published on 2026-10-30.** Its signed assets and attestations are available;
+verify them before execution. Missing assets mean stop; do not substitute another
+source or release. This release fixes v0.1.2-preview's historical Claude
+hooks-loader rejection. Installation alone never proves native activation.
 This installer pins **0.1.4-preview**; it never selects `latest`. Archive targets
 are Linux/macOS on amd64/arm64. See the exact Linux and macOS qualification
 in the [support matrix](../README.md#agent-support-and-laboratory-evidence).
+
+Release validation and publication succeeded. Post-publication external checks
+passed for the `install.sh` attestation from the exact release workflow/tag,
+the checksum signature using cosign 3.1.3 with the exact identity and issuer
+documented below, and the installer plus `darwin_arm64` archive SHA-256 digests.
+This verifies those artifacts; it does not prove completed installation,
+native trust/preflight, model selection, activation or delivery.
+
 The version policy requires Claude Code >=2.1.306 or Codex CLI
 >=0.163.0 shared daemon, without an upper bound. Below-minimum and unknown versions
 are refused before setup mutations. Newer versions have full existing functionality
@@ -148,9 +156,12 @@ model input, completion and reply remain distinct. The [macOS live7 summary](../
 records native MCP join acceptance and its scenario/harness limits separately
 from the earlier stdin lab evidence. Earlier source CI and Claude
 2.1.308 functional link/current-MCP/reuse/25-second idle checks passed, with a
-first-warning ordering deviation. This candidate's gates, signed installation,
-Haiku, two-host, owner-pasted join and model reply acceptance remain pending.
-Source/native results do not qualify an installed signed package.
+first-warning ordering deviation. Signed-package installation, Haiku, two-host,
+owner-pasted join and model reply acceptance remain pending. Two fresh
+Haiku-requested installation attempts are waiting at normal workspace trust
+dialogs; model selection, preflight and installation are not yet proven.
+Source/native results and artifact verification do not qualify an installed
+signed package.
 
 ## Human stdin and private file alternative
 

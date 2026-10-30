@@ -1,12 +1,12 @@
 # Self-service invitation admission
 
-_Prepared 0.1.4-preview candidate — operator configuration, not deployment authorization_
+_[v0.1.4-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.4-preview), published 2026-10-30 — operator configuration, not deployment authorization_
 
 ---
 
-This feature is implemented in the candidate; publication is pending. It is
+This feature shipped in the published preview. It is
 absent from v0.1.2-preview. Earlier source CI and real temporary TLS/SQLite
-two-daemon tests passed; this candidate still requires its own gates.
+two-daemon tests passed. Release validation and publication succeeded.
 Those synthetic sessions are not native binding, model
 reply or Internet deployment evidence. Signed-install, Haiku, two-host and
 owner-pasted native join/reply acceptance remain pending. See the
@@ -116,7 +116,7 @@ replenishing hosted service. Limit changes are an explicit operator action.
 
 ## 🗄️ Preserve history during upgrades
 
-The candidate relay uses SQLite schema v2, **even with admission closed**.
+The v0.1.4-preview relay uses SQLite schema v2, **even with admission closed**.
 Opening a fresh database or upgrading
 v1 adds the inviter registry and invitation author/creation-time fields in one
 transaction. Legacy invitations retain unknown authorship rather than acquiring

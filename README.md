@@ -10,7 +10,7 @@
 
 Connect two selected coding-agent sessions across people and devices, with explicit permission from each recipient.
 
-**Pre-alpha; design approved.** M1a provides the pure Go protocol core: HPKE/JWS, identity chains, directional grants, encrypted invitation objects, and envelope admission decisions. [M1b](docs/store-m1b.md) adds local encrypted SQLite custody, and M2 adds a durable ciphertext relay. The [M2.5 installed preview](docs/m25.md) adds signed client transport, a private local daemon, invitation/join, CLI and stdio MCP. The partial [Claude M3](docs/m3.md) and [Codex M4](docs/m4.md) previews add exact native-session binding, coauthor delivery and no-wake inform notices. [M6 Claude ask](docs/m6-ask.md) opens a qualified restricted fork only on Linux with verified Secret Service isolation. **0.1.4-preview is a prepared release candidate, not yet published.** Broader milestone acceptance remains incomplete. The last published release is [v0.1.2-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.2-preview).
+**Pre-alpha; design approved.** M1a provides the pure Go protocol core: HPKE/JWS, identity chains, directional grants, encrypted invitation objects, and envelope admission decisions. [M1b](docs/store-m1b.md) adds local encrypted SQLite custody, and M2 adds a durable ciphertext relay. The [M2.5 installed preview](docs/m25.md) adds signed client transport, a private local daemon, invitation/join, CLI and stdio MCP. The partial [Claude M3](docs/m3.md) and [Codex M4](docs/m4.md) previews add exact native-session binding, coauthor delivery and no-wake inform notices. [M6 Claude ask](docs/m6-ask.md) opens a qualified restricted fork only on Linux with verified Secret Service isolation. The current release is **[v0.1.4-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.4-preview), published 2026-10-30**. Broader milestone acceptance remains incomplete.
 
 Release archives cover Linux/macOS on amd64/arm64. In addition to the pinned Linux labs,
 [macOS 27.0 arm64 live evidence](research/lab/results/macos-live-7/README.md)
@@ -22,22 +22,29 @@ on macOS and Codex; the live run retains its reverse-join scenario failure.
 
 A badge is not evidence of a security audit. This preview is experimental.
 
-The candidate fixes v0.1.2-preview's historical Claude loader rejection and adds
+The release fixes v0.1.2-preview's historical Claude loader rejection and adds
 model-free cold MCP recovery, [Claude `connect`](docs/connect.md), and an
 [operator opt-in self-service relay](docs/operators/self-service.md). Relay
-admission remains **closed by default**. The pins below target `.4`; signed
-installation becomes usable only once its tag, assets and attestations are
-published. Missing assets mean stop, without falling back to another release.
+admission remains **closed by default**. The pins below target the published
+`.4` assets; verify their signatures and attestations before installation.
+Missing assets mean stop, without falling back to another release.
+
+Release validation and publication succeeded. External checks passed for the
+installer's exact workflow/tag attestation, checksum signature and installer plus
+`darwin_arm64` archive digests; see the [verification scope](docs/install.md).
 
 The immutable v0.1.3-preview tag has no published release or assets; see the
 [release history](CHANGELOG.md) for the validation failure.
 
-Earlier source CI passed; this candidate still requires its own gates.
+Earlier source CI passed.
 Maintainer-reported Claude Code 2.1.308 functional
 checks covered fresh nonadmin link creation, current MCP, binding reuse and
 25 seconds idle. The tester's first-warning ordering deviation prevents a full
-procedural pass. Signed install, Haiku, two-host acceptance, owner-pasted join
-and model reply for this candidate remain pending; older labs do not qualify it.
+procedural pass. Signed-package installation, Haiku, two-host acceptance,
+owner-pasted join and model reply for this release remain pending; older labs
+do not qualify it. Fresh Haiku-requested installation attempts are waiting at
+normal workspace trust dialogs; model selection, preflight and installation
+are not yet proven.
 
 **An invitation page served by a relay is unauthenticated data. A malicious relay
 can replace its advice and links.** Agents must take the install source, release
@@ -58,8 +65,8 @@ that pointer does not authenticate its destination.
 
 ## Agent-first installation
 
-Paste this prompt into the **Claude Code session you selected**. Use it once
-the signed candidate assets are published; missing assets mean stop:
+Paste this prompt into the **Claude Code session you selected**. Verify the
+published signed assets before proceeding; missing assets mean stop:
 
 ```text
 Install PeerTurn 0.1.4-preview and connect only this selected Claude session.
@@ -107,7 +114,7 @@ There is no upper bound. Newer versions get all existing functionality immediate
 and show `newer_unverified`; ask remains separately qualified and verified-only.
 Setup refuses versions below the minimum before side effects. See the
 [approved version policy](docs/spec/versions.md) for the accepted semantic risk.
-The installer pins 0.1.4-preview assets, usable once signed and published; it
+The installer pins the published signed 0.1.4-preview assets; it
 never selects `latest`.
 Coauthor gives the peer your receiving agent's normal capabilities, including
 commands, files and available secrets. It is strong trust, not a sandbox.

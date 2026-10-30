@@ -16,6 +16,9 @@ There is no unsigned or checksum-only mode.
 
 The [installation lab](../research/lab/results/install-by-link/README.md)
 records real verification separately from native-session acceptance. It does
-not qualify a public GitHub OIDC release. The `.4` pins prepare a candidate;
-neither local lab artifacts nor source/native tests establish its publication
-or signed-package installation acceptance.
+not qualify a public GitHub OIDC release.
+[v0.1.4-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.4-preview)
+was published on 2026-10-30, with separate external artifact verification
+described in the [installation guide](install.md). Neither local lab artifacts
+nor publication establish completed signed-package installation or native
+acceptance.

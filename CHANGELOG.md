@@ -4,13 +4,18 @@ Notable user-facing changes will be recorded here, following [Keep a Changelog](
 
 ## Unreleased
 
-Prepared notes for **0.1.4-preview**; its tag, signed assets and publication are
-still pending.
+## [0.1.4-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.4-preview) — 2026-10-30
+
+Published at `2026-10-30T13:13:24Z`; release validation and publication succeeded.
+External verification passed for the installer's exact workflow/tag attestation,
+the checksum signature using cosign 3.1.3 with the exact identity and issuer,
+and the installer plus `darwin_arm64` archive digests. These checks authenticate
+those artifacts; they do not establish completed installation or native delivery.
 
 ### Fixed
 
 - Align installer, guidance and relay-page release pins, plus native plugin
-  versions, for the 0.1.4-preview candidate.
+  versions, for 0.1.4-preview.
 - Claude hooks use literal native API calls accepted by the module loader,
   fixing the first-run loader rejection in the published 0.1.2-preview package.
 - Cold Claude MCP can discover tools before daemon startup or binding, return
@@ -45,22 +50,23 @@ still pending.
   mode. Back up consistently before an operator-authorized upgrade and retain a
   compatible binary. No automatic downgrade, quota reset or live migration is
   claimed. See [operator policy](docs/operators/self-service.md).
-- Earlier source full CI passed; this candidate still requires its own release
-  gates. Claude Code 2.1.308 native checks exercised
+- Earlier source full CI passed. Claude Code 2.1.308 native checks exercised
   fresh nonadmin link creation, current MCP recovery, binding reuse and 25 seconds
   of idle waiting. A trust-warning ordering deviation means this is functional
   evidence, not full procedural acceptance.
 - Signed-package installation, Haiku, two-host acceptance, owner-pasted join and
-  model reply for this candidate remain pending. Earlier pinned lab results keep
-  their original scope; they do not qualify these new signed assets.
+  model reply for this release remain pending. Two fresh Haiku-requested
+  installation attempts are waiting at normal workspace trust dialogs; model
+  selection, preflight and installation are not yet proven. Earlier pinned lab
+  results retain their original scope and do not qualify the new installed package.
 
 ## 0.1.3-preview — tag only, not published
 
 The immutable `v0.1.3-preview` tag points to `73db586`. Validation failed before
 release creation or asset publication because the relay invitation page still
 pinned v0.1.2-preview. The tag is retained unchanged; no signed release or
-installed acceptance is claimed. The next candidate is 0.1.4-preview;
-v0.1.2-preview remains the last published release.
+installed acceptance is claimed. At the time of that failure, v0.1.2-preview
+was the last published release; v0.1.4-preview followed.
 
 ## [0.1.2-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.2-preview) — 2026-10-29
 

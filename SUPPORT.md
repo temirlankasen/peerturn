@@ -1,10 +1,10 @@
 # Support
 
-PeerTurn is pre-alpha. **0.1.4-preview is a prepared candidate, not yet published**;
-v0.1.2-preview remains the last published release, with its historical Claude
-loader failure fixed in the candidate. The new installer pins are usable once
-the exact signed assets and attestations are published. There is no production
-support SLA.
+PeerTurn is pre-alpha. The current release is
+**[v0.1.4-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.4-preview),
+published 2026-10-30**. It fixes v0.1.2-preview's historical Claude loader failure.
+Release validation, publication and scoped external artifact verification passed;
+see [installation](docs/install.md). There is no production support SLA.
 
 The preview implements transport, encryption, grants, onboarding and experimental
 Claude/Codex adapters. The [support matrix](README.md#agent-support-and-laboratory-evidence)
@@ -12,7 +12,7 @@ keeps pinned Linux/macOS qualification separate from new source/native results.
 Earlier source CI and Claude 2.1.308 fresh nonadmin link/current-MCP/reuse/
 25-second idle checks passed, with a first-warning ordering deviation. Signed
 installation, Haiku, two-host, owner-pasted join and model reply acceptance for
-`.4` and this candidate's gates remain pending. A functional check is not full
+`.4` remain pending. A functional check is not full
 procedural qualification.
 
 The version policy accepts Claude >=2.1.306 and Codex >=0.163.0 without an upper
