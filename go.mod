@@ -7,7 +7,7 @@ toolchain go1.27.3
 require (
 	github.com/coder/websocket v1.8.15
 	github.com/dunglas/httpsfv v1.1.2
-	github.com/godbus/dbus/v5 v5.2.0
+	github.com/godbus/dbus/v5 v5.2.4
 	github.com/pelletier/go-toml/v2 v2.4.3
 	golang.org/x/sys v0.49.0
 	modernc.org/sqlite v1.61.0
