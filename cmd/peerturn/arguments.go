@@ -31,6 +31,10 @@ func localCommand(name string) bool {
 func parseCommand(args []string) (cliCommand, error) {
 	c := cliCommand{name: args[0], values: map[string]string{}, flags: map[string]bool{}}
 	args = args[1:]
+	if c.name == "grants" && (len(args) == 0 || strings.HasPrefix(args[0], "--")) {
+		// Agents naturally try the listed bare command; listing is read-only.
+		args = append([]string{"list"}, args...)
+	}
 	if c.name == "daemon" || c.name == "invite" || c.name == "grants" || c.name == "session" || c.name == "delivery" || c.name == "keys" {
 		if len(args) == 0 {
 			return c, invalidArguments()

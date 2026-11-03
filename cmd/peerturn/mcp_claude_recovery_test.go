@@ -54,8 +54,12 @@ func TestMCPClaudeSameConnectionRechecksNativeProof(t *testing.T) {
 				}
 			}
 			expected := "adapter.current,hello,status,adapter.current,bye"
-			if mode == "late_binding" {
+			switch mode {
+			case "late_binding":
 				expected = "adapter.current,adapter.current,hello,status,bye"
+			case "replaced_binding":
+				// Renewal needs a hello matching the new epoch; this one is stale.
+				expected = "adapter.current,hello,status,adapter.current,bye,hello,bye"
 			}
 			if strings.Join(methods, ",") != expected {
 				t.Fatalf("unconfirmed native route reached effects: %v", methods)

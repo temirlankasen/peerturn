@@ -33,13 +33,25 @@ func (s *sessionBinding) callCurrent(ctx context.Context, command localipc.Reque
 	if !validProof {
 		return nil, localipc.NewError("needs_rebind", "needs_rebind")
 	}
-	if s.options.ExpectedBindingEpoch == "" {
+	switch {
+	case s.options.ExpectedBindingEpoch == "":
 		// Pin proof before hello, including a refused capability handshake.
 		s.options.Session = current.Session
 		s.options.ExpectedBindingEpoch = current.BindingEpoch
 		s.options.Caller = current.Caller
-	} else if current.Session != s.options.Session || current.BindingEpoch != s.options.ExpectedBindingEpoch {
+	case current.Session != s.options.Session:
 		return nil, localipc.NewError("needs_rebind", "needs_rebind")
+	case current.BindingEpoch != s.options.ExpectedBindingEpoch:
+		// Fresh native proof for the same session supersedes the old epoch. The
+		// stale capability is released and never retried; hello must match again.
+		if s.bound != nil {
+			if err = s.bound.Close(); err != nil {
+				return nil, err
+			}
+			s.bound = nil
+		}
+		s.options.ExpectedBindingEpoch = current.BindingEpoch
+		s.options.Caller = current.Caller
 	}
 	if s.bound == nil {
 		s.bound, err = bindCapability(ctx, s.options)

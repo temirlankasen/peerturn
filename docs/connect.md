@@ -1,7 +1,7 @@
 # One-command session setup
 
-**Supported Claude workflow in [v0.1.4-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.4-preview),
-published 2026-10-30.** The pinned [signed installer](install.md) is available;
+**Supported Claude workflow in [v0.1.5-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.5-preview),
+published 2026-11-03.** The pinned [signed installer](install.md) is available;
 verify its assets and attestations before execution. v0.1.2-preview does not
 contain this workflow and has a historical hooks-loader failure. Publication,
 artifact verification and source/native validation do not upgrade an installed

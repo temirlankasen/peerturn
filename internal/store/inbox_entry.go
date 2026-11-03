@@ -15,3 +15,16 @@ func (s *Store) InboxEntry(ctx context.Context, id string) (InboxEntry, error) {
 	item.Body, err = s.unseal("inbox", id, item.Body)
 	return item, err
 }
+
+// ReplyParent finds the routing facts a reply needs, including live messages
+// already delivered to the native session. It never returns a body and never
+// reopens delivery; revoke, expiry and grant epoch still close reply authority.
+func (s *Store) ReplyParent(ctx context.Context, id string) (InboxEntry, error) {
+	item := InboxEntry{MessageID: id}
+	now := s.clock().Unix()
+	err := s.db.QueryRowContext(ctx, `SELECT i.grant_id,i.route,i.state,i.conversation_id,i.parent_id,i.budget_id,i.hop FROM inbox i JOIN grants g ON g.id=i.grant_id WHERE i.id=? AND i.state IN ('pending','offered','delivered','intent','authorized','in_doubt','adapter_accepted','dequeued') AND i.route!='responder' AND i.lane='data' AND i.expires_at>? AND g.revoked=0 AND g.expires_at>? AND i.epoch=g.epoch`, id, now, now).Scan(&item.GrantID, &item.Routing, &item.State, &item.ConversationID, &item.ParentID, &item.BudgetID, &item.Hop)
+	if err != nil {
+		return item, lookupError(err)
+	}
+	return item, nil
+}

@@ -93,7 +93,7 @@ func TestMCPCurrentRecoversAfterBindingWithoutRestart(t *testing.T) {
 	}
 }
 
-func TestMCPCurrentChecksEveryCallAndNeverFollowsChangedProof(t *testing.T) {
+func TestMCPCurrentChecksEveryCallAndNeverAdmitsUnprovenProof(t *testing.T) {
 	for _, change := range []string{"session", "epoch", "missing", "unavailable"} {
 		t.Run(change, func(t *testing.T) {
 			caller := &currentCaller{epoch: currentEpoch}
@@ -122,7 +122,13 @@ func TestMCPCurrentChecksEveryCallAndNeverFollowsChangedProof(t *testing.T) {
 			if err := Serve(t.Context(), strings.NewReader(input), &output, options); err != nil {
 				t.Fatal(err)
 			}
-			if resolved != 2 || currentMethods(caller) != "hello,status,bye" || !strings.Contains(output.String(), "needs_rebind") {
+			// A changed epoch for the same session renews through a fresh hello,
+			// which this caller refuses because it still reports the old epoch.
+			want := "hello,status,bye"
+			if change == "epoch" {
+				want = "hello,status,bye,hello,bye"
+			}
+			if resolved != 2 || currentMethods(caller) != want || !strings.Contains(output.String(), "needs_rebind") {
 				t.Fatalf("changed proof admitted an effect: resolutions=%d calls=%s output=%s", resolved, currentMethods(caller), output.String())
 			}
 		})

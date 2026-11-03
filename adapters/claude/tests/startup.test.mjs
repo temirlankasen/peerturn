@@ -103,3 +103,22 @@ test('an active helper is not replaced by ordinary Bash operations', async () =>
   assert.equal(h.launched.length, 1);
   assert.equal(h.submitted.length, 0);
 });
+
+test('an unbound session stays quiet across ordinary Bash operations', async () => {
+  let launches = 0;
+  const h = await harness('2.1.308', true, $ => {
+    $.process.spawn = async function* () {
+      launches += 1;
+      yield { stream: 'stderr', text: 'peerturn: needs_rebind\n' };
+    };
+  });
+  const event = { tool: 'Bash', args: { command: 'echo owner work' } };
+  for (let i = 0; i < 3; i += 1) {
+    assert.equal(await h.hooks.get('tool.call')(h.$, event, async value => value), event);
+    await h.tick();
+  }
+  // A never-ready helper had no binding to lose; repeats add no owner-visible noise.
+  assert.deepEqual(h.statuses, ['needs_rebind']);
+  assert.equal(launches, 4);
+  assert.equal(h.submitted.length, 0);
+});

@@ -24,7 +24,8 @@ Commands:
   keys isolate [--state-dir DIR]  Rotate a stopped store into the OS keystore
   invite create --current  Create a coauthor invitation for the native session
   join     Consume a coauthor link from stdin for the selected session
-  peers|send|reply|inbox|receipt|status|grants|doctor  Local JSON commands
+  peers|send|reply|inbox|receipt|status|doctor  Local JSON commands
+  grants [list] | grants revoke ID  List or revoke this session's grants
   mcp --current  Run the seven-tool stdio proxy using verified current-session binding
   session bind --current  Bind the current Claude Code session using its native socket
   session unbind          Disconnect Claude and invalidate its grants

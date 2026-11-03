@@ -4,9 +4,7 @@ const STARTUP_FAILURES = new Set(['runtime_unsupported', 'daemon_unavailable',
   'unsupported_version', 'runtime_version_unknown', 'runtime_contract_changed']);
 const RECOVERY = 'Update PeerTurn, reload/resume this session and rerun doctor / bind.';
 const ALL_CAPABILITIES = ['coauthor', 'owner_invitation', 'inform_boundary', 'inform_notification'];
-let runtime = null;
-let working = null;
-let turnGeneration = 0;
+let runtime = null, working = null, turnGeneration = 0, shown = null, starting = null;
 function object(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
@@ -50,10 +48,11 @@ async function contractChanged($, state, id, capabilities) {
 async function lifecycle($, e) {
   if (object(e) && (e.agentId === undefined || (typeof e.agentId === 'string' && identifier(e.agentId)))) return true;
   if (runtime) await contractChanged($, runtime, 'claude.lifecycle', ['coauthor']);
-  working = null;
-  return false;
+  working = null; return false;
 }
 async function status($, text) {
+  // Unbound sessions retry on Bash; an unchanged state is not new owner information.
+  if (text === shown) return; shown = text;
   try { void Promise.resolve($.ui.status(text)).catch(() => {}); } catch { /* UI never holds owner work. */ }
 }
 async function stop($, state, reason) {
@@ -68,10 +67,7 @@ async function request($, state, path, body) {
   if (!state.active || !state.url) throw new Error('adapter_unavailable');
   const response = await $.http.fetch(state.url + path, {
     method: body === undefined ? 'GET' : 'POST',
-    headers: {
-      Authorization: 'Bearer ' + state.capability,
-      'Content-Type': 'application/json',
-    },
+    headers: { Authorization: 'Bearer ' + state.capability, 'Content-Type': 'application/json' },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
   if (typeof response.text !== 'string' || response.text.length > MAX_FRAME) {
@@ -98,12 +94,9 @@ async function release($, state, frame) {
 }
 async function confirm($, state, nonce) {
   const session = await $.session.id();
-  if (!state.active || session !== state.session) return;
-  await request($, state, '/confirm', { nonce, session });
+  if (state.active && session === state.session) await request($, state, '/confirm', { nonce, session });
 }
-async function confirmLater($, state, nonce) {
-  try { await confirm($, state, nonce); } catch { await status($, 'binding_unconfirmed'); }
-}
+const confirmLater = ($, state, nonce) => confirm($, state, nonce).catch(() => status($, 'binding_unconfirmed'));
 async function deliver($, state, frame) {
   if (state.disabled.has('coauthor')) return;
   state.submitting = true;
@@ -266,12 +259,18 @@ async function launch($, state) {
     await stop($, state, 'adapter_unavailable');
   }
 }
-async function start($, options) {
-  if (runtime?.active && await runtimeFact($, () => $.session.id()) === runtime.session) return;
+// Concurrent hooks share one startup so a live helper is never launched twice.
+const start = ($, options) => (starting ??= startOnce($, options).finally(() => { starting = null; }));
+async function startOnce($, options) {
+  if (runtime?.active) {
+    const current = await runtimeFact($, () => $.session.id());
+    // A slow lookup is no proof of another session; rotating loses the live epoch.
+    if (current === undefined || current === runtime.session) return;
+  }
   const contract = await inspectRuntimeContract($);
   const { session, version, failures } = contract;
   if (failures.some(failure => failure.affected_capabilities.length === ALL_CAPABILITIES.length)) {
-    if (runtime) await stop($, runtime, 'binding_lost');
+    if (runtime?.active) await stop($, runtime, 'binding_lost');
     for (const failure of failures) await status($, failure.code + ': ' + failure.contract_id + '. ' + failure.action);
     return;
   }
@@ -281,7 +280,7 @@ async function start($, options) {
     await status($, 'adapter_unconfigured');
     return;
   }
-  if (runtime) await stop($, runtime, 'binding_lost');
+  if (runtime?.active) await stop($, runtime, 'binding_lost');
   const provider = await runtimeFact($, async () => ({ url: await $.env.get('ANTHROPIC_BASE_URL') }));
   if (!object(provider) || (provider.url != null && typeof provider.url !== 'string')) {
     await status($, 'adapter_unavailable'); return;
@@ -308,6 +307,8 @@ async function ownerBoundary($, e) {
   const state = runtime;
   if (state?.disabled.has('owner_invitation') || state?.disabled.has('inform_boundary')) return null;
   if (!state?.active || !state.url || typeof e.text !== 'string' || /^\s*\//.test(e.text)) return null;
+  // A kept helper may speak for owner consent only after its session is proven current.
+  if (await runtimeFact($, () => $.session.id()) !== state.session) return null;
   // Only the human composer can authorize joining. Bridge/plugin/peer input
   // cannot create an owner invitation, even on an ordinary prompt boundary.
   const links = e.origin.kind === 'composer'

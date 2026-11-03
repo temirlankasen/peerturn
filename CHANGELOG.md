@@ -4,6 +4,28 @@ Notable user-facing changes will be recorded here, following [Keep a Changelog](
 
 ## Unreleased
 
+## [0.1.5-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.5-preview) — 2026-11-03
+
+### Fixed
+
+- Claude sessions that are not bound to PeerTurn no longer show repeated
+  `binding_lost` / `needs_rebind` status after every Bash call.
+- A slow native session lookup no longer restarts a live, bound Claude helper
+  and rotates its binding epoch; concurrent hooks share one startup.
+- `peerturn mcp --current` renews a changed binding epoch of the same native
+  session from fresh native proof and a matching hello, instead of staying on
+  `needs_rebind` until a manual `/mcp` reconnect. A different session or a
+  stale hello is still refused, and ambiguous effects are never replayed.
+- `peer_reply` / `peerturn reply` accept a parent message already delivered to
+  the native session, instead of returning `not_found`.
+- Bare `peerturn grants` lists grants; help shows `grants [list]` and
+  `grants revoke ID`.
+
+### Changed
+
+- Skill guidance: when peers share a repository, prefer a pushed branch, commit
+  SHA or merge request reference over pasting whole files.
+
 ## [0.1.4-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.4-preview) — 2026-10-30
 
 Published at `2026-10-30T13:13:24Z`; release validation and publication succeeded.

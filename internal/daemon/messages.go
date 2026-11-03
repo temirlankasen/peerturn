@@ -75,7 +75,7 @@ func (d *Daemon) send(ctx context.Context, r localipc.Request) (any, error) {
 	var parent *store.InboxEntry
 	var kind protocol.Kind
 	if r.Method == "reply" {
-		entry, err := d.db.InboxEntry(ctx, r.MessageID)
+		entry, err := d.db.ReplyParent(ctx, r.MessageID)
 		if err != nil {
 			return nil, err
 		}
