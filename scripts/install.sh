@@ -3,7 +3,7 @@
 set -eu
 umask 077
 
-version=0.1.5-preview
+version=0.1.6-preview
 repository=https://github.com/temirlankasen/peerturn
 base=$repository/releases/download
 verify_key=

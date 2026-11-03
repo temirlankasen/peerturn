@@ -159,14 +159,19 @@ func installSetup(ctx context.Context, host, root string, stdout io.Writer, invo
 	}
 	// Refuse an existing foreign or unobservable marketplace before host
 	// mutation; path aliases alone are the same local installation.
-	if err = inspectSetupMarketplace(ctx, host, root, invoke, true); err != nil {
+	marketplace, err := inspectSetupMarketplace(ctx, host, root, invoke, true)
+	if err != nil {
 		return err
 	}
-	if err = invoke(ctx, host, []string{"plugin", "marketplace", "add", root}, stdout); err != nil {
-		return err
-	}
-	if err = observeSetupMarketplace(ctx, host, root, invoke); err != nil {
-		return err
+	// A marketplace added by native plugin commands stays the owner's choice;
+	// setup adopts it only after its files matched the verified release.
+	if !marketplace.published {
+		if err = invoke(ctx, host, []string{"plugin", "marketplace", "add", root}, stdout); err != nil {
+			return err
+		}
+		if err = observeSetupMarketplace(ctx, host, root, invoke); err != nil {
+			return err
+		}
 	}
 	verb := "install"
 	if host == "codex" {
@@ -184,7 +189,7 @@ func installSetup(ctx context.Context, host, root string, stdout io.Writer, invo
 			return err
 		}
 	}
-	if err = observeSetupPlugin(ctx, host, root, invoke); err != nil {
+	if err = observeSetupPlugin(ctx, host, root, marketplace, invoke); err != nil {
 		return err
 	}
 	if err = registerSetupMCP(ctx, host, root, invoke); err != nil {

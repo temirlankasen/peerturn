@@ -6,8 +6,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${user_config.peerturn_binary}",
-            "args": ["adapter", "claude", "owner-boundary"],
+            "command": "/bin/sh",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/owner-boundary.sh"],
             "timeout": 5
           }
         ]

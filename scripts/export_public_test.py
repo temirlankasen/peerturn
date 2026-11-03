@@ -116,7 +116,7 @@ class PublicExport(unittest.TestCase):
                   "adapters/claude/.claude-plugin/plugin.json",
                   "adapters/codex/plugin/.codex-plugin/plugin.json",
                   "adapters/codex/.agents/plugins/marketplace.json",
-                  "packaging/codex/.agents/plugins/marketplace.json")
+                  ".agents/plugins/marketplace.json")
         for name in public:
             self.put("public fixture\n", name)
         self.commit()

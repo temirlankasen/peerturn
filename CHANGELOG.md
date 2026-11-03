@@ -4,6 +4,25 @@ Notable user-facing changes will be recorded here, following [Keep a Changelog](
 
 ## Unreleased
 
+## [0.1.6-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.6-preview) — 2026-11-03
+
+### Added
+
+- Native plugin-command installation: the repository is a Claude Code and Codex
+  marketplace (`/plugin marketplace add temirlankasen/peerturn@v0.1.6-preview`,
+  `codex plugin marketplace add temirlankasen/peerturn@v0.1.6-preview`).
+  `peerturn setup` adopts that marketplace only when its files equal the
+  verified release, and otherwise reports `marketplace_conflict` without changes.
+
+### Fixed
+
+- Codex installs the Codex plugin from the repository marketplace instead of
+  the Claude plugin.
+- An installed Claude plugin whose executable is not configured yet keeps the
+  owner's prompt ordinary instead of failing every prompt with an unset option.
+- The Codex plugin added from the repository uses only the verified release
+  helper in its default location; it never searches `PATH`.
+
 ## [0.1.5-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.5-preview) — 2026-11-03
 
 ### Fixed

@@ -43,7 +43,7 @@ archives:
         info: *file_info
       - src: .claude-plugin/marketplace.json
         info: *file_info
-      - src: packaging/codex/.agents/plugins/marketplace.json
+      - src: .agents/plugins/marketplace.json
         dst: .agents/plugins
         strip_parent: true
         info: *file_info
@@ -52,6 +52,10 @@ archives:
       - src: adapters/claude/hooks/hooks.json
         info: *file_info
       - src: adapters/claude/hooks/register.js
+        info: *file_info
+      - src: adapters/claude/hooks/owner-boundary.sh
+        info: *file_info
+      - src: adapters/claude/README.md
         info: *file_info
       - src: adapters/claude/skills/peerturn/SKILL.md
         info: *file_info

@@ -1,6 +1,6 @@
 # Self-service invitation admission
 
-_[v0.1.5-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.5-preview), published 2026-11-03 — operator configuration, not deployment authorization_
+_[v0.1.6-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.6-preview), published 2026-11-03 — operator configuration, not deployment authorization_
 
 ---
 
@@ -116,7 +116,7 @@ replenishing hosted service. Limit changes are an explicit operator action.
 
 ## 🗄️ Preserve history during upgrades
 
-The v0.1.5-preview relay uses SQLite schema v2, **even with admission closed**.
+The v0.1.6-preview relay uses SQLite schema v2, **even with admission closed**.
 Opening a fresh database or upgrading
 v1 adds the inviter registry and invitation author/creation-time fields in one
 transaction. Legacy invitations retain unknown authorship rather than acquiring

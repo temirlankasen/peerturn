@@ -18,6 +18,7 @@ RECORDS = "internal/runtimepolicy/verified.json"
 RELEASES = ".github/runtime-releases.json"
 PIN_FILES = {"scripts/install.sh", "install.ps1", "scripts/install_test.py", "docs/install.md",
              "adapters/claude/skills/peerturn/SKILL.md", "adapters/codex/plugin/skills/peerturn/SKILL.md",
+             "adapters/codex/plugin/scripts/inform.sh",
              "internal/relay/invite_page.go", "SECURITY.md", "SUPPORT.md", "GOVERNANCE.md",
              "docs/README.md", "docs/m3.md", "docs/install-lab.md"}
 EDITABLE = {RECORDS, RELEASES, "README.md", "CHANGELOG.md"} | PIN_FILES

@@ -104,7 +104,7 @@ class PublicationCheck(unittest.TestCase):
                      "adapters/claude/.claude-plugin/plugin.json",
                      "adapters/codex/plugin/.codex-plugin/plugin.json",
                      "adapters/codex/.agents/plugins/marketplace.json",
-                     "packaging/codex/.agents/plugins/marketplace.json"):
+                     ".agents/plugins/marketplace.json"):
             with self.subTest(name=name):
                 self.assertFalse(excluded(name))
         self.assertTrue(descend(".github"))

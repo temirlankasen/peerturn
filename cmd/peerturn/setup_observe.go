@@ -68,27 +68,52 @@ func sameSetupPath(got, want string) bool {
 	return err == nil && canonicalGot == canonicalWant
 }
 
-func observeSetupMarketplace(ctx context.Context, host, root string, invoke setupInvoke) error {
-	return inspectSetupMarketplace(ctx, host, root, invoke, false)
+// The public repository is the only accepted remote source. Its ref is not
+// trusted: a published marketplace counts only if its files equal the
+// verified release inventory.
+const (
+	setupPublishedRepo = "temirlankasen/peerturn"
+	setupPublishedURL  = "https://github.com/temirlankasen/peerturn.git"
+)
+
+// setupMarketplace is the observed peerturn marketplace. A published one was
+// added by native plugin commands; root is then its host-managed checkout.
+type setupMarketplace struct {
+	found, published bool
+	root             string
 }
 
-func inspectSetupMarketplace(ctx context.Context, host, root string, invoke setupInvoke, allowAbsent bool) error {
+func observeSetupMarketplace(ctx context.Context, host, root string, invoke setupInvoke) error {
+	observed, err := inspectSetupMarketplace(ctx, host, root, invoke, false)
+	if err == nil && observed.published {
+		return setupMarketplaceFailure(host)
+	}
+	return err
+}
+
+func inspectSetupMarketplace(ctx context.Context, host, root string, invoke setupInvoke, allowAbsent bool) (setupMarketplace, error) {
 	args := []string{"plugin", "marketplace", "list", "--json"}
+	var observed setupMarketplace
 	count := 0
 	if host == "claude" {
-		var entries []*struct{ Name, Source, Path, InstallLocation string }
+		var entries []*struct{ Name, Source, Repo, Path, InstallLocation string }
 		if err := querySetup(ctx, host, args, invoke, &entries); err != nil || entries == nil {
-			return setupMarketplaceFailure(host)
+			return observed, setupMarketplaceFailure(host)
 		}
 		for _, entry := range entries {
 			if entry == nil || entry.Name == "" {
-				return setupMarketplaceFailure(host)
+				return observed, setupMarketplaceFailure(host)
 			}
-			if entry.Name == "peerturn" {
-				count++
-				if entry.Source != "directory" || !sameSetupPath(entry.Path, root) || !sameSetupPath(entry.InstallLocation, root) {
-					return setupMarketplaceFailure(host)
-				}
+			if entry.Name != "peerturn" {
+				continue
+			}
+			count++
+			switch {
+			case entry.Source == "directory" && sameSetupPath(entry.Path, root) && sameSetupPath(entry.InstallLocation, root):
+			case entry.Source == "github" && entry.Repo == setupPublishedRepo && matchSetupFile(root, ".claude-plugin/marketplace.json", entry.InstallLocation):
+				observed.published, observed.root = true, entry.InstallLocation
+			default:
+				return observed, setupMarketplaceFailure(host)
 			}
 		}
 	} else {
@@ -99,27 +124,34 @@ func inspectSetupMarketplace(ctx context.Context, host, root string, invoke setu
 			}
 		}
 		if err := querySetup(ctx, host, args, invoke, &listing); err != nil || listing.Marketplaces == nil {
-			return setupMarketplaceFailure(host)
+			return observed, setupMarketplaceFailure(host)
 		}
 		for _, entry := range listing.Marketplaces {
 			if entry == nil || entry.Name == "" {
-				return setupMarketplaceFailure(host)
+				return observed, setupMarketplaceFailure(host)
 			}
-			if entry.Name == "peerturn" {
-				count++
-				if !sameSetupPath(entry.Root, root) || entry.MarketplaceSource.SourceType != "local" || !sameSetupPath(entry.MarketplaceSource.Source, root) {
-					return setupMarketplaceFailure(host)
-				}
+			if entry.Name != "peerturn" {
+				continue
+			}
+			count++
+			source := entry.MarketplaceSource
+			switch {
+			case source.SourceType == "local" && sameSetupPath(entry.Root, root) && sameSetupPath(source.Source, root):
+			case source.SourceType == "git" && source.Source == setupPublishedURL && matchSetupFile(root, ".agents/plugins/marketplace.json", entry.Root):
+				observed.published, observed.root = true, entry.Root
+			default:
+				return observed, setupMarketplaceFailure(host)
 			}
 		}
 	}
 	if count != 1 && (!allowAbsent || count != 0) {
-		return setupMarketplaceFailure(host)
+		return observed, setupMarketplaceFailure(host)
 	}
-	return nil
+	observed.found = count == 1
+	return observed, nil
 }
 
-func observeSetupPlugin(ctx context.Context, host, root string, invoke setupInvoke) error {
+func observeSetupPlugin(ctx context.Context, host, root string, marketplace setupMarketplace, invoke setupInvoke) error {
 	args := []string{"plugin", "list", "--json"}
 	prefix, count := "adapters/claude", 0
 	if host == "claude" {
@@ -154,7 +186,18 @@ func observeSetupPlugin(ctx context.Context, host, root string, invoke setupInvo
 		for _, entry := range listing.Installed {
 			if entry.Name == "peerturn" && entry.MarketplaceName == "peerturn" {
 				count++
-				if !entry.Installed || entry.Source.Source != "local" || !sameSetupPath(entry.Source.Path, filepath.Join(root, prefix)) || entry.MarketplaceSource.SourceType != "local" || !sameSetupPath(entry.MarketplaceSource.Source, root) || matchSetupPlugin(root, prefix, entry.Source.Path) != nil {
+				if !entry.Installed || entry.Source.Source != "local" {
+					return invalidArguments()
+				}
+				if !marketplace.published {
+					if !sameSetupPath(entry.Source.Path, filepath.Join(root, prefix)) || entry.MarketplaceSource.SourceType != "local" || !sameSetupPath(entry.MarketplaceSource.Source, root) || matchSetupPlugin(root, prefix, entry.Source.Path) != nil {
+						return invalidArguments()
+					}
+					continue
+				}
+				// The repository carries no executable; its hook falls back to
+				// the verified release helper, so only the bundled copy may be absent.
+				if !sameSetupPath(entry.Source.Path, filepath.Join(marketplace.root, prefix)) || entry.MarketplaceSource.SourceType != "git" || entry.MarketplaceSource.Source != setupPublishedURL || matchSetupPlugin(root, prefix, entry.Source.Path, "bin/peerturn") != nil {
 					return invalidArguments()
 				}
 			}

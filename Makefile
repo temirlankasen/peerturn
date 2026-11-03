@@ -61,7 +61,7 @@ runtime-contract-check: runtime-module-check
 	$(GO) test -race ./internal/runtimepolicy ./internal/adapters/codex ./internal/claudeipc ./internal/mcp
 
 runtime-module-check:
-	node --test adapters/claude/tests/*.test.mjs
+	node --test tests/claude/*.test.mjs
 
 runtime-native-module-check:
 	python3 -I -B scripts/native_module.py "$(CLAUDE)" "$(CLAUDE_VERSION)"

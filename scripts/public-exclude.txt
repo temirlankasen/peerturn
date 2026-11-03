@@ -13,7 +13,7 @@ public .claude-plugin/marketplace.json
 public adapters/claude/.claude-plugin/plugin.json
 public adapters/codex/plugin/.codex-plugin/plugin.json
 public adapters/codex/.agents/plugins/marketplace.json
-public packaging/codex/.agents/plugins/marketplace.json
+public .agents/plugins/marketplace.json
 public .github/CODEOWNERS
 public .github/ISSUE_TEMPLATE/bug_report.yml
 public .github/ISSUE_TEMPLATE/config.yml

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"io"
@@ -10,7 +11,9 @@ import (
 	"strings"
 )
 
-func matchSetupPlugin(root, prefix, installed string) error {
+// matchSetupPlugin requires the installed plugin to hold exactly the verified
+// files under prefix; only the named optional files may be absent.
+func matchSetupPlugin(root, prefix, installed string, optional ...string) error {
 	if !filepath.IsAbs(installed) {
 		return invalidArguments()
 	}
@@ -69,8 +72,31 @@ func matchSetupPlugin(root, prefix, installed string) error {
 		return nil
 	})
 	closeErr = directory.Close()
+	for _, path := range optional {
+		delete(expected, path)
+	}
 	if err != nil || closeErr != nil || len(expected) != 0 {
 		return invalidArguments()
 	}
 	return nil
+}
+
+// matchSetupFile compares one host-managed file with its verified release copy.
+func matchSetupFile(root, path, installedRoot string) bool {
+	if !filepath.IsAbs(installedRoot) {
+		return false
+	}
+	release, err := os.OpenRoot(root)
+	if err != nil {
+		return false
+	}
+	want, wantErr := readSetupFile(release, path, 64*1024)
+	releaseErr := release.Close()
+	installed, err := os.OpenRoot(installedRoot)
+	if err != nil {
+		return false
+	}
+	got, gotErr := readSetupFile(installed, path, 64*1024)
+	installedErr := installed.Close()
+	return wantErr == nil && gotErr == nil && releaseErr == nil && installedErr == nil && bytes.Equal(want, got)
 }

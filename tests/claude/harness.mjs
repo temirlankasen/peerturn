@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 
-const source = await readFile(new URL('../hooks/register.js', import.meta.url), 'utf8');
+const source = await readFile(new URL('../../adapters/claude/hooks/register.js', import.meta.url), 'utf8');
 
 export async function harness(version = '2.1.306', idle = true, configure = () => {}) {
   const mod = await import(`data:text/javascript,${encodeURIComponent(source)}#${Math.random()}`);

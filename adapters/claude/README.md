@@ -8,7 +8,7 @@ JavaScript mod handles the runtime API and UI. The Go helper owns binding,
 authorization, custody, framing and receipts. Installing the plugin does not
 authorize peers or automatically attach other sessions.
 
-**[v0.1.5-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.5-preview)
+**[v0.1.6-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.6-preview)
 was published on 2026-11-03**. It fixes the
 historical v0.1.2-preview native loader rejection with literal `$` API calls,
 adds model-free cold MCP recovery and [Claude-only connect](../../docs/connect.md).
