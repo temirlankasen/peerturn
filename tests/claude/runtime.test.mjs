@@ -180,7 +180,7 @@ test('a helper cannot redirect its authenticated control capability to a remote 
   });
   await h.tick();
   assert.equal(h.requests.length, 0);
-  assert.ok(h.statuses.includes('adapter_unavailable'));
+  assert.deepEqual(h.statuses, []);
 });
 
 test('ending a native session closes its helper and cancels the polling interval', async () => {

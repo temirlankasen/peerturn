@@ -9,7 +9,6 @@ import (
 	"github.com/temirlankasen/peerturn/internal/codec"
 	peercrypto "github.com/temirlankasen/peerturn/internal/crypto"
 	"github.com/temirlankasen/peerturn/internal/envelope"
-	"github.com/temirlankasen/peerturn/internal/grant"
 	"github.com/temirlankasen/peerturn/internal/identity"
 	"github.com/temirlankasen/peerturn/internal/localipc"
 	"github.com/temirlankasen/peerturn/internal/protocol"
@@ -205,7 +204,7 @@ func (d *Daemon) nativeMessage(ctx context.Context, item store.NativeItem) (prot
 		return protocol.MessagePayload{}, "", nil, err
 	}
 	for id, peer := range d.state.Peers {
-		if grant.Hash(peer.Incoming) != item.GrantHash || peer.IncomingRevoked {
+		if !peer.hasIncoming(item.GrantHash) || peer.IncomingRevoked {
 			continue
 		}
 		// Custody already verified the exact grant/certificates at receipt time.

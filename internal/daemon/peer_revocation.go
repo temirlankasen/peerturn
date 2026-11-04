@@ -2,8 +2,7 @@ package daemon
 
 import (
 	"context"
-
-	"github.com/temirlankasen/peerturn/internal/grant"
+	"slices"
 )
 
 // The queue commit is authoritative across parked promotion and journal crashes.
@@ -16,7 +15,7 @@ func (d *Daemon) refreshPeerRevocations(ctx context.Context) error {
 	changed := false
 	for _, installed := range grants {
 		for _, peer := range d.state.Peers {
-			if peer.Revoked || installed.Hash != grant.Hash(peer.Outgoing) {
+			if peer.Revoked || !slices.Contains(peer.outgoingHashes(), installed.Hash) {
 				continue
 			}
 			revoked, queryErr := d.db.RevokedOutboundGrant(ctx, installed.GrantID)

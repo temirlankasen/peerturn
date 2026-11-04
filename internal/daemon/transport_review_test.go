@@ -151,7 +151,7 @@ func TestExpiredRelaySubmitUsesLocalExpiryWithoutRevokingPeer(t *testing.T) {
 		t.Fatalf("lost typed expiry: %v", err)
 	}
 	receipt, err := a.db.Receipt(t.Context(), r.Message.MessageID)
-	if err != nil || receipt.Stage != "expired" || receipt.EvidenceKind == "relay_denied" || a.state.Peers[id].Revoked || !a.state.Peers[id].SequenceBlocked {
+	if err != nil || receipt.Stage != "expired" || receipt.EvidenceKind == "relay_denied" || a.state.Peers[id].Revoked || a.state.Peers[id].SequenceBlocked {
 		t.Fatalf("expiry misclassified: %+v %v", receipt, err)
 	}
 }

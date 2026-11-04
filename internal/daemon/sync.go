@@ -59,6 +59,9 @@ func (d *Daemon) syncWithBudget(ctx context.Context, phaseBudget time.Duration) 
 	if !d.state.Enrolled {
 		return nil
 	}
+	if err := d.syncLinkUpdates(ctx); err != nil {
+		return err
+	}
 	flushErr := d.flush(ctx)
 	if retryCustody(flushErr) {
 		return flushErr
@@ -223,25 +226,28 @@ func (d *Daemon) receive(ctx context.Context, packet protocol.EncryptedPacket, s
 		}
 		return d.rejectSlot(ctx, seq, raw, err)
 	}
-	g, err := d.incomingGrant(peer)
+	signed := peer.incomingFor(verified.GrantHash)
+	g, err := d.incomingGrantFor(peer, signed)
 	if err != nil {
 		return d.rejectSlot(ctx, seq, raw, err)
 	}
 	if verified.Kind == protocol.Receipt {
-		_, commitErr := d.db.InboxCommit(ctx, store.InboxRequest{Packet: raw, Mailbox: d.mailbox(), MailboxSeq: seq, GrantID: g.GrantID, Open: d.openOptions(peer)})
+		_, commitErr := d.db.InboxCommit(ctx, store.InboxRequest{Packet: raw, Mailbox: d.mailbox(), MailboxSeq: seq, GrantID: g.GrantID, Open: d.openOptionsFor(peer, signed)})
 		if commitErr != nil {
 			return d.rejectSlot(ctx, seq, raw, commitErr)
 		}
-		_, recheckErr := d.db.RecheckParked(ctx, store.InboxRequest{GrantID: g.GrantID, Mailbox: d.mailbox(), Open: d.openOptions(peer)})
-		if recheckErr != nil {
+		if recheckErr := d.recheckParked(ctx, peer); recheckErr != nil {
 			return recheckErr
+		}
+		if renewErr := d.renewLink(ctx, peer, signed); renewErr != nil {
+			return renewErr
 		}
 		return d.refreshPeerRevocations(ctx)
 	}
 	// The builder is invoked only after admission passes. Its journal reservation
 	// makes the exact receipt recoverable if custody commits before a crash.
 	var buildErr error
-	_, err = d.db.InboxCommit(ctx, store.InboxRequest{Packet: raw, Mailbox: d.mailbox(), MailboxSeq: seq, GrantID: g.GrantID, Open: d.openOptions(peer), Receipt: func(receipt protocol.ReceiptPayload) ([]byte, error) {
+	_, err = d.db.InboxCommit(ctx, store.InboxRequest{Packet: raw, Mailbox: d.mailbox(), MailboxSeq: seq, GrantID: g.GrantID, Open: d.openOptionsFor(peer, signed), Receipt: func(receipt protocol.ReceiptPayload) ([]byte, error) {
 		body, encodeErr := codec.Canonical(receipt)
 		if encodeErr != nil {
 			buildErr = encodeErr
@@ -257,12 +263,14 @@ func (d *Daemon) receive(ctx context.Context, packet protocol.EncryptedPacket, s
 			buildErr = encodeErr
 			return nil, encodeErr
 		}
-		reserved.Inbound, reserved.MailboxSeq = &packet, seq
+		reserved.Inbound, reserved.MailboxSeq, reserved.InboundGrant = &packet, seq, signed
 		d.state.Reserved = &reserved
 		d.state.Sequences[id]++
 		buildErr = d.save()
 		return wire, buildErr
 	}})
+	// Only an admitted packet is use of the link that renews its grant.
+	admitted := err == nil
 	if err != nil {
 		if buildErr != nil {
 			err = buildErr
@@ -279,9 +287,13 @@ func (d *Daemon) receive(ctx context.Context, packet protocol.EncryptedPacket, s
 			return d.rejectSlot(ctx, seq, raw, err)
 		}
 	}
-	_, err = d.db.RecheckParked(ctx, store.InboxRequest{GrantID: g.GrantID, Mailbox: d.mailbox(), Open: d.openOptions(peer)})
-	if err != nil {
+	if err = d.recheckParked(ctx, peer); err != nil {
 		return err
+	}
+	if admitted {
+		if err = d.renewLink(ctx, peer, signed); err != nil {
+			return err
+		}
 	}
 	return d.refreshPeerRevocations(ctx)
 }

@@ -20,7 +20,7 @@ func TestAuthorityLifetimeBoundaries(t *testing.T) {
 	rotation := RotationStatement{Version: 1, OldIdentityID: device.IdentityID,
 		NewIdentityID: RootFingerprint(newPublic), NewRootPublicKey: newPublic, NotBefore: fixtureNow}
 	for _, delta := range []int64{-1, 0, 1} {
-		device.ExpiresAt = device.NotBefore + 30*24*60*60 + delta
+		device.ExpiresAt = device.NotBefore + 366*24*60*60 + delta
 		_, err := IssueDevice(device, rootKey)
 		assertLifetimeDecision(t, "device", delta, err)
 		payload, canonicalErr := codec.Canonical(device)
@@ -30,7 +30,7 @@ func TestAuthorityLifetimeBoundaries(t *testing.T) {
 		_, err = DecodeDevice(payload)
 		assertLifetimeDecision(t, "decoded device", delta, err)
 
-		session.ExpiresAt = session.NotBefore + 24*60*60 + 5*60 + delta
+		session.ExpiresAt = session.NotBefore + 365*24*60*60 + delta
 		_, err = IssueSession(session, deviceKey)
 		assertLifetimeDecision(t, "session", delta, err)
 		payload, canonicalErr = codec.Canonical(session)

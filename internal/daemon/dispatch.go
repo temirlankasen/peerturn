@@ -3,11 +3,11 @@ package daemon
 import (
 	"context"
 	"encoding/json"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/temirlankasen/peerturn/internal/fault"
-	"github.com/temirlankasen/peerturn/internal/grant"
 	"github.com/temirlankasen/peerturn/internal/invite"
 	"github.com/temirlankasen/peerturn/internal/localipc"
 	"github.com/temirlankasen/peerturn/internal/store"
@@ -222,7 +222,7 @@ func (d *Daemon) Dispatch(ctx context.Context, r localipc.Request) (any, error) 
 		for i := range grants {
 			for _, peer := range d.state.Peers {
 				// The authenticated peer projection survives receipt retention.
-				if peer.Revoked && grants[i].Hash == grant.Hash(peer.Outgoing) {
+				if peer.Revoked && slices.Contains(peer.outgoingHashes(), grants[i].Hash) {
 					grants[i].EffectiveRevoked = true
 				}
 			}
@@ -259,7 +259,7 @@ func (d *Daemon) inbox(ctx context.Context, cursor string) (any, error) {
 		peerID := ""
 		for id, p := range d.state.Peers {
 			for _, g := range grants {
-				if g.GrantID == item.GrantID && g.Hash == grant.Hash(p.Incoming) {
+				if g.GrantID == item.GrantID && p.hasIncoming(g.Hash) {
 					peerID = id
 					break
 				}

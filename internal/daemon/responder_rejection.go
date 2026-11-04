@@ -62,8 +62,7 @@ func (d *Daemon) rejectResponderReason(ctx context.Context, item store.InboxEntr
 	var notifications []store.NativeNotification
 	batch := &reservedPacket{}
 	for id, peer := range d.state.Peers {
-		g, verifyErr := d.incomingGrant(peer)
-		if verifyErr != nil || g.GrantID != item.GrantID {
+		if _, ok := d.incomingGrantByID(peer, item.GrantID); !ok {
 			continue
 		}
 		peerReceipt := r

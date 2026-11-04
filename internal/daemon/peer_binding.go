@@ -73,12 +73,14 @@ func historicalBinding(chain identity.Chain) (identity.SessionCertificate, []byt
 }
 
 func (d *Daemon) checkPeerBinding(chain identity.Chain, route []byte) error {
-	if _, exists := d.state.Peers[peerID(chain)]; exists {
+	previous := d.supersededPeer(chain, route)
+	if _, exists := d.state.Peers[peerID(chain)]; exists && previous != peerID(chain) {
 		return fault.New(fault.Conflict)
 	}
 	s := d.state
 	s.Peers = make(map[string]*peerState, len(d.state.Peers)+1)
 	maps.Copy(s.Peers, d.state.Peers)
+	delete(s.Peers, previous)
 	s.Peers[peerID(chain)] = &peerState{Chain: chain, RoutingKey: route}
 	return validatePeerState(s)
 }

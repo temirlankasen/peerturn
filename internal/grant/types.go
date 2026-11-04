@@ -16,10 +16,11 @@ const (
 	Ask Scope = "ask"
 	// Coauthor grants the receiving agent's normal capabilities; it is not a sandbox.
 	Coauthor Scope = "coauthor"
-	// DefaultLifetime is the default owner policy lifetime in seconds.
-	DefaultLifetime int64 = 24 * 60 * 60
 	// MaxLifetime bounds every signed grant to thirty days in seconds.
-	MaxLifetime int64 = 30 * DefaultLifetime
+	MaxLifetime int64 = 30 * 24 * 60 * 60
+	// DefaultLifetime is the owner policy lifetime in seconds. The recipient
+	// renews a grant while the link is in use, so only an idle link lapses.
+	DefaultLifetime int64 = MaxLifetime
 )
 
 const (

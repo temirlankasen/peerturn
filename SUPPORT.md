@@ -1,7 +1,7 @@
 # Support
 
 PeerTurn is pre-alpha. The current release is
-**[v0.1.8-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.8-preview),
+**[v0.1.9-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.9-preview),
 published 2026-11-04**. It fixes v0.1.2-preview's historical Claude loader failure.
 Release validation, publication and scoped external artifact verification passed;
 see [installation](docs/install.md). There is no production support SLA.

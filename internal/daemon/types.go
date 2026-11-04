@@ -115,6 +115,19 @@ type peerState struct {
 	NotificationsUnavailable bool           `json:"notifications_unavailable"`
 	HelloSent                bool           `json:"hello_sent"`
 	HelloReceived            bool           `json:"hello_received"`
+	// PermitEpoch is the relay route epoch of this link; zero is the original 1.
+	PermitEpoch int64 `json:"permit_epoch,omitempty"`
+	// PriorIncoming and PriorOutgoing are the grants the current ones renewed.
+	// Packets sealed under them stay valid until they expire.
+	PriorIncoming string `json:"prior_incoming,omitempty"`
+	PriorOutgoing string `json:"prior_outgoing,omitempty"`
+	// Update is a built link update awaiting relay custody. A retry resends the
+	// same packet, so the relay deduplicates it.
+	Update *protocol.EncryptedPacket `json:"update,omitempty"`
+	// UpdatedAt is when an update last reached relay custody.
+	UpdatedAt int64 `json:"updated_at,omitempty"`
+	// Floor is the highest own sequence announced to the peer as lost.
+	Floor uint64 `json:"floor,omitempty"`
 }
 
 type issuedInvite struct {
@@ -177,11 +190,13 @@ type clientState struct {
 }
 
 type reservedPacket struct {
-	PeerID          string                              `json:"peer_id"`
-	Message         protocol.MessagePayload             `json:"message"`
-	Packet          protocol.EncryptedPacket            `json:"packet"`
-	Inbound         *protocol.EncryptedPacket           `json:"inbound,omitempty"`
-	MailboxSeq      uint64                              `json:"mailbox_seq,omitempty"`
+	PeerID     string                    `json:"peer_id"`
+	Message    protocol.MessagePayload   `json:"message"`
+	Packet     protocol.EncryptedPacket  `json:"packet"`
+	Inbound    *protocol.EncryptedPacket `json:"inbound,omitempty"`
+	MailboxSeq uint64                    `json:"mailbox_seq,omitempty"`
+	// InboundGrant is the incoming grant that admitted Inbound.
+	InboundGrant    string                              `json:"inbound_grant,omitempty"`
 	RevokeGrant     string                              `json:"revoke_grant,omitempty"`
 	Revocations     map[string]protocol.EncryptedPacket `json:"revocations,omitempty"`
 	NoNotifications bool                                `json:"no_notifications"`

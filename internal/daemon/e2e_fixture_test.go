@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -52,8 +53,10 @@ type relayFixture struct {
 	listener *trackedListener
 	current  atomic.Pointer[relay.Server]
 	offline  atomic.Bool
-	events   atomic.Int64
-	cfg      config.Config
+	// holdMessages refuses message posts only, so onboarding still proceeds.
+	holdMessages atomic.Bool
+	events       atomic.Int64
+	cfg          config.Config
 }
 
 func newRelayFixture(t *testing.T, admin ed25519.PrivateKey) *relayFixture {
@@ -64,7 +67,8 @@ func newRelayFixture(t *testing.T, admin ed25519.PrivateKey) *relayFixture {
 			f.events.Add(1)
 		}
 		s := f.current.Load()
-		if f.offline.Load() || s == nil {
+		held := f.holdMessages.Load() && r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/messages")
+		if f.offline.Load() || held || s == nil {
 			w.WriteHeader(503)
 			return
 		}

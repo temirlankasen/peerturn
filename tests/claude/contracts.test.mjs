@@ -40,7 +40,8 @@ for (const change of [
     const h = await harness('2.1.308', false, change);
     assert.equal(h.launched.length, 0);
     assert.equal(h.submitted.length, 0);
-    assert.ok(h.statuses.some(value => value.includes('runtime_contract_changed') && value.includes('doctor')));
+    // doctor reports the contract; a session that never bound shows nothing.
+    assert.deepEqual(h.statuses, []);
     const owner = { text: 'Owner request', origin: { kind: 'composer' } };
     assert.equal(await h.hooks.get('prompt.submit')(h.$, owner, async value => value), owner);
   });
@@ -70,11 +71,11 @@ test('a missing submit API reports uncertainty while owner invitations and notic
   assert.equal(results().length, 1);
 });
 
-for (const [name, change] of [
-  ['http.fetch', $ => { $.http.fetch = undefined; }],
-  ['process.spawn', $ => { $.process.spawn = undefined; }],
-  ['clock.every', $ => { $.clock.every = undefined; }],
-  ['env.get', $ => { $.env.get = undefined; }],
+for (const [name, change, bound] of [
+  ['http.fetch', $ => { $.http.fetch = undefined; }, true],
+  ['process.spawn', $ => { $.process.spawn = undefined; }, false],
+  ['clock.every', $ => { $.clock.every = undefined; }, true],
+  ['env.get', $ => { $.env.get = undefined; }, false],
 ]) {
   test(`a failed ${name} call cannot submit a peer prompt or block owner continuation`, async () => {
     const h = await harness('2.1.308', true, change);
@@ -84,7 +85,7 @@ for (const [name, change] of [
     for (let tick = 0; tick < 8; tick += 1) await h.tick();
     assert.equal(h.submitted.length, 0);
     assert.ok(!h.requests.some(value => value.url.endsWith('/authorize')));
-    assert.ok(h.statuses.includes('adapter_unavailable'));
+    assert.deepEqual(h.statuses, bound ? ['adapter_unavailable'] : []);
   });
 }
 

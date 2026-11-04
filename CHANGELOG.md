@@ -4,6 +4,45 @@ Notable user-facing changes will be recorded here, following [Keep a Changelog](
 
 ## Unreleased
 
+## [0.1.9-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.9-preview) — 2026-11-04
+
+### Fixed
+
+- A profile no longer stops working a day after `peerturn init`. The session
+  certificate lasted 24 hours and was never renewed, so every invitation and
+  join then failed with `expired`, and a restarted daemon refused to start.
+  The daemon now reissues it once it lapses (at start or during maintenance),
+  or shortly before an invitation or join when no grant is live, keeping the
+  root, device, session ID and keys under the next session epoch. A
+  certificate now lasts a year, so this happens once a year.
+- A link no longer dies after a day. Each side renews the grant it gave the
+  other while the link is in use, once less than half of its 30 days remain,
+  and sends the renewal to the peer; packets sealed under the previous grant
+  stay valid until it expires. Revoking either grant ends the link.
+- A message no longer expires after an hour. It now waits for an offline peer
+  for nearly seven days.
+- A lost message no longer blocks the channel. When an own message expires
+  without reaching the peer, the sender tells the peer, which stops waiting
+  for it and admits later messages; previously they stayed parked behind the
+  gap (`sequence_gap`), or the sender needed a new invitation (`needs_rebind`).
+- A new invitation from an already known peer now relinks the pair instead of
+  failing with `conflict`: after the peer moved to another Claude session, after
+  either side renewed its certificate, or while the old link is still active.
+  The old link's grants are revoked locally, so its unread messages leave the
+  inbox and its unsent packets are dropped. Both sides need 0.1.9.
+
+### Upgrading
+
+- Links made with 0.1.8 or earlier end at the first invitation or join after
+  the upgrade, which renews the day-long certificate to a year. Connect each
+  peer once more with a new invitation; both sides need 0.1.9.
+
+### Changed
+
+- The Claude plugin stays silent in sessions that never bound PeerTurn: no
+  status line in every Claude session. `peerturn connect` and `peerturn doctor`
+  still report setup failures where they run.
+
 ## [0.1.8-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.8-preview) — 2026-11-04
 
 ### Fixed

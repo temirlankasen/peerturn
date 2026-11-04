@@ -77,8 +77,7 @@ func (d *Daemon) recordPeerInvites(peer, text string) {
 
 func (d *Daemon) recordPeerEntryInvites(item store.InboxEntry) error {
 	for id, p := range d.state.Peers {
-		g, err := d.incomingGrant(p)
-		if err == nil && g.GrantID == item.GrantID {
+		if _, ok := d.incomingGrantByID(p, item.GrantID); ok {
 			d.recordPeerInvites(id, string(item.Body))
 			return nil
 		}

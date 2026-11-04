@@ -183,7 +183,9 @@ func (d *Daemon) syncInvite(ctx context.Context, i *issuedInvite) error {
 	i.ClaimDigest = digest
 	i.ForwardGrant = forward
 	i.Response = &response
-	d.state.Peers[peerID(claim.Claimant)] = p
+	if err = d.replacePeer(ctx, p); err != nil {
+		return err
+	}
 	if err = d.save(); err != nil {
 		return err
 	}

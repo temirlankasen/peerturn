@@ -18,8 +18,7 @@ func (d *Daemon) queueNativeReceipt(ctx context.Context, receipt protocol.Receip
 	var peerID string
 	var peer *peerState
 	for id, p := range d.state.Peers {
-		g, verifyErr := d.incomingGrant(p)
-		if verifyErr == nil && g.GrantID == grantID {
+		if _, ok := d.incomingGrantByID(p, grantID); ok {
 			peerID, peer = id, p
 			break
 		}

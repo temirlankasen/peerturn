@@ -245,7 +245,8 @@ func loadState(dir string, sealer store.Sealer) (clientState, error) {
 	if state.Version != 1 || !validLabel(state.Label) || len(state.SigningSeed) != 32 || len(state.RoutingSeed) != 32 || len(state.EncryptionKey) != 32 || state.Peers == nil || state.Issued == nil || state.Joining == nil || state.Sequences == nil || state.Pending == nil {
 		return state, fault.New(store.InvalidState)
 	}
-	cert, err := identity.VerifyChain(state.Chain, identity.RootFingerprint(state.Chain.RootPublicKey), unixNow())
+	// An expired chain still names this profile's keys; Open renews it.
+	cert, _, err := historicalBinding(state.Chain)
 	if err != nil {
 		return state, err
 	}

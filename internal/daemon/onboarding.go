@@ -24,6 +24,9 @@ import (
 var previewManifest = peercrypto.Digest([]byte("peerturn/m25/installed-preview/v1"))
 
 func (d *Daemon) createInvite(ctx context.Context) (any, error) {
+	if err := d.renewIdentity(ctx, true); err != nil {
+		return nil, err
+	}
 	if d.activeInvites() >= 32 {
 		return nil, fault.New(fault.BudgetExceeded)
 	}
@@ -144,6 +147,9 @@ func (d *Daemon) joinWithCapability(ctx context.Context, raw, capability string)
 	if err := d.checkInvitationOrigin(raw, capability); err != nil {
 		return nil, err
 	}
+	if err := d.renewIdentity(ctx, true); err != nil {
+		return nil, err
+	}
 	link, err := invite.ParseLink(raw)
 	if err != nil {
 		return nil, err
@@ -208,8 +214,13 @@ func (d *Daemon) joinWithCapability(ctx context.Context, raw, capability string)
 	if err != nil {
 		return nil, err
 	}
+	if err = d.checkPeerBinding(descriptor.Inviter, descriptor.RoutingKey); err != nil {
+		return nil, err
+	}
+	if err = d.replacePeer(ctx, &peerState{Chain: descriptor.Inviter, RoutingKey: descriptor.RoutingKey, Incoming: returnGrant}); err != nil {
+		return nil, err
+	}
 	d.state.Joining[link.ID()] = &joiningInvite{URL: raw, Descriptor: descriptor, Claim: claim, Packet: packet}
-	d.state.Peers[peerID(descriptor.Inviter)] = &peerState{Chain: descriptor.Inviter, RoutingKey: descriptor.RoutingKey, Incoming: returnGrant}
 	if err = d.installGrant(ctx, returnGrant, d.state.Chain, descriptor.Inviter); err != nil {
 		return nil, err
 	}
@@ -257,7 +268,7 @@ func (d *Daemon) allowPeer(ctx context.Context, peer *peerState) error {
 		return err
 	}
 	return networkDo(ctx, d, func() error {
-		return d.relay.PutPermit(ctx, d.mailbox(), routePermit(peer.RoutingKey), relayclient.Permit{WriterKey: publicKey(peer.RoutingKey), Epoch: 1, ExpiresAt: min(d.cert.ExpiresAt, cert.ExpiresAt)})
+		return d.relay.PutPermit(ctx, d.mailbox(), routePermit(peer.RoutingKey), relayclient.Permit{WriterKey: publicKey(peer.RoutingKey), Epoch: peer.permitEpoch(), ExpiresAt: min(d.cert.ExpiresAt, cert.ExpiresAt)})
 	})
 }
 

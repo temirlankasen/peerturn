@@ -47,8 +47,7 @@ func (d *Daemon) askPeer(ctx context.Context, message string) (string, *peerStat
 		return "", nil, err
 	}
 	for id, peer := range d.state.Peers {
-		g, verifyErr := d.incomingGrant(peer)
-		if verifyErr == nil && g.GrantID == grantID {
+		if _, ok := d.incomingGrantByID(peer, grantID); ok {
 			return id, peer, nil
 		}
 	}

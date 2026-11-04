@@ -37,9 +37,9 @@ func (d *Daemon) framedEntry(item store.InboxEntry, scope string) (string, error
 
 func (d *Daemon) claudeSender(item store.InboxEntry) (string, error) {
 	for _, p := range d.state.Peers {
-		g, err := d.incomingGrant(p)
-		if err == nil && g.GrantID == item.GrantID && !p.IncomingRevoked {
-			if _, _, err = d.outgoing(p); err != nil {
+		g, ok := d.incomingGrantByID(p, item.GrantID)
+		if ok && !p.IncomingRevoked {
+			if _, _, err := d.outgoing(p); err != nil {
 				return "", err
 			}
 			return g.Subject.IdentityID + "/" + g.Subject.SessionID, nil

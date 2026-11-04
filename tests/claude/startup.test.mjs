@@ -4,14 +4,14 @@ import { harness } from './harness.mjs';
 
 for (const code of ['runtime_unsupported', 'daemon_unavailable', 'needs_rebind',
   'permission_denied', 'peer_identity_failed', 'auth_failed']) {
-  test(`pre-ready helper failure reaches the UI: ${code}`, async () => {
+  test(`pre-ready helper failure stays out of an unbound session: ${code}`, async () => {
     const h = await harness('2.1.306', true, $ => {
       $.process.spawn = async function* () {
         yield { stream: 'stderr', text: 'peerturn: ' + code.slice(0, 4) };
         yield { stream: 'stderr', text: code.slice(4) + '\n' };
       };
     });
-    assert.deepEqual(h.statuses, [code]);
+    assert.deepEqual(h.statuses, []);
     assert.equal(h.timers.length, 0);
     assert.equal(h.requests.length, 0);
   });
@@ -24,7 +24,7 @@ for (const text of ['private-path/token=private-marker\n',
     const h = await harness('2.1.306', true, $ => {
       $.process.spawn = async function* () { yield { stream: 'stderr', text }; };
     });
-    assert.deepEqual(h.statuses, ['adapter_unavailable']);
+    assert.deepEqual(h.statuses, []);
     assert.equal(h.requests.length, 0);
   });
 }
@@ -117,8 +117,8 @@ test('an unbound session stays quiet across ordinary Bash operations', async () 
     assert.equal(await h.hooks.get('tool.call')(h.$, event, async value => value), event);
     await h.tick();
   }
-  // A never-ready helper had no binding to lose; repeats add no owner-visible noise.
-  assert.deepEqual(h.statuses, ['needs_rebind']);
+  // A never-ready helper had no binding to lose; PeerTurn stays out of sight.
+  assert.deepEqual(h.statuses, []);
   assert.equal(launches, 4);
   assert.equal(h.submitted.length, 0);
 });

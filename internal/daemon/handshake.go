@@ -19,6 +19,13 @@ type handshake struct {
 	ForwardGrant    string `json:"forward_grant,omitempty"`
 	ReturnGrantHash string `json:"return_grant_hash"`
 	Hello           bool   `json:"hello"`
+	// NextSeq announces the sender's next data sequence on a relinked pair.
+	// It is omitted on a first link, which older peers decode strictly.
+	NextSeq uint64 `json:"next_seq,omitempty"`
+	// Grant and Floor make a link update rather than a hello: a renewed grant
+	// for the receiver's sends and the sender's highest lost sequence.
+	Grant string `json:"grant,omitempty"`
+	Floor uint64 `json:"floor,omitempty"`
 }
 
 func invalidHandshake() error   { return fault.New(fault.InvalidInvite) }
@@ -33,13 +40,16 @@ func (d *Daemon) handshakePacket(p *peerState, hello handshake) (protocol.Encryp
 	if err != nil {
 		return protocol.EncryptedPacket{}, err
 	}
+	if next := d.state.Sequences[peerID(p.Chain)] + 1; hello.Hello && next > 1 {
+		hello.NextSeq = next
+	}
 	body, err := codec.Canonical(hello)
 	if err != nil {
 		return protocol.EncryptedPacket{}, err
 	}
 	now := unixNow()
 	id := randomID()
-	expiry := min(now+3600, g.ExpiresAt)
+	expiry := min(now+messageTTL, g.ExpiresAt)
 	m := protocol.MessagePayload{MessageID: id, FromSession: d.cert.SessionID, FromSessionEpoch: d.cert.SessionEpoch, ToSession: cert.SessionID, ToSessionEpoch: cert.SessionEpoch, SenderSeq: 1, GrantID: g.GrantID, GrantEpoch: 1, GrantHash: grant.Hash(p.Outgoing), Kind: protocol.GrantUpdate, BodyUTF8: string(body), CreatedAt: now, ExpiresAt: expiry, ConversationID: randomID(), BudgetID: randomID()}
 	h := protocol.RoutingHeader{WireVersion: 1, Suite: protocol.Suite, DstMailbox: routeMailbox(p.RoutingKey), RoutePermitID: routePermit(d.routingPublic()), MessageID: id, RecipientKeyEpoch: cert.KeyEpoch, ExpiresAt: expiry}
 	key, err := ecdh.X25519().NewPublicKey(cert.EncryptionKey)
@@ -80,19 +90,31 @@ func (d *Daemon) acceptHandshake(ctx context.Context, p *peerState, packet proto
 	if signed.Header != packet.Header || m.Validate() != nil || packet.Header.DstMailbox != d.mailbox() || packet.Header.RoutePermitID != routePermit(p.RoutingKey) || m.MessageID != packet.Header.MessageID || m.ExpiresAt != packet.Header.ExpiresAt || m.FromSession != cert.SessionID || m.FromSessionEpoch != cert.SessionEpoch || m.ToSession != d.cert.SessionID || m.ToSessionEpoch != d.cert.SessionEpoch || packet.Header.RecipientKeyEpoch != d.cert.KeyEpoch || m.CreatedAt > unixNow() || m.ExpiresAt <= unixNow() {
 		return true, invalidHandshake()
 	}
-	g, err := grant.Verify(p.Incoming, d.cert, cert, 1, unixNow())
+	incoming := p.incomingFor(m.GrantHash)
+	g, err := grant.Verify(incoming, d.cert, cert, 1, unixNow())
 	if err != nil {
 		return true, err
 	}
-	if m.GrantID != g.GrantID || m.GrantHash != grant.Hash(p.Incoming) || m.GrantEpoch != 1 || m.CreatedAt < g.NotBefore || m.ExpiresAt > g.ExpiresAt {
+	if m.GrantID != g.GrantID || m.GrantHash != grant.Hash(incoming) || m.GrantEpoch != 1 || m.CreatedAt < g.NotBefore || m.ExpiresAt > g.ExpiresAt {
 		return true, invalidHandshake()
 	}
 	var hello handshake
-	if err = codec.Decode([]byte(m.BodyUTF8), 32<<10, &hello); err != nil || !hello.Hello {
+	if err = codec.Decode([]byte(m.BodyUTF8), 32<<10, &hello); err != nil {
 		return true, invalidHandshake()
 	}
 	wire, err := codec.Canonical(packet)
 	if err != nil {
+		return true, err
+	}
+	if !hello.Hello {
+		if !p.connected() {
+			return true, invalidHandshake()
+		}
+		if err = d.acceptLinkUpdate(ctx, p, cert, hello); err != nil {
+			return true, err
+		}
+		_, err = d.db.CommitTransport(ctx, d.mailbox(), seq, wire, unixNow())
+		d.signal()
 		return true, err
 	}
 	if j := d.state.Joining[hello.InviteID]; j != nil {
@@ -114,6 +136,9 @@ func (d *Daemon) acceptHandshake(ctx context.Context, p *peerState, packet proto
 			if err = d.installGrant(ctx, p.Outgoing, p.Chain, d.state.Chain); err != nil {
 				return true, err
 			}
+			if err = d.db.RaiseReplayFloor(ctx, cert.Binding, d.cert.Binding, hello.NextSeq-min(hello.NextSeq, 1)); err != nil {
+				return true, err
+			}
 			ack, ackErr := d.handshakePacket(p, handshake{InviteID: hello.InviteID, ClaimID: hello.ClaimID, ReturnGrantHash: grant.Hash(j.Claim.ReturnGrant), Hello: true})
 			if ackErr != nil {
 				return true, ackErr
@@ -131,6 +156,9 @@ func (d *Daemon) acceptHandshake(ctx context.Context, p *peerState, packet proto
 	} else if i := d.state.Issued[hello.InviteID]; i != nil && i.Claim != nil {
 		if peerID(i.Claim.Claimant) != peerID(p.Chain) || hello.ClaimID != i.Claim.ClaimID || hello.ReturnGrantHash != grant.Hash(i.Claim.ReturnGrant) || hello.ForwardGrant != "" {
 			return true, invalidHandshake()
+		}
+		if err = d.db.RaiseReplayFloor(ctx, cert.Binding, d.cert.Binding, hello.NextSeq-min(hello.NextSeq, 1)); err != nil {
+			return true, err
 		}
 		p.HelloReceived = true
 		if err = d.save(); err != nil {

@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"github.com/temirlankasen/peerturn/internal/fault"
-	"github.com/temirlankasen/peerturn/internal/grant"
 	"github.com/temirlankasen/peerturn/internal/relayclient"
 )
 
@@ -21,7 +20,7 @@ func (d *Daemon) stopRevokedReceipt(ctx context.Context, id string, peer *peerSt
 		return err
 	}
 	for _, g := range grants {
-		if !g.Revoked || g.Hash != grant.Hash(peer.Incoming) {
+		if !g.Revoked || !peer.hasIncoming(g.Hash) {
 			continue
 		}
 		if err = d.db.StopRevokedReceipt(ctx, id, g.GrantID, unixNow()); err != nil {

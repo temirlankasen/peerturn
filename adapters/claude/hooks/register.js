@@ -4,7 +4,7 @@ const STARTUP_FAILURES = new Set(['runtime_unsupported', 'daemon_unavailable',
   'unsupported_version', 'runtime_version_unknown', 'runtime_contract_changed']);
 const RECOVERY = 'Update PeerTurn, reload/resume this session and rerun doctor / bind.';
 const ALL_CAPABILITIES = ['coauthor', 'owner_invitation', 'inform_boundary', 'inform_notification'];
-let runtime = null, working = null, turnGeneration = 0, shown = null, starting = null;
+let runtime = null, working = null, turnGeneration = 0, shown = null, starting = null, bound = false;
 function object(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
@@ -51,8 +51,10 @@ async function lifecycle($, e) {
   working = null; return false;
 }
 async function status($, text) {
+  // PeerTurn stays out of sessions that never bound a helper: most sessions
+  // do not use it, and connect/doctor report setup failures where they run.
   // Unbound sessions retry on Bash; an unchanged state is not new owner information.
-  if (text === shown) return; shown = text;
+  if (!bound || text === shown) return; shown = text;
   try { void Promise.resolve($.ui.status(text)).catch(() => {}); } catch { /* UI never holds owner work. */ }
 }
 async function stop($, state, reason) {
@@ -248,6 +250,7 @@ async function launch($, state) {
       }
       state.url = frame.url;
       state.capability = frame.capability;
+      bound = true;
       if (state.nonce) {
         void confirmLater($, state, state.nonce);
         state.nonce = null;

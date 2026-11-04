@@ -74,5 +74,24 @@ func Verify(compact string, issuer, subject identity.SessionCertificate, current
 	return g, nil
 }
 
+// Authenticate checks only the issuer signature and binding, without the
+// validity window. It bounds a renewal by a grant that may already have lapsed;
+// it never authorizes a message.
+func Authenticate(compact string, issuer identity.SessionCertificate) (Grant, error) {
+	payload, err := peercrypto.Verify(compact, identity.RootFingerprint(issuer.SigningKey),
+		peercrypto.GrantType, issuer.SigningKey)
+	if err != nil {
+		return Grant{}, err
+	}
+	g, err := Decode(payload)
+	if err != nil {
+		return Grant{}, err
+	}
+	if !identity.EqualBinding(g.Issuer, issuer.Binding) {
+		return Grant{}, fault.New(fault.AudienceMismatch)
+	}
+	return g, nil
+}
+
 // Hash binds envelopes to the exact signed compact grant, not a reserialization.
 func Hash(compact string) string { return peercrypto.Digest([]byte(compact)) }

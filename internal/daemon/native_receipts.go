@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/temirlankasen/peerturn/internal/codec"
-	"github.com/temirlankasen/peerturn/internal/grant"
 	"github.com/temirlankasen/peerturn/internal/localipc"
 	"github.com/temirlankasen/peerturn/internal/protocol"
 	"github.com/temirlankasen/peerturn/internal/store"
@@ -56,7 +55,7 @@ func (d *Daemon) commitInform(ctx context.Context, ids []string, stage, turn str
 		for peerID, p := range d.state.Peers {
 			matched := false
 			for _, g := range grants {
-				if g.GrantID == entry.GrantID && g.Hash == grant.Hash(p.Incoming) {
+				if g.GrantID == entry.GrantID && p.hasIncoming(g.Hash) {
 					matched = true
 					break
 				}

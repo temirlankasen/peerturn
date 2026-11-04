@@ -5,7 +5,6 @@ import (
 
 	"github.com/temirlankasen/peerturn/internal/codec"
 	"github.com/temirlankasen/peerturn/internal/fault"
-	"github.com/temirlankasen/peerturn/internal/grant"
 	"github.com/temirlankasen/peerturn/internal/identity"
 	"github.com/temirlankasen/peerturn/internal/protocol"
 )
@@ -27,7 +26,7 @@ func (d *Daemon) revoke(ctx context.Context, grantID string) (any, error) {
 			continue
 		}
 		for peerID, peer := range d.state.Peers {
-			if g.Hash == grant.Hash(peer.Incoming) {
+			if peer.hasIncoming(g.Hash) {
 				id = peerID
 				p = peer
 				break
@@ -38,7 +37,17 @@ func (d *Daemon) revoke(ctx context.Context, grantID string) (any, error) {
 		return nil, fault.New(fault.ScopeDenied)
 	}
 	if !p.IncomingRevoked {
-		if err := d.deleteNativeGrant(ctx, grantID); err != nil {
+		// Revoking either grant of a renewed pair ends the link: the prior one
+		// is revoked locally and the current one carries the notifications.
+		if err := d.revokePriorIncoming(ctx, p); err != nil {
+			return nil, err
+		}
+		current, err := d.installedGrantID(ctx, p.Incoming)
+		if err != nil {
+			return nil, err
+		}
+		grantID = current
+		if err = d.deleteNativeGrant(ctx, grantID); err != nil {
 			return nil, err
 		}
 		receipts, err := d.db.RevokeReceipts(ctx, grantID, unixNow())
@@ -126,7 +135,9 @@ func (d *Daemon) syncRevokes(ctx context.Context) error {
 		if !p.RevokeRoutePending {
 			continue
 		}
-		if err := networkDo(ctx, d, func() error { return d.relay.RevokePermit(ctx, d.mailbox(), routePermit(p.RoutingKey), 2) }); err != nil {
+		if err := networkDo(ctx, d, func() error {
+			return d.relay.RevokePermit(ctx, d.mailbox(), routePermit(p.RoutingKey), p.permitEpoch()+1)
+		}); err != nil {
 			return err
 		}
 		p.RevokeRoutePending = false

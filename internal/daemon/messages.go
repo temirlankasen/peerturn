@@ -28,6 +28,11 @@ func (d *Daemon) outgoing(p *peerState) (grant.Grant, identity.SessionCertificat
 	return g, cert, err
 }
 
+// messageTTL keeps a packet at the relay for nearly its seven-day bound. An
+// hour lost every message to a peer offline that long, and the lost sequence
+// then parked all later ones.
+const messageTTL int64 = 7*24*60*60 - 60*60
+
 func (d *Daemon) makePacket(id string, p *peerState, kind protocol.Kind, body string, parent *store.InboxEntry) (reservedPacket, error) {
 	if p.SequenceBlocked && kind != protocol.Receipt {
 		return reservedPacket{}, localipc.NewError("binding_error", "needs_rebind")
@@ -38,7 +43,7 @@ func (d *Daemon) makePacket(id string, p *peerState, kind protocol.Kind, body st
 	}
 	now := unixNow()
 	messageID := randomID()
-	m := protocol.MessagePayload{MessageID: messageID, FromSession: d.cert.SessionID, FromSessionEpoch: d.cert.SessionEpoch, ToSession: cert.SessionID, ToSessionEpoch: cert.SessionEpoch, SenderSeq: d.state.Sequences[id] + 1, GrantID: g.GrantID, GrantEpoch: g.GrantEpoch, GrantHash: grant.Hash(p.Outgoing), Kind: kind, BodyUTF8: body, CreatedAt: now, ExpiresAt: min(now+3600, g.ExpiresAt), ConversationID: randomID(), BudgetID: randomID()}
+	m := protocol.MessagePayload{MessageID: messageID, FromSession: d.cert.SessionID, FromSessionEpoch: d.cert.SessionEpoch, ToSession: cert.SessionID, ToSessionEpoch: cert.SessionEpoch, SenderSeq: d.state.Sequences[id] + 1, GrantID: g.GrantID, GrantEpoch: g.GrantEpoch, GrantHash: grant.Hash(p.Outgoing), Kind: kind, BodyUTF8: body, CreatedAt: now, ExpiresAt: min(now+messageTTL, g.ExpiresAt), ConversationID: randomID(), BudgetID: randomID()}
 	if parent != nil {
 		m.ConversationID = parent.ConversationID
 		m.ParentID = parent.MessageID
@@ -82,8 +87,7 @@ func (d *Daemon) send(ctx context.Context, r localipc.Request) (any, error) {
 		parent = &entry
 		id, p = "", nil
 		for key, peer := range d.state.Peers {
-			g, err := d.incomingGrant(peer)
-			if err == nil && g.GrantID == parent.GrantID {
+			if _, ok := d.incomingGrantByID(peer, parent.GrantID); ok {
 				id = key
 				p = peer
 				break
@@ -137,14 +141,22 @@ func (d *Daemon) send(ctx context.Context, r localipc.Request) (any, error) {
 }
 
 func (d *Daemon) incomingGrant(p *peerState) (grant.Grant, error) {
+	return d.incomingGrantFor(p, p.Incoming)
+}
+
+func (d *Daemon) incomingGrantFor(p *peerState, signed string) (grant.Grant, error) {
 	cert, err := identity.VerifyChain(p.Chain, identity.RootFingerprint(p.Chain.RootPublicKey), unixNow())
 	if err != nil {
 		return grant.Grant{}, err
 	}
-	return grant.Verify(p.Incoming, d.cert, cert, 1, unixNow())
+	return grant.Verify(signed, d.cert, cert, 1, unixNow())
 }
 
 func (d *Daemon) openOptions(p *peerState) envelope.OpenOptions {
+	return d.openOptionsFor(p, p.Incoming)
+}
+
+func (d *Daemon) openOptionsFor(p *peerState, signed string) envelope.OpenOptions {
 	kinds := []protocol.Kind{protocol.Coauthor, protocol.Reply, protocol.Receipt}
 	if d.state.NativeSessionID != "" {
 		kinds = append(kinds, protocol.Ask, protocol.Inform)
@@ -153,7 +165,7 @@ func (d *Daemon) openOptions(p *peerState) envelope.OpenOptions {
 		// custody here never admits a fork or sends text to the live queue.
 		kinds = append(kinds, protocol.Ask, protocol.Inform)
 	}
-	return envelope.OpenOptions{RecipientKey: d.key, RecipientChain: d.state.Chain, RecipientPin: d.cert.IdentityID, SenderChain: p.Chain, SenderPin: identity.RootFingerprint(p.Chain.RootPublicKey), SignedGrant: p.Incoming, CurrentGrantEpoch: 1, Now: unixNow(), ExpectedMailbox: d.mailbox(), ExpectedPermit: routePermit(p.RoutingKey), AllowedKinds: kinds}
+	return envelope.OpenOptions{RecipientKey: d.key, RecipientChain: d.state.Chain, RecipientPin: d.cert.IdentityID, SenderChain: p.Chain, SenderPin: identity.RootFingerprint(p.Chain.RootPublicKey), SignedGrant: signed, CurrentGrantEpoch: 1, Now: unixNow(), ExpectedMailbox: d.mailbox(), ExpectedPermit: routePermit(p.RoutingKey), AllowedKinds: kinds}
 }
 
 func (d *Daemon) sendPacket(ctx context.Context, p protocol.EncryptedPacket) error {
@@ -238,11 +250,15 @@ func (d *Daemon) recoverInbound(ctx context.Context, r *reservedPacket, p *peerS
 	if err != nil {
 		return d.rejectSlot(ctx, r.MailboxSeq, nil, err)
 	}
-	g, err := d.incomingGrant(p)
+	signed := r.InboundGrant
+	if signed == "" {
+		signed = p.Incoming
+	}
+	g, err := d.incomingGrantFor(p, signed)
 	if err != nil {
 		return d.rejectSlot(ctx, r.MailboxSeq, incoming, err)
 	}
-	_, err = d.db.InboxCommit(ctx, store.InboxRequest{Packet: incoming, Mailbox: d.mailbox(), MailboxSeq: r.MailboxSeq, GrantID: g.GrantID, Open: d.openOptions(p), Receipt: func(payload protocol.ReceiptPayload) ([]byte, error) {
+	_, err = d.db.InboxCommit(ctx, store.InboxRequest{Packet: incoming, Mailbox: d.mailbox(), MailboxSeq: r.MailboxSeq, GrantID: g.GrantID, Open: d.openOptionsFor(p, signed), Receipt: func(payload protocol.ReceiptPayload) ([]byte, error) {
 		if payload.MessageID != r.Inbound.Header.MessageID {
 			return nil, fault.New(fault.Conflict)
 		}

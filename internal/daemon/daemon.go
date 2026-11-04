@@ -25,26 +25,28 @@ import (
 
 // Daemon serializes owner operations with custody and the local onboarding journal.
 type Daemon struct {
-	mu                       sync.Mutex
-	opMu                     sync.Mutex
-	options                  Options
-	state                    clientState
-	sealer                   store.Sealer
-	db                       *store.Store
-	relay                    *relayclient.Client
-	key                      *ecdh.PrivateKey
-	cert                     identity.SessionCertificate
-	capabilities             map[string]capabilityBinding
-	joinOrigins              joinOrigins
-	stateLock                *localipc.StateLock
-	closeOnce                sync.Once
-	closeErr                 error
-	wake                     chan struct{}
-	cancel                   context.CancelFunc
-	verified                 int64
-	lastError                string
-	persistenceFailed        bool
-	lastMaintenance          int64
+	mu                sync.Mutex
+	opMu              sync.Mutex
+	options           Options
+	state             clientState
+	sealer            store.Sealer
+	db                *store.Store
+	relay             *relayclient.Client
+	key               *ecdh.PrivateKey
+	cert              identity.SessionCertificate
+	capabilities      map[string]capabilityBinding
+	joinOrigins       joinOrigins
+	stateLock         *localipc.StateLock
+	closeOnce         sync.Once
+	closeErr          error
+	wake              chan struct{}
+	cancel            context.CancelFunc
+	verified          int64
+	lastError         string
+	persistenceFailed bool
+	lastMaintenance   int64
+	// lossGrace is floorGrace; isolated tests shorten it instead of waiting.
+	lossGrace                int64
 	ackedThrough             int64
 	notifyOnline             bool
 	claudeBinding            *claude.Binding
@@ -86,6 +88,15 @@ func Open(ctx context.Context, o Options) (_ *Daemon, result error) {
 	if err != nil {
 		return nil, err
 	}
+	renewed, err := renewChain(&state, unixNow(), 0)
+	if err != nil {
+		return nil, err
+	}
+	if renewed {
+		if err = saveState(o.StateDir, sealer, state, false); err != nil {
+			return nil, err
+		}
+	}
 	if err = validatePeerState(state); err != nil {
 		return nil, err
 	}
@@ -111,7 +122,7 @@ func Open(ctx context.Context, o Options) (_ *Daemon, result error) {
 	if err = db.BindSession(ctx, cert.Binding, bindingContext(state)); err != nil {
 		return nil, errors.Join(err, db.Close())
 	}
-	d := &Daemon{options: o, state: state, sealer: sealer, db: db, relay: client, key: key, cert: cert, capabilities: map[string]capabilityBinding{}, stateLock: stateLock, wake: make(chan struct{}, 1)}
+	d := &Daemon{options: o, state: state, sealer: sealer, db: db, relay: client, key: key, cert: cert, capabilities: map[string]capabilityBinding{}, stateLock: stateLock, wake: make(chan struct{}, 1), lossGrace: floorGrace}
 	d.native = o.Native
 	d.askContext, d.askCancel = context.WithCancel(context.Background())
 	d.askActive = map[string]context.CancelFunc{}

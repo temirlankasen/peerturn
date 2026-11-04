@@ -15,11 +15,14 @@ const maxSafeInteger uint64 = 1<<53 - 1
 
 // Certificate lifetime caps are Unix seconds, including any renewal overlap.
 const (
-	// DeviceMaxLifetime limits a root's offline delegation to 30 days.
-	DeviceMaxLifetime int64 = 30 * 24 * 60 * 60
-	// SessionMaxLifetime permits daily key rotation plus five minutes of overlap.
+	// DeviceMaxLifetime limits a root's offline delegation to a year and a day,
+	// so a device certificate always covers a full session certificate.
+	DeviceMaxLifetime int64 = 366 * 24 * 60 * 60
+	// SessionMaxLifetime is a year. A certificate renewal changes the session
+	// epoch and with it every grant and channel, so a daily lifetime cut every
+	// link once a day. Grants, not the certificate, bound unattended access.
 	// It does not extend expired authority or the separate backlog key retention.
-	SessionMaxLifetime int64 = 24*60*60 + 5*60
+	SessionMaxLifetime int64 = 365 * 24 * 60 * 60
 	// RotationMaxLifetime bounds the replay window of a root continuity proof.
 	RotationMaxLifetime int64 = 3 * 24 * 60 * 60
 )
