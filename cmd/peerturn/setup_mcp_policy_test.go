@@ -14,7 +14,7 @@ import (
 )
 
 func TestSetupClaudeMCPNativePolicyPreserved(t *testing.T) {
-	for _, change := range []string{"ours", "command", "args", "env", "type", "timeout", "unknown", "null", "duplicate", "malformed", "oversize", "project", "project_identical", "ancestor", "local", "managed", "legacy", "symlink", "legacy_symlink", "query_failed"} {
+	for _, change := range []string{"ours", "command", "args", "env", "type", "timeout", "unknown", "null", "duplicate", "malformed", "oversize", "project", "project_identical", "ancestor", "local", "managed", "managed_empty", "remote_empty", "remote_dir", "legacy", "symlink", "legacy_symlink", "query_failed"} {
 		t.Run(change, func(t *testing.T) {
 			config := setupMCPHome(t)
 			root := t.TempDir()
@@ -56,7 +56,18 @@ func TestSetupClaudeMCPNativePolicyPreserved(t *testing.T) {
 			case "local":
 				settings["projects"] = map[string]any{cwd: map[string]any{"mcpServers": map[string]any{"peerturn": entry}}}
 			case "managed":
+				writeSetupMCPJSON(t, filepath.Join(config, "managed-settings.json"), map[string]any{"allowedMcpServers": []any{}})
+			case "managed_empty":
 				writeSetupMCPJSON(t, filepath.Join(config, "managed-settings.json"), map[string]any{})
+			case "remote_empty":
+				// Claude Code 2.1.308 writes exactly this for an account without remote policy.
+				if writeErr := os.WriteFile(filepath.Join(config, "remote-settings.json"), []byte("{}"), 0600); writeErr != nil {
+					t.Fatal(writeErr)
+				}
+			case "remote_dir":
+				if mkdirErr := os.Mkdir(filepath.Join(config, "remote-settings.json"), 0700); mkdirErr != nil {
+					t.Fatal(mkdirErr)
+				}
 			}
 			data, err := json.Marshal(settings)
 			if err != nil {
@@ -103,7 +114,7 @@ func TestSetupClaudeMCPNativePolicyPreserved(t *testing.T) {
 				return nil
 			}
 			err = registerSetupMCP(t.Context(), "claude", root, invoke)
-			if change == "ours" || change == "legacy" {
+			if change == "ours" || change == "legacy" || change == "managed_empty" || change == "remote_empty" {
 				if err != nil || len(calls) != 1 || calls[0] != "mcp get peerturn" {
 					t.Fatalf("identical user entry not skipped: calls=%v err=%v", calls, err)
 				}

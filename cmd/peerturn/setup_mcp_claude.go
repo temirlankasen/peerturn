@@ -61,9 +61,18 @@ func observeSetupClaudeMCP(root string) (bool, error) {
 		policyPaths = append(policyPaths, "/Library/Managed Preferences/com.anthropic.claudecode.plist", filepath.Join("/Library/Managed Preferences", current.Username, "com.anthropic.claudecode.plist"))
 	}
 	for _, path := range policyPaths {
-		if _, statErr := lstatSetupClaudePath(path); !errors.Is(statErr, fs.ErrNotExist) {
-			return false, invalidArguments()
+		info, statErr := lstatSetupClaudePath(path)
+		if errors.Is(statErr, fs.ErrNotExist) {
+			continue
 		}
+		// The host writes an empty remote-settings.json when an account has
+		// no remote policy; an empty JSON object constrains nothing.
+		if statErr == nil && info.Mode().IsRegular() && filepath.Ext(path) == ".json" {
+			if policy, readErr := readSetupClaudeConfig(path); readErr == nil && len(policy) == 0 {
+				continue
+			}
+		}
+		return false, invalidArguments()
 	}
 	settings, err := readSetupClaudeConfig(global)
 	if err != nil {

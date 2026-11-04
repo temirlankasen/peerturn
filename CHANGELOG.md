@@ -4,6 +4,15 @@ Notable user-facing changes will be recorded here, following [Keep a Changelog](
 
 ## Unreleased
 
+## [0.1.8-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.8-preview) — 2026-11-04
+
+### Fixed
+
+- `peerturn setup claude` no longer refuses MCP registration because Claude Code
+  wrote an empty `remote-settings.json` (`{}`) for an account without remote
+  policy. A non-empty or non-regular managed or remote settings file still
+  stops setup before changes.
+
 ## [0.1.7-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.7-preview) — 2026-11-04
 
 ### Fixed

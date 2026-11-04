@@ -12,7 +12,7 @@ case "$PLUGIN_ROOT" in
     # the release helper the signed installer verified, never one from PATH.
     if [ ! -e "$PLUGIN_ROOT/bin" ] && [ ! -L "$PLUGIN_ROOT/bin" ]; then
       case "$HOME" in
-        /*) run "$HOME/.local/share/peerturn/0.1.7-preview" ;;
+        /*) run "$HOME/.local/share/peerturn/0.1.8-preview" ;;
       esac
     fi
     ;;

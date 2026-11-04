@@ -6,7 +6,7 @@ PeerTurn is **pre-alpha**. The protocol core, HPKE/Ed25519 encryption, direction
 
 | Version | Security support |
 | --- | --- |
-| [0.1.7-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.7-preview) | Published 2026-11-04. Best-effort preview fixes; artifact verification and source/native validation are separate from signed-install qualification. No production qualification. |
+| [0.1.8-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.8-preview) | Published 2026-11-04. Best-effort preview fixes; artifact verification and source/native validation are separate from signed-install qualification. No production qualification. |
 | 0.1.2-preview | Earlier published preview; historical Claude first-run loader rejection is fixed in `.4`. Baseline labs cover Claude 2.1.306 / Codex 0.163.0 shared daemon, not the new release's installed assets. |
 | Development branch | Best-effort investigation only; no security support SLA. |
 
