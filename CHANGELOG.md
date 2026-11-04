@@ -4,6 +4,23 @@ Notable user-facing changes will be recorded here, following [Keep a Changelog](
 
 ## Unreleased
 
+## [0.1.7-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.7-preview) — 2026-11-04
+
+### Fixed
+
+- Upgrading an existing installation works: `peerturn setup claude|codex`
+  replaces PeerTurn's own older marketplace (an older package directory under
+  `~/.local/share/peerturn`, or the public repository at other contents), then
+  reinstalls the plugin; for Claude it also replaces its own default MCP entry.
+  Previously setup stopped with `marketplace_conflict`, and Claude refused
+  `/plugin marketplace add` over the old source. Foreign sources still conflict,
+  and a Claude plugin the owner disabled reports `plugin_disabled` unchanged.
+  The older Codex MCP entry stays an owner step (`mcp_upgrade_required`),
+  because `codex mcp get` hides its approval policy.
+- `peerturn connect` no longer reuses a daemon left running from another
+  PeerTurn version; it explains how to restart it. `daemon status` reports
+  `peerturn_version`.
+
 ## [0.1.6-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.6-preview) — 2026-11-03
 
 ### Added

@@ -2,8 +2,8 @@
 
 PeerTurn is pre-alpha with an approved design. The [M1a pure core](core-m1a.md), [M1b client store](store-m1b.md), [M2 relay](operators/relay.md) and [M2.5 installed preview](m25.md) provide protocol, encrypted custody, transport and local CLI/MCP. The partial [Claude M3](m3.md) and [Codex M4](m4.md) previews add exact native-session binding, coauthor delivery and no-wake inform notices with explicit inbox body reads. [M6](m6-ask.md) qualifies Linux Claude ask with verified Secret Service and a narrow provider profile. Codex/macOS ask, broader fault recovery, Internet/self-host and performance qualification remain acceptance work.
 
-The current release is **[v0.1.6-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.6-preview),
-published 2026-11-03**. Verify the pinned signed assets and attestations before
+The current release is **[v0.1.7-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.7-preview),
+published 2026-11-04**. Verify the pinned signed assets and attestations before
 installation. This release fixes v0.1.2-preview's historical Claude loader failure.
 Linux/macOS archive targets cover amd64/arm64; qualification is evidence-specific.
 The [runtime policy](spec/versions.md) accepts Claude Code >=2.1.306

@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"os"
 	"path/filepath"
 
+	"github.com/temirlankasen/peerturn/internal/codec"
+	"github.com/temirlankasen/peerturn/internal/localipc"
 	"github.com/temirlankasen/peerturn/internal/store"
 )
 
@@ -78,14 +81,16 @@ const (
 
 // setupMarketplace is the observed peerturn marketplace. A published one was
 // added by native plugin commands; root is then its host-managed checkout.
+// A stale one is PeerTurn's own: an older installer package directory or the
+// public repository at contents other than this release. Setup replaces it.
 type setupMarketplace struct {
-	found, published bool
-	root             string
+	found, published, stale bool
+	root                    string
 }
 
 func observeSetupMarketplace(ctx context.Context, host, root string, invoke setupInvoke) error {
 	observed, err := inspectSetupMarketplace(ctx, host, root, invoke, false)
-	if err == nil && observed.published {
+	if err == nil && (observed.published || observed.stale) {
 		return setupMarketplaceFailure(host)
 	}
 	return err
@@ -110,7 +115,9 @@ func inspectSetupMarketplace(ctx context.Context, host, root string, invoke setu
 			count++
 			switch {
 			case entry.Source == "directory" && sameSetupPath(entry.Path, root) && sameSetupPath(entry.InstallLocation, root):
-			case entry.Source == "github" && entry.Repo == setupPublishedRepo && matchSetupFile(root, ".claude-plugin/marketplace.json", entry.InstallLocation):
+			case entry.Source == "directory" && entry.Path == entry.InstallLocation && previousSetupPackage(entry.Path, root):
+				observed.stale = true
+			case entry.Source == "github" && entry.Repo == setupPublishedRepo:
 				observed.published, observed.root = true, entry.InstallLocation
 			default:
 				return observed, setupMarketplaceFailure(host)
@@ -137,7 +144,9 @@ func inspectSetupMarketplace(ctx context.Context, host, root string, invoke setu
 			source := entry.MarketplaceSource
 			switch {
 			case source.SourceType == "local" && sameSetupPath(entry.Root, root) && sameSetupPath(source.Source, root):
-			case source.SourceType == "git" && source.Source == setupPublishedURL && matchSetupFile(root, ".agents/plugins/marketplace.json", entry.Root):
+			case source.SourceType == "local" && entry.Root == source.Source && previousSetupPackage(entry.Root, root):
+				observed.stale = true
+			case source.SourceType == "git" && source.Source == setupPublishedURL:
 				observed.published, observed.root = true, entry.Root
 			default:
 				return observed, setupMarketplaceFailure(host)
@@ -148,7 +157,93 @@ func inspectSetupMarketplace(ctx context.Context, host, root string, invoke setu
 		return observed, setupMarketplaceFailure(host)
 	}
 	observed.found = count == 1
+	if observed.published && !matchSetupPublished(host, root, observed.root) {
+		observed.published, observed.stale = false, true
+	}
 	return observed, nil
+}
+
+// checkSetupClaudeEnabled guards the stale-marketplace replacement: Claude's
+// marketplace remove also deletes the plugin's enabledPlugins entries in user,
+// project and local settings, including an owner's false. The effective state
+// hides a disable overridden in one scope, so every editable entry is read.
+func checkSetupClaudeEnabled(ctx context.Context, invoke setupInvoke) error {
+	problem := localipc.NewError("plugin_disabled", "needs_configuration")
+	problem.Message = "The older PeerTurn plugin is disabled in some settings scope, or not installed and enabled here. Replacing its marketplace would delete enabledPlugins entries, including an owner's disable. Inspect claude plugin list --json and the enabledPlugins settings; the owner decides whether to enable it or remove the marketplace with claude plugin marketplace remove peerturn, then reruns peerturn setup claude."
+	if !setupClaudeSettingsEnable() {
+		return problem
+	}
+	var entries []struct {
+		ID      string
+		Enabled *bool
+	}
+	if err := querySetup(ctx, "claude", []string{"plugin", "list", "--json"}, invoke, &entries); err != nil {
+		return setupMarketplaceFailure("claude")
+	}
+	for _, entry := range entries {
+		if entry.ID == "peerturn@peerturn" && entry.Enabled != nil && *entry.Enabled {
+			return nil
+		}
+	}
+	return problem
+}
+
+// setupClaudeSettingsEnable reports whether no user, project or local settings
+// file from the working directory upward holds anything but true for the plugin.
+func setupClaudeSettingsEnable() bool {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return false
+	}
+	config := os.Getenv("CLAUDE_CONFIG_DIR")
+	if config == "" {
+		config = filepath.Join(home, ".claude")
+	}
+	// Cowork mode reads cowork_settings.json in place of settings.json; both
+	// are checked regardless of the mode this process happens to see.
+	paths := []string{filepath.Join(config, "settings.json"), filepath.Join(config, "cowork_settings.json")}
+	cwd, err := os.Getwd()
+	if err != nil {
+		return false
+	}
+	if cwd, err = filepath.EvalSymlinks(cwd); err != nil {
+		return false
+	}
+	for path := cwd; ; path = filepath.Dir(path) {
+		paths = append(paths, filepath.Join(path, ".claude", "settings.json"), filepath.Join(path, ".claude", "settings.local.json"))
+		if filepath.Dir(path) == path {
+			break
+		}
+	}
+	for _, path := range paths {
+		settings, readErr := readSetupClaudeConfig(path)
+		if readErr != nil {
+			return false
+		}
+		data, ok := settings["enabledPlugins"]
+		if !ok {
+			continue
+		}
+		var plugins map[string]json.RawMessage
+		if codec.Decode(data, setupClaudeConfigLimit, &plugins) != nil {
+			return false
+		}
+		if value, found := plugins["peerturn@peerturn"]; found && string(value) != "true" {
+			return false
+		}
+	}
+	return true
+}
+
+// matchSetupPublished compares the host's checkout of the public repository
+// with the verified release. The repository carries no executable, so only
+// the Codex plugin's bundled helper may be absent.
+func matchSetupPublished(host, root, checkout string) bool {
+	manifest, prefix, optional := ".claude-plugin/marketplace.json", "adapters/claude", []string(nil)
+	if host == "codex" {
+		manifest, prefix, optional = ".agents/plugins/marketplace.json", "adapters/codex/plugin", []string{"bin/peerturn"}
+	}
+	return matchSetupFile(root, manifest, checkout) && matchSetupPlugin(root, prefix, filepath.Join(checkout, prefix), optional...) == nil
 }
 
 func observeSetupPlugin(ctx context.Context, host, root string, marketplace setupMarketplace, invoke setupInvoke) error {

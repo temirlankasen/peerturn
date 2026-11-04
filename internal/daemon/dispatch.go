@@ -11,6 +11,7 @@ import (
 	"github.com/temirlankasen/peerturn/internal/invite"
 	"github.com/temirlankasen/peerturn/internal/localipc"
 	"github.com/temirlankasen/peerturn/internal/store"
+	"github.com/temirlankasen/peerturn/internal/version"
 )
 
 // Dispatch checks the explicit test binding and keeps MCP capabilities separate
@@ -89,6 +90,7 @@ func (d *Daemon) Dispatch(ctx context.Context, r localipc.Request) (any, error) 
 		}
 		status := statusFor(d.state, state, d.verified, d.lastError)
 		status.ProfileID = ProfileID(d.options.StateDir, d.state.RelayURL)
+		status.PeerturnVersion = version.Version
 		if err := d.claudeStatus(ctx, &status); err != nil {
 			return nil, err
 		}

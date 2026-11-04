@@ -13,6 +13,7 @@ import (
 	"github.com/temirlankasen/peerturn/internal/claudeipc"
 	"github.com/temirlankasen/peerturn/internal/daemon"
 	"github.com/temirlankasen/peerturn/internal/localipc"
+	"github.com/temirlankasen/peerturn/internal/version"
 )
 
 const (
@@ -168,7 +169,7 @@ func (f *connectFake) call(_ context.Context, request localipc.Request) (json.Ra
 		if f.config != nil {
 			profileID = daemon.ProfileID(f.config.StateDir, f.config.Relay)
 		}
-		return f.encode(daemon.Status{State: "active", Binding: binding, Session: f.session, ProfileID: profileID})
+		return f.encode(daemon.Status{State: "active", Binding: binding, Session: f.session, ProfileID: profileID, PeerturnVersion: version.Version})
 	case "invite":
 		if f.inviteErr != nil {
 			return nil, f.inviteErr

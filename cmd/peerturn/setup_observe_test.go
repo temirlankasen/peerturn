@@ -77,7 +77,7 @@ func observedSetupJSON(t *testing.T, host, root, plugin string) (string, string)
 	var marketplaces, plugins any
 	if host == "claude" {
 		marketplaces = []any{map[string]any{"name": "peerturn", "source": "directory", "path": root, "installLocation": root}}
-		plugins = []any{map[string]any{"id": "peerturn@peerturn", "installPath": plugin}}
+		plugins = []any{map[string]any{"id": "peerturn@peerturn", "installPath": plugin, "enabled": true}}
 	} else {
 		marketplaceSource := map[string]string{"sourceType": "local", "source": root}
 		marketplaces = map[string]any{"marketplaces": []any{map[string]any{"name": "peerturn", "root": root, "marketplaceSource": marketplaceSource}}}

@@ -121,9 +121,11 @@ func TestSetupAcceptsPublishedMarketplaceWithReleaseContents(t *testing.T) {
 
 func TestSetupRejectsPublishedMarketplaceThatDiffersFromRelease(t *testing.T) {
 	for _, host := range []string{"claude", "codex"} {
-		changes := []string{"manifest", "repository", "hook"}
+		// Other repository contents are a stale marketplace that setup replaces;
+		// see TestSetupReplacesOwnStaleMarketplace.
+		changes := []string{"repository", "hook"}
 		if host == "codex" {
-			changes = append(changes, "outside", "foreign-helper")
+			changes = []string{"repository", "outside"}
 		}
 		for _, change := range changes {
 			t.Run(host+"/"+change, func(t *testing.T) {

@@ -100,25 +100,16 @@ private host configuration.
 After installing a newer verified PeerTurn version, the existing MCP entry can
 still point to the previous version's executable. If only that path differs,
 both paths use the installer's `~/.local/share/peerturn/<version>/peerturn`
-layout and the existing version is older, setup returns typed
-`mcp_upgrade_required` with an explicit owner step. It does not execute the
-old binary, remove the entry or rewrite it. A different command layout or
-additional configuration differences remain `mcp_registration_failed`.
-Inspect `<host> mcp get peerturn` and preserve owner tool, approval and
-environment policy before the owner replaces the entry:
-
-```text
-codex mcp remove peerturn
-peerturn setup codex
-
-claude mcp remove peerturn --scope user
-peerturn setup claude
-```
-
-Use only the selected host's pair of commands. Rerun setup with the same
-verified `--path`/`--sha256` options if those were supplied originally.
-Restore Linux name-only `XDG_RUNTIME_DIR` forwarding when needed, then
-reconnect MCP in the same selected native session. This configuration match
+layout and the existing version is older, a Claude entry is setup's own
+default: setup removes it with `claude mcp remove peerturn --scope user` and adds
+the new one. It never executes the old binary. A different command layout or
+additional configuration differences remain `mcp_registration_failed`. Codex
+returns `mcp_upgrade_required` instead, because `codex mcp get` does not show
+tool approval policy that remove/add would drop: the owner notes any approval
+or `env_vars` settings in `[mcp_servers.peerturn]`, runs
+`codex mcp remove peerturn`, reruns `peerturn setup codex` with the same
+verified options, restores those settings and reconnects MCP in the same
+selected native session. This configuration match
 does not establish publisher authenticity, activation or native binding.
 The plugins themselves remain free of MCP declarations so plugin-only installs
 cannot be mistaken for the explicit registration and verification sequence.

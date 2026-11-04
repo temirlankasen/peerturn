@@ -10,6 +10,7 @@ import (
 	"github.com/temirlankasen/peerturn/internal/claudeipc"
 	"github.com/temirlankasen/peerturn/internal/daemon"
 	"github.com/temirlankasen/peerturn/internal/localipc"
+	"github.com/temirlankasen/peerturn/internal/version"
 )
 
 const (
@@ -114,6 +115,10 @@ func (c connector) run(ctx context.Context, options connectOptions) (connectResu
 	}
 	if status.ProfileID != daemon.ProfileID(profile.StateDir, profile.Relay) {
 		return connectResult{}, connectError("conflict", "rejected", "The running daemon does not match the selected profile, or is an older version. Inspect the selected profile and daemon; connect will not replace them.")
+	}
+	// The daemon outlives an upgrade and keeps running the previous code.
+	if status.PeerturnVersion != version.Version {
+		return connectResult{}, connectError("conflict", "rejected", "The running daemon is from another PeerTurn version, usually the one before an upgrade. Run peerturn daemon stop, wait until peerturn daemon status reports it unavailable, then rerun peerturn connect. The profile, peers and grants are kept.")
 	}
 	evidence, action, err := c.ensureBinding(ctx)
 	if err != nil {

@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -13,47 +12,61 @@ import (
 	"github.com/temirlankasen/peerturn/internal/store"
 )
 
-var errSetupMCPUpgrade = errors.New("previous PeerTurn package entry")
+// errSetupMCPUpgrade marks setup's own default Claude entry for an older
+// package; errSetupMCPPreserve marks an older Codex entry, whose approval
+// policy and environment forwarding the pinned CLI cannot observe or recreate.
+var (
+	errSetupMCPUpgrade  = errors.New("previous PeerTurn package entry")
+	errSetupMCPPreserve = errors.New("previous PeerTurn package entry with unobservable owner policy")
+)
 
 func checkSetupMCPCommand(command, root string) error {
-	home, err := os.UserHomeDir()
-	if err != nil || !filepath.IsAbs(command) || filepath.Clean(command) != command ||
+	if !filepath.IsAbs(command) || filepath.Clean(command) != command ||
 		!filepath.IsAbs(root) || filepath.Clean(root) != root {
 		return invalidArguments()
 	}
-	command, err = store.ResolveTrustedPath(command)
+	command, err := store.ResolveTrustedPath(command)
 	if err != nil {
 		return invalidArguments()
 	}
-	root, err = store.ResolveTrustedPath(root)
+	resolved, err := store.ResolveTrustedPath(root)
 	if err != nil {
 		return invalidArguments()
 	}
-	if command == filepath.Join(root, "peerturn") {
+	if command == filepath.Join(resolved, "peerturn") {
 		return nil
 	}
-	home, err = store.ResolveTrustedPath(home)
-	if err != nil {
-		return invalidArguments()
-	}
-	packages := filepath.Join(home, ".local", "share", "peerturn")
-	previous := filepath.Dir(command)
-	// Only the installer's version directory may differ. A foreign command or
-	// custom package location must keep the ordinary owner-policy conflict.
-	if filepath.Base(command) != "peerturn" || filepath.Dir(previous) != packages || filepath.Dir(root) != packages ||
-		!olderSetupPackage(filepath.Base(previous), filepath.Base(root)) {
+	if filepath.Base(command) != "peerturn" || !previousSetupPackage(filepath.Dir(command), root) {
 		return invalidArguments()
 	}
 	return errSetupMCPUpgrade
 }
 
-func setupMCPUpgradeFailure(host string) error {
-	step := "codex mcp remove peerturn"
-	if host == "claude" {
-		step = "claude mcp remove peerturn --scope user"
+// previousSetupPackage reports whether path is an older installer version
+// directory beside root. A foreign or custom package location never
+// qualifies; the older directory itself may already be removed.
+func previousSetupPackage(path, root string) bool {
+	home, err := os.UserHomeDir()
+	if err != nil || !filepath.IsAbs(path) || filepath.Clean(path) != path ||
+		!filepath.IsAbs(root) || filepath.Clean(root) != root {
+		return false
 	}
+	resolved := make([]string, 0, 3)
+	for _, value := range []string{home, path, root} {
+		canonical, resolveErr := store.ResolveTrustedPath(value)
+		if resolveErr != nil {
+			return false
+		}
+		resolved = append(resolved, canonical)
+	}
+	packages := filepath.Join(resolved[0], ".local", "share", "peerturn")
+	return filepath.Dir(resolved[1]) == packages && filepath.Dir(resolved[2]) == packages &&
+		olderSetupPackage(filepath.Base(resolved[1]), filepath.Base(resolved[2]))
+}
+
+func setupMCPUpgradeFailure() error {
 	problem := localipc.NewError("mcp_upgrade_required", "needs_configuration")
-	problem.Message = fmt.Sprintf("The existing PeerTurn MCP entry differs only by an older installed package path. Inspect %s mcp get peerturn and preserve owner tool/approval/environment policy. To replace it, the owner must run %s, then rerun peerturn setup %s with the same verified package options. Setup never removes or rewrites an existing entry. Restore Linux name-only XDG_RUNTIME_DIR forwarding if needed, then reconnect MCP in the same selected session.", host, step, host)
+	problem.Message = "The existing PeerTurn MCP entry points to an older installed package. codex mcp get does not show its tool approval policy, so setup does not replace it. Inspect the [mcp_servers.peerturn] table in the Codex config.toml and note any approval or env_vars settings. Then the owner must run codex mcp remove peerturn, then rerun peerturn setup codex with the same verified package options, restore those settings and reconnect MCP in the same selected session."
 	return problem
 }
 

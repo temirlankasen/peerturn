@@ -14,16 +14,25 @@ import (
 	"github.com/temirlankasen/peerturn/internal/localipc"
 )
 
-func TestSetupMCPUpgradeRequiresExplicitOwnerRemoval(t *testing.T) {
+// Setup replaces only its own default Claude entry for an older package. Codex
+// hides approval policy from mcp get, so its older entry stays the owner's step.
+func TestSetupMCPUpgradeReplacesOnlyOwnDefaultEntry(t *testing.T) {
 	for _, host := range []string{"codex", "claude"} {
-		for _, change := range []string{"older", "preview_upgrade", "previous_preview", "prerelease", "prerelease_numeric", "prerelease_newer", "same", "newer", "numeric_newer", "foreign_parent", "custom_layout", "relative", "unclean", "invalid_version", "args", "env", "policy", "query_failed"} {
+		for _, change := range []string{"older", "no_env_vars", "preview_upgrade", "previous_preview", "prerelease", "prerelease_numeric", "prerelease_newer", "same", "newer", "numeric_newer", "foreign_parent", "custom_layout", "relative", "unclean", "invalid_version", "args", "env", "policy", "query_failed"} {
 			t.Run(host+"/"+change, func(t *testing.T) {
 				config := setupMCPHome(t)
 				packages := filepath.Join(filepath.Dir(config), ".local", "share", "peerturn")
 				root := filepath.Join(packages, "0.2.0")
 				command := filepath.Join(packages, "0.1.0-preview", "peerturn")
 				want := "mcp_upgrade_required"
+				if host == "claude" {
+					want = "replaced"
+				}
 				switch change {
+				case "no_env_vars":
+					if host == "claude" {
+						want = "replaced"
+					}
 				case "preview_upgrade":
 					root = filepath.Join(packages, "0.1.2-preview")
 				case "previous_preview":
@@ -63,6 +72,9 @@ func TestSetupMCPUpgradeRequiresExplicitOwnerRemoval(t *testing.T) {
 						t.Fatal("invalid fixture")
 					}
 					transport["env_vars"] = []string{"XDG_RUNTIME_DIR"}
+					if change == "no_env_vars" {
+						transport["env_vars"] = []string{}
+					}
 				} else {
 					entry = map[string]any{"type": "stdio", "args": []string{"mcp", "--current"}, "env": map[string]string{}}
 					transport = entry
@@ -101,11 +113,20 @@ func TestSetupMCPUpgradeRequiresExplicitOwnerRemoval(t *testing.T) {
 						_, writeErr := output.Write(data)
 						return writeErr
 					default:
-						t.Fatalf("existing entry caused a mutation: %v", args)
+						if want != "replaced" {
+							t.Fatalf("existing entry caused a mutation: %v", args)
+						}
 						return nil
 					}
 				}
 				err = registerSetupMCP(t.Context(), host, root, invoke)
+				if want == "replaced" {
+					replace := []string{"mcp get peerturn", "mcp remove peerturn --scope user", "mcp add --transport stdio --scope user peerturn -- " + filepath.Join(root, "peerturn") + " mcp --current"}
+					if err != nil || !slices.Equal(calls, replace) {
+						t.Fatalf("own older entry was not replaced: err=%v calls=%v", err, calls)
+					}
+					return
+				}
 				if want == "" {
 					if err != nil {
 						t.Fatal(err)

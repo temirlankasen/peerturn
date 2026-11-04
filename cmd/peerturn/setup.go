@@ -163,6 +163,19 @@ func installSetup(ctx context.Context, host, root string, stdout io.Writer, invo
 	if err != nil {
 		return err
 	}
+	// PeerTurn's own stale marketplace blocks a native add of this release, so
+	// setup removes it; the host also uninstalls its plugin and saved options,
+	// which setup reinstalls below. A foreign source never reaches this point.
+	if marketplace.stale {
+		if host == "claude" {
+			if err = checkSetupClaudeEnabled(ctx, invoke); err != nil {
+				return err
+			}
+		}
+		if err = invoke(ctx, host, []string{"plugin", "marketplace", "remove", "peerturn"}, stdout); err != nil {
+			return err
+		}
+	}
 	// A marketplace added by native plugin commands stays the owner's choice;
 	// setup adopts it only after its files matched the verified release.
 	if !marketplace.published {
@@ -210,6 +223,10 @@ func installSetup(ctx context.Context, host, root string, stdout io.Writer, invo
 			_, err = fmt.Fprintln(stdout, `On Linux, MCP can discover the daemon through its private-state runtime pointer. Name-only forwarding is an alternative: Codex 0.163.0 mcp add cannot configure it, so manually add env_vars = ["XDG_RUNTIME_DIR"] to the existing [mcp_servers.peerturn] table, preserving command/args and owner policy, and start Codex with the daemon's runtime environment. Without either discovery source, tool calls return runtime_unavailable; Codex discovery can still list tools and a later call can recover after the daemon publishes its pointer. Setup never saves the variable's value.`)
 		}
 	}
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintln(stdout, "A running daemon keeps the code it started with. After an upgrade run peerturn daemon stop, then start it again (Claude: peerturn connect from the selected session; Codex: peerturn daemon start); the profile, peers and grants are kept.")
 	if err != nil {
 		return err
 	}

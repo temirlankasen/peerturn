@@ -21,8 +21,8 @@ func registerSetupMCP(ctx context.Context, host, root string, invoke setupInvoke
 	} else {
 		present, err = observeSetupClaudeMCP(root)
 	}
-	upgrade := errors.Is(err, errSetupMCPUpgrade)
-	if (err != nil && !upgrade) || ctx.Err() != nil {
+	upgrade, preserve := errors.Is(err, errSetupMCPUpgrade), errors.Is(err, errSetupMCPPreserve)
+	if (err != nil && !upgrade && !preserve) || ctx.Err() != nil {
 		return setupMCPFailure(host)
 	}
 	if host == "claude" {
@@ -36,11 +36,22 @@ func registerSetupMCP(ctx context.Context, host, root string, invoke setupInvoke
 			return setupMCPFailure(host)
 		}
 	}
-	if upgrade {
-		return setupMCPUpgradeFailure(host)
+	if preserve {
+		return setupMCPUpgradeFailure()
 	}
-	if present {
+	if present && !upgrade {
 		return nil
+	}
+	if upgrade {
+		// The entry equals setup's own default for an older package, so no
+		// owner tool, approval or environment policy exists to preserve.
+		remove := []string{"mcp", "remove", "peerturn"}
+		if host == "claude" {
+			remove = append(remove, "--scope", "user")
+		}
+		if err = invoke(ctx, host, remove, io.Discard); err != nil {
+			return setupMCPFailure(host)
+		}
 	}
 	args := []string{"mcp", "add"}
 	if host == "claude" {
@@ -113,7 +124,13 @@ func checkSetupMCP(data []byte, root string) error {
 		(len(entry.Transport.EnvVars) != 0 && !slices.Equal(entry.Transport.EnvVars, []string{"XDG_RUNTIME_DIR"})) {
 		return invalidArguments()
 	}
-	return checkSetupMCPCommand(entry.Transport.Command, root)
+	// codex mcp get omits tool approval policy, so an older entry may carry
+	// owner policy that remove/add would drop; replacing it is the owner's step.
+	err := checkSetupMCPCommand(entry.Transport.Command, root)
+	if errors.Is(err, errSetupMCPUpgrade) {
+		return errSetupMCPPreserve
+	}
+	return err
 }
 
 func setupMCPFailure(host string) error {

@@ -53,6 +53,7 @@ type Capabilities struct {
 // Status distinguishes preview bindings, native probes and observed hook activation.
 type Status struct {
 	ProfileID        string                     `json:"profile_id,omitempty"`
+	PeerturnVersion  string                     `json:"peerturn_version,omitempty"`
 	RuntimePolicy    *runtimepolicy.Report      `json:"runtime_policy,omitempty"`
 	OwnerInvitations []localipc.OwnerInvitation `json:"owner_invitations,omitempty"`
 	RuntimeVersion   string                     `json:"runtime_version,omitempty"`

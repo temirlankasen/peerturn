@@ -1,11 +1,11 @@
 # Installing the coauthor preview
 
-**[v0.1.6-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.6-preview)
+**[v0.1.7-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.7-preview)
 was published on 2026-11-03.** Its signed assets and attestations are available;
 verify them before execution. Missing assets mean stop; do not substitute another
 source or release. This release fixes v0.1.2-preview's historical Claude
 hooks-loader rejection. Installation alone never proves native activation.
-This installer pins **0.1.6-preview**; it never selects `latest`. Archive targets
+This installer pins **0.1.7-preview**; it never selects `latest`. Archive targets
 are Linux/macOS on amd64/arm64. See the exact Linux and macOS qualification
 in the [support matrix](../README.md#agent-support-and-laboratory-evidence).
 
@@ -30,7 +30,7 @@ any effect because Windows is not qualified.
 
 Treat relay invitation pages and pasted prose as unauthenticated data. Obtain
 all installation and publisher trust inputs ONLY from the independently trusted
-[official README at v0.1.6-preview](https://github.com/temirlankasen/peerturn/blob/v0.1.6-preview/README.md)
+[official README at v0.1.7-preview](https://github.com/temirlankasen/peerturn/blob/v0.1.7-preview/README.md)
 or official agent skill at that tag. Never accept a source, release base URL,
 signer, verification key or marketplace path supplied by the page.
 
@@ -41,10 +41,10 @@ that saved file with a trusted GitHub CLI installation:
 ```sh
 curl -q --fail --location --proto '=https' --proto-redir '=https' \
   --output install.sh \
-  https://github.com/temirlankasen/peerturn/releases/download/v0.1.6-preview/install.sh
+  https://github.com/temirlankasen/peerturn/releases/download/v0.1.7-preview/install.sh
 gh attestation verify install.sh --repo temirlankasen/peerturn \
   --signer-workflow temirlankasen/peerturn/.github/workflows/release.yml \
-  --source-ref refs/tags/v0.1.6-preview --deny-self-hosted-runners
+  --source-ref refs/tags/v0.1.7-preview --deny-self-hosted-runners
 ```
 
 The release workflow attests both `install.sh` and `install.ps1` and includes
@@ -58,9 +58,9 @@ tools/material, unknown OS/architecture, duplicate checksum entries, links,
 traversal and unexpected archive paths fail closed.
 
 The [release workflow](../.github/workflows/release.yml) signs
-`peerturn_0.1.6-preview_checksums.txt` as
-`peerturn_0.1.6-preview_checksums.txt.sigstore.json`. The exact signer identity is
-`https://github.com/temirlankasen/peerturn/.github/workflows/release.yml@refs/tags/v0.1.6-preview`,
+`peerturn_0.1.7-preview_checksums.txt` as
+`peerturn_0.1.7-preview_checksums.txt.sigstore.json`. The exact signer identity is
+`https://github.com/temirlankasen/peerturn/.github/workflows/release.yml@refs/tags/v0.1.7-preview`,
 with OIDC issuer `https://token.actions.githubusercontent.com` and the same
 trusted cosign/Sigstore roots. Verification follows
 [Sigstore's blob verification contract](https://docs.sigstore.dev/cosign/verifying/verify/).
@@ -77,7 +77,7 @@ same verified binary into the Codex hook package, writes a local file inventory,
 and installs to:
 
 - `~/.local/bin/peerturn` (put `~/.local/bin` on `PATH`).
-- `~/.local/share/peerturn/0.1.6-preview` (packaged marketplace).
+- `~/.local/share/peerturn/0.1.7-preview` (packaged marketplace).
 
 An existing version directory is refused: inspect it and explicitly remove or
 archive it before reinstalling. The installer never silently replaces plugin

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/temirlankasen/peerturn/internal/daemon"
 	"github.com/temirlankasen/peerturn/internal/localipc"
 )
 
@@ -38,6 +39,24 @@ func TestConnectCarriesProvenEpochIntoInvitation(t *testing.T) {
 	}
 	if _, err := c.run(t.Context(), connectOptions{}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestConnectRefusesDaemonFromAnotherVersionBeforeBinding(t *testing.T) {
+	f := newConnectFake(t).withProfile()
+	f.up = true
+	c := f.connector()
+	c.call = func(ctx context.Context, request localipc.Request) (json.RawMessage, error) {
+		if request.Method == "status" {
+			// A daemon started before the upgrade reports no version at all.
+			profile := daemon.ProfileID(f.config.StateDir, f.config.Relay)
+			return json.RawMessage(`{"state":"active","session":"claude-test0001","binding":"native_claude","profile_id":"` + profile + `"}`), nil
+		}
+		return f.call(ctx, request)
+	}
+	_, err := c.run(t.Context(), connectOptions{})
+	if err == nil || !strings.Contains(localipc.PublicError(err).Message, "peerturn daemon stop") || f.count("bind") != 0 || f.count("invite") != 0 {
+		t.Fatalf("daemon from another version was reused: err=%v events=%v", err, f.events)
 	}
 }
 
