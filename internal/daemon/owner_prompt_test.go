@@ -98,6 +98,13 @@ func TestAlteredOwnerCapabilityFailsAuthenticationWithoutAuthority(t *testing.T)
 		if secret[0] == replacement {
 			replacement = 'b'
 		}
+		if marker == "&ek=" {
+			// X25519 clamping clears the low bits that a base64 change of only
+			// the first character's low bit touches, which leaves the same key;
+			// flipping its top bit always changes the scalar.
+			alphabet := "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+			replacement = alphabet[strings.IndexByte(alphabet, secret[0])^32]
+		}
 		altered := before + marker + string(replacement) + secret[1:]
 		ownerPastedInvite(t, d, altered)
 		_, err = d.Dispatch(t.Context(), pendingJoinRequest(t, d, capability, ""))
