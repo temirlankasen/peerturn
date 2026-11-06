@@ -5,6 +5,7 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"net/url"
 	"sort"
 	"time"
@@ -23,9 +24,24 @@ import (
 // This is not a publisher signature or a download/bootstrap trust decision.
 var previewManifest = peercrypto.Digest([]byte("peerturn/m25/installed-preview/v1"))
 
-func (d *Daemon) createInvite(ctx context.Context) (any, error) {
+func (d *Daemon) createInvite(ctx context.Context, r localipc.Request) (any, error) {
 	if err := d.renewIdentity(ctx, true); err != nil {
 		return nil, err
+	}
+	lifetime, err := inviteLifetime(r.Lifetime)
+	if err != nil {
+		return nil, err
+	}
+	if d.inviteCap > 0 {
+		lifetime = min(lifetime, d.inviteCap)
+	}
+	// Each call mints a link, so two colleagues never receive the same one;
+	// --reuse prints the latest unused link again for the owner who lost it.
+	if r.Reuse {
+		if existing := d.reusableInvite(unixNow(), r.Lifetime); existing != nil {
+			d.signal()
+			return d.invitationResult(existing, true), nil
+		}
 	}
 	if d.activeInvites() >= 32 {
 		return nil, fault.New(fault.BudgetExceeded)
@@ -41,7 +57,7 @@ func (d *Daemon) createInvite(ctx context.Context) (any, error) {
 	}
 	now := unixNow()
 	voucher := randomID() + randomID()
-	descriptor := invite.Descriptor{Version: 1, Inviter: d.state.Chain, ForwardScope: grant.Coauthor, ReturnScope: grant.Coauthor, RelayOrigin: d.state.RelayURL, NotBefore: now, ExpiresAt: min(now+invite.MaxLifetime, d.cert.ExpiresAt), MaxUses: 1, PublisherManifestHash: previewManifest, EnrollmentVoucher: voucher, RoutingKey: d.routingPublic(), MailboxKey: d.routingPublic()}
+	descriptor := invite.Descriptor{Version: 1, Inviter: d.state.Chain, ForwardScope: grant.Coauthor, ReturnScope: grant.Coauthor, RelayOrigin: d.state.RelayURL, NotBefore: now, ExpiresAt: min(now+lifetime, d.cert.ExpiresAt), MaxUses: 1, PublisherManifestHash: previewManifest, EnrollmentVoucher: voucher, RoutingKey: d.routingPublic(), MailboxKey: d.routingPublic()}
 	link, packet, err := invite.Create(descriptor, d.signingKey(), now)
 	if err != nil {
 		return nil, err
@@ -56,6 +72,17 @@ func (d *Daemon) createInvite(ctx context.Context) (any, error) {
 		return nil, err
 	}
 	if err = d.publishInvite(ctx, entry); err != nil {
+		if capped := d.legacyInviteCap(err, lifetime); capped {
+			// A relay older than 0.2.0 refuses anything over ten minutes;
+			// remember that and mint the link once more within its bound.
+			entry.Terminal, entry.Failure, entry.URL = true, "relay_lifetime", ""
+			entry.publication = invitePublication{}
+			if revokeErr := d.db.RevokeInvite(ctx, link.ID()); revokeErr != nil {
+				return nil, revokeErr
+			}
+			d.logger().Info("relay caps invitations", "seconds", d.inviteCap)
+			return d.createInvite(ctx, r)
+		}
 		err = d.onboardingResult(&entry.Failure, &entry.Terminal, err, false)
 		if entry.Terminal {
 			entry.publication = invitePublication{}
@@ -63,11 +90,19 @@ func (d *Daemon) createInvite(ctx context.Context) (any, error) {
 		return nil, err
 	}
 	d.signal()
-	binding := bindingLabel(d.state)
-	if d.claudeBinding.Ready(time.Now()) {
-		binding = "native_claude"
+	d.logger().Info("invitation created", "invite", shortID(link.ID()), "expires_at", descriptor.ExpiresAt)
+	return d.invitationResult(entry, false), nil
+}
+
+// legacyInviteCap recognises the only refusal a ten-minute relay gives a
+// longer link: a schema rejection of the publication itself.
+func (d *Daemon) legacyInviteCap(err error, lifetime int64) bool {
+	remote, ok := errors.AsType[*relayclient.Error](err)
+	if !ok || remote.Status != 400 || lifetime <= legacyInviteLifetime || d.inviteCap == legacyInviteLifetime {
+		return false
 	}
-	return map[string]any{"url": link.SecretURL(), "expires_at": descriptor.ExpiresAt, "scope": "coauthor", "binding": binding}, nil
+	d.inviteCap = legacyInviteLifetime
+	return true
 }
 
 func (d *Daemon) inviteAdmission(ctx context.Context) (string, error) {

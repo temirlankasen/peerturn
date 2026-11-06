@@ -129,11 +129,18 @@ func assertCurrentNoNativeBytes(t *testing.T, done <-chan error) {
 func TestClaudeCurrentDiagnosticsNeverChallenge(t *testing.T) {
 	for _, name := range []string{"doctor", "status"} {
 		t.Run(name, func(t *testing.T) {
+			// The human doctor reads status and peers; both are read-only too.
+			expected := []string{"adapter.current", name}
+			if name == "doctor" {
+				expected = []string{"adapter.current", "status", "peers"}
+			}
 			calls := serveHook(t, func(r localipc.Request) (any, error) {
-				if r.Method == "adapter.current" {
+				switch r.Method {
+				case "adapter.current":
 					return map[string]string{"session": "chosen", "binding_epoch": strings.Repeat("b", 32)}, nil
-				}
-				if r.Method == name {
+				case "peers":
+					return []string{}, nil
+				case name, "status":
 					return map[string]string{"state": "active"}, nil
 				}
 				return nil, localipc.NewError("needs_rebind", "needs_rebind")
@@ -144,7 +151,11 @@ func TestClaudeCurrentDiagnosticsNeverChallenge(t *testing.T) {
 			t.Setenv("CLAUDE_CODE_MESSAGING_TOKEN", "synthetic-private-native-token")
 			code, stdout, stderr := currentCommandProcess(t, []string{name, "--current"}, "")
 			requests := calls()
-			if code != 0 || stderr != "" || len(requests) != 2 || requests[0].Method != "adapter.current" || requests[1].Method != name || requests[1].Session != "chosen" {
+			methods := []string{}
+			for _, r := range requests {
+				methods = append(methods, r.Method)
+			}
+			if code != 0 || stderr != "" || strings.Join(methods, ",") != strings.Join(expected, ",") || requests[1].Session != "chosen" {
 				t.Fatalf("read-only current failed: code=%d requests=%+v stdout=%s stderr=%s", code, requests, stdout, stderr)
 			}
 			assertCurrentNoNativeBytes(t, done)

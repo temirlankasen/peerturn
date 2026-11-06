@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"github.com/temirlankasen/peerturn/internal/localipc"
 	"strings"
 	"testing"
 
@@ -30,7 +31,7 @@ func TestTerminalInvitesDoNotExhaustLifetimeBudgetOrRetainSecretURLs(t *testing.
 		}
 	}
 	recoveryRelayOffline(t, a)
-	if _, err := a.createInvite(t.Context()); fault.IsCode(err, fault.BudgetExceeded) {
+	if _, err := a.createInvite(t.Context(), localipc.Request{}); fault.IsCode(err, fault.BudgetExceeded) {
 		t.Fatal("completed invitations consumed active budget")
 	}
 }

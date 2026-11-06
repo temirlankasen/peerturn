@@ -86,8 +86,9 @@ func ancestorChain(child int, peer nativeProcess, inspect func(int) (nativeProce
 
 func currentResolutionError() error {
 	problem := localipc.NewError("needs_rebind", "needs_rebind")
-	problem.Message = "Run peerturn session bind --current from the selected session's tool child, " +
-		"then retry the current-session command. " +
-		"Reconnect MCP only if it was already bound to an earlier native epoch."
+	problem.Message = "This session's binding is not proven right now, usually because the daemon or the plugin helper restarted. " +
+		"The helper rebinds the session by itself within seconds: retry. " +
+		"If it keeps failing, run peerturn session bind --current from this session's tool child; " +
+		"reconnect MCP only if it was bound to an earlier native epoch."
 	return problem
 }

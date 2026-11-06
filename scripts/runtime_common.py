@@ -57,13 +57,27 @@ def validate_context(env):
         raise ValueError("qualification requires main schedule/workflow_dispatch")
 
 
-def next_tag(tags):
-    patches = [1]
+# Preview tags are v0.MINOR.PATCH-preview. Automation bumps the patch within
+# the series the installer pins; a feature release moves the series by hand.
+TAG_PATTERN = r"v0\.(0|[1-9][0-9]{0,3})\.(0|[1-9][0-9]{0,8})-preview"
+
+
+def pin_series(root):
+    match = re.search(r"^version=0\.(0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)-preview$",
+                      (root / "scripts/install.sh").read_text(), re.MULTILINE)
+    if not match:
+        raise ValueError("installer pin missing")
+    return int(match[1])
+
+
+def next_tag(tags, series=1):
+    # The first series skipped its two hand-made patches; later ones start at 1.
+    patches = [1 if series == 1 else 0]
     for tag in tags:
-        match = re.fullmatch(r"v0\.1\.(0|[1-9][0-9]{0,8})-preview", tag)
-        if match:
-            patches.append(int(match[1]))
-    return f"v0.1.{max(patches) + 1}-preview"
+        match = re.fullmatch(TAG_PATTERN, tag)
+        if match and int(match[1]) == series:
+            patches.append(int(match[2]))
+    return f"v0.{series}.{max(patches) + 1}-preview"
 
 
 def update_records(root, runtime, version, evidence, platforms=None):
@@ -115,9 +129,9 @@ def update_records(root, runtime, version, evidence, platforms=None):
 
 
 def bump_pins(root, tag):
-    if not re.fullmatch(r"v0\.1\.(0|[1-9][0-9]{0,8})-preview", tag):
+    if not re.fullmatch(TAG_PATTERN, tag):
         raise ValueError("invalid release pin")
-    match = re.search(r"^version=(0\.1\.(?:0|[1-9][0-9]*)-preview)$",
+    match = re.search(r"^version=(0\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)-preview)$",
                       (root / "scripts/install.sh").read_text(), re.MULTILINE)
     if not match:
         raise ValueError("installer pin missing")

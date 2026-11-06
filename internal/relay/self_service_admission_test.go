@@ -62,9 +62,10 @@ func TestSelfServiceHTTPAllPublishersHaveSameTTLBound(t *testing.T) {
 			{"expired", -time.Second, 400},
 			{"now", 0, 400},
 			{"minimum", time.Second, 201},
-			{"maximum", 600 * time.Second, 201},
-			{"over maximum", 601 * time.Second, 400},
-			{"legacy long TTL", time.Hour, 400},
+			{"ten minutes", 600 * time.Second, 201},
+			{"maximum", 24 * time.Hour, 201},
+			{"over maximum", 24*time.Hour + time.Second, 400},
+			{"two days", 48 * time.Hour, 400},
 		} {
 			name := "publisher/"
 			if admin {

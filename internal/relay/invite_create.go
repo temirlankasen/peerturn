@@ -51,6 +51,7 @@ func (s *Server) createInvite(w http.ResponseWriter, r *http.Request, key string
 			MaxInvitesPer24h:   s.cfg.SelfService.DailyInvites,
 			MaxInvitesLifetime: s.cfg.SelfService.LifetimeInvites,
 			MaxInviters:        s.cfg.SelfService.Inviters,
+			MaxInviteLifetime:  s.cfg.SelfService.InviteLifetime(),
 		})
 	} else {
 		mailbox, err = s.db.PutClosedInvite(r.Context(), key, descriptor, s.admin(key) && !input.RequireOwnMailbox)

@@ -31,7 +31,7 @@ func TestOwnerPendingClaudeJoinWithoutModelSecret(t *testing.T) {
 	relay := newRelayFixture(t, admin)
 	issuer := openRecoveryDaemon(t, relay, admin)
 	d := openRecoveryDaemon(t, relay, routingKey(t))
-	created, err := issuer.createInvite(t.Context())
+	created, err := issuer.createInvite(t.Context(), localipc.Request{})
 	if err != nil {
 		t.Fatal(err)
 	}

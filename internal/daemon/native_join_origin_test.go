@@ -29,7 +29,7 @@ func TestCodexJoinRequiresExactNativeThreadAndOwnerLink(t *testing.T) {
 			t.Error(closeErr)
 		}
 	})
-	created, err := issuer.createInvite(t.Context())
+	created, err := issuer.createInvite(t.Context(), localipc.Request{})
 	if err != nil {
 		t.Fatal(err)
 	}

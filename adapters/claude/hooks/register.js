@@ -1,33 +1,21 @@
 const MAX_FRAME = 262144;
-const STARTUP_FAILURES = new Set(['runtime_unsupported', 'daemon_unavailable',
-  'needs_rebind', 'permission_denied', 'peer_identity_failed', 'auth_failed', 'adapter_unavailable',
-  'unsupported_version', 'runtime_version_unknown', 'runtime_contract_changed']);
+const STARTUP_FAILURES = new Set(['runtime_unsupported', 'daemon_unavailable', 'needs_rebind', 'permission_denied', 'peer_identity_failed',
+  'auth_failed', 'adapter_unavailable', 'unsupported_version', 'runtime_version_unknown', 'runtime_contract_changed']);
 const RECOVERY = 'Update PeerTurn, reload/resume this session and rerun doctor / bind.';
 const ALL_CAPABILITIES = ['coauthor', 'owner_invitation', 'inform_boundary', 'inform_notification'];
 let runtime = null, working = null, turnGeneration = 0, shown = null, starting = null, bound = false;
-function object(value) {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-function identifier(value) {
-  return typeof value === 'string' && /^[A-Za-z0-9._:-]{1,160}$/.test(value);
-}
+const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+const identifier = value => typeof value === 'string' && /^[A-Za-z0-9._:-]{1,160}$/.test(value);
 async function runtimeFact($, read) {
-  try {
-    const value = Promise.resolve(read()).catch(() => undefined);
-    return await Promise.race([value, $.clock.sleep(1000).then(() => undefined)]);
-  } catch { return undefined; }
+  try { return await Promise.race([Promise.resolve(read()).catch(() => undefined), $.clock.sleep(1000).then(() => undefined)]); }
+  catch { return undefined; }
 }
 // This inspection never submits a prompt, sends a binding frame or starts a helper.
 // Version admission belongs to the Go helper's central runtime policy.
 export async function inspectRuntimeContract($) {
   const failures = [];
-  const fail = (contract_id, affected_capabilities) => failures.push({
-    code: 'runtime_contract_changed', runtime: 'claude', contract_id, phase: 'startup',
-    affected_capabilities, action: RECOVERY,
-  });
-  const [session, version] = await Promise.all([
-    runtimeFact($, () => $.session.id()), runtimeFact($, () => $.session.version()),
-  ]);
+  const fail = (contract_id, affected_capabilities) => failures.push({ code: 'runtime_contract_changed', runtime: 'claude', contract_id, phase: 'startup', affected_capabilities, action: RECOVERY });
+  const [session, version] = await Promise.all([runtimeFact($, () => $.session.id()), runtimeFact($, () => $.session.version())]);
   if (typeof session !== 'string' || !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(session)) {
     fail('claude.session.id', ALL_CAPABILITIES);
   }
@@ -67,14 +55,9 @@ async function stop($, state, reason) {
 }
 async function request($, state, path, body) {
   if (!state.active || !state.url) throw new Error('adapter_unavailable');
-  const response = await $.http.fetch(state.url + path, {
-    method: body === undefined ? 'GET' : 'POST',
-    headers: { Authorization: 'Bearer ' + state.capability, 'Content-Type': 'application/json' },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-  });
-  if (typeof response.text !== 'string' || response.text.length > MAX_FRAME) {
-    throw new Error('adapter_protocol_error');
-  }
+  const headers = { Authorization: 'Bearer ' + state.capability, 'Content-Type': 'application/json' };
+  const response = await $.http.fetch(state.url + path, { method: body === undefined ? 'GET' : 'POST', headers, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+  if (typeof response.text !== 'string' || response.text.length > MAX_FRAME) throw new Error('adapter_protocol_error');
   const value = JSON.parse(response.text);
   if (!response.ok || response.status !== 200) {
     const lost = object(value) && ['binding_lost', 'needs_rebind'].includes(value.error);
@@ -217,9 +200,7 @@ async function launch($, state) {
     ] })) {
       if (!state.active) return;
       if (chunk.stream === 'stderr' && !state.url) {
-        if (typeof chunk.text !== 'string' || diagnostic.length + chunk.text.length > 4096) {
-          throw new Error('adapter_protocol_error');
-        }
+        if (typeof chunk.text !== 'string' || diagnostic.length + chunk.text.length > 4096) throw new Error('adapter_protocol_error');
         diagnostic += chunk.text;
         let newline;
         while ((newline = diagnostic.indexOf('\n')) >= 0) {
@@ -234,9 +215,7 @@ async function launch($, state) {
         continue;
       }
       if (chunk.stream !== 'stdout') continue;
-      if (typeof chunk.text !== 'string' || buffered.length + chunk.text.length > 4096) {
-        throw new Error('adapter_protocol_error');
-      }
+      if (typeof chunk.text !== 'string' || buffered.length + chunk.text.length > 4096) throw new Error('adapter_protocol_error');
       buffered += chunk.text;
       const newline = buffered.indexOf('\n');
       if (newline < 0) continue;
@@ -278,16 +257,10 @@ async function startOnce($, options) {
     return;
   }
   const binary = options.peerturn_binary;
-  if (typeof binary !== 'string' || binary.length > 4096 || !binary.startsWith('/')
-      || /[\u0000-\u001f\u007f]/.test(binary)) {
-    await status($, 'adapter_unconfigured');
-    return;
-  }
+  if (typeof binary !== 'string' || binary.length > 4096 || !binary.startsWith('/') || /[\u0000-\u001f\u007f]/.test(binary)) { await status($, 'adapter_unconfigured'); return; }
   if (runtime?.active) await stop($, runtime, 'binding_lost');
   const provider = await runtimeFact($, async () => ({ url: await $.env.get('ANTHROPIC_BASE_URL') }));
-  if (!object(provider) || (provider.url != null && typeof provider.url !== 'string')) {
-    await status($, 'adapter_unavailable'); return;
-  }
+  if (!object(provider) || (provider.url != null && typeof provider.url !== 'string')) { await status($, 'adapter_unavailable'); return; }
   const state = {
     session, binary, version, provider: provider.url ? 'gateway' : 'anthropic',
     active: true, url: null, capability: null, polling: false, submitting: false,
@@ -307,7 +280,11 @@ async function ownerBoundary($, e) {
   if (e.origin.kind !== 'composer' && e.origin.kind !== 'bridge') return null;
   working = true;
   turnGeneration += 1;
-  const state = runtime;
+  // A link pasted right after a restart must not be lost while the helper is
+  // still starting: wait briefly for its ready frame. The helper itself
+  // survives a daemon restart, so no timer relaunches it here.
+  let state = runtime;
+  for (let waited = 0; state?.active && !state.url && waited < 1500; waited += 100) { await $.clock.sleep(100); state = runtime; }
   if (state?.disabled.has('owner_invitation') || state?.disabled.has('inform_boundary')) return null;
   if (!state?.active || !state.url || typeof e.text !== 'string' || /^\s*\//.test(e.text)) return null;
   // A kept helper may speak for owner consent only after its session is proven current.
@@ -391,6 +368,7 @@ export function register(on, options) {
   on('session.end', async ($, e, next) => {
     working = null;
     turnGeneration += 1;
+    bound = false;
     if (runtime) {
       const state = runtime;
       runtime = null;

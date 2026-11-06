@@ -19,6 +19,7 @@ func (d *Daemon) maintain(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	d.checkUpdates(ctx)
 	if len(expired) > 0 || now-d.lastMaintenance >= 60 {
 		// Announce before expiry collects old outbox rows: after a long stop
 		// the lost packet's row is the only evidence of the loss.

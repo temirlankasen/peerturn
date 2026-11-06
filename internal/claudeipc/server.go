@@ -39,6 +39,14 @@ type bridge struct {
 	idleTimer            *time.Timer
 	idleTimeout          time.Duration
 	lastAuthenticated    time.Time
+	// Registration facts are kept so a restarted daemon can be rejoined.
+	workingDirectory string
+	configuration    json.RawMessage
+	serveCtx         context.Context
+	instMu           sync.Mutex
+	reopenedAt       time.Time
+	reopenOK         bool
+	pinned           bool
 }
 
 // Serve publishes a single capability on its inherited private stdout pipe. The
@@ -71,19 +79,14 @@ func Serve(ctx context.Context, stdout io.Writer, options Options) error {
 	if err != nil {
 		return err
 	}
-	raw, err := options.Client.Call(ctx, localipc.Request{Method: "adapter.open", NativeSession: options.NativeSession, NativeSocket: os.Getenv("CLAUDE_CODE_MESSAGING_SOCKET"), RuntimeVersion: options.RuntimeVersion, Provider: options.Provider, WorkingDirectory: workingDirectory, NativeConfiguration: configuration})
+	var capBytes [32]byte
+	rand.Read(capBytes[:])
+	b := &bridge{options: options, capability: hex.EncodeToString(capBytes[:]), nativeGuard: nativeGuard, workingDirectory: workingDirectory, configuration: configuration, serveCtx: ctx}
+	registered, err := b.open(ctx)
 	if err != nil {
 		return err
 	}
-	var registered struct {
-		Instance string `json:"instance"`
-	}
-	if err = json.Unmarshal(raw, &registered); err != nil || registered.Instance == "" {
-		return rebind()
-	}
-	var capBytes [32]byte
-	rand.Read(capBytes[:])
-	b := &bridge{options: options, instance: registered.Instance, capability: hex.EncodeToString(capBytes[:]), nativeGuard: nativeGuard}
+	b.instance, b.pinned = registered.instance, registered.pinned
 	listener, err := net.Listen("tcp4", "127.0.0.1:0")
 	if err != nil {
 		return localipc.NewError("adapter_unavailable", "unavailable")
@@ -107,12 +110,15 @@ func Serve(ctx context.Context, stdout io.Writer, options Options) error {
 	defer func() {
 		closeCtx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
-		if _, closeErr := options.Client.Call(closeCtx, localipc.Request{Method: "adapter.close", Instance: b.instance}); closeErr != nil {
+		if _, closeErr := options.Client.Call(closeCtx, localipc.Request{Method: "adapter.close", Instance: b.currentInstance()}); closeErr != nil {
 			return
 		}
 	}()
 	if err = json.NewEncoder(stdout).Encode(map[string]string{"type": "ready", "url": "http://" + listener.Addr().String(), "capability": b.capability}); err != nil {
 		return err
+	}
+	if b.pinned {
+		go b.selfBind()
 	}
 	err = server.Serve(listener)
 	if errors.Is(err, http.ErrServerClosed) {
@@ -132,7 +138,7 @@ func (b *bridge) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost && r.URL.Path == "/close" {
 		defer b.shutdownSoon()
 	}
-	request := localipc.Request{Instance: b.instance}
+	request := localipc.Request{Instance: b.currentInstance()}
 	switch {
 	case r.URL.Path == "/poll" && r.Method == http.MethodGet:
 		request.Method = "adapter.poll"
@@ -227,10 +233,17 @@ func (b *bridge) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	result, err := b.options.Client.Call(callCtx, request)
 	if err != nil {
-		if request.Method != "adapter.close" && localipc.PublicError(err).Code == "needs_rebind" {
+		code := localipc.PublicError(err).Code
+		if request.Method != "adapter.close" && code == "needs_rebind" {
+			if b.reopen(callCtx) {
+				// The registration was renewed or the daemon is on its way back;
+				// the mod sees a retryable fault, never a lost binding.
+				http.Error(w, `{"error":"unavailable"}`, http.StatusServiceUnavailable)
+				return
+			}
 			b.shutdownSoon()
 		}
-		http.Error(w, `{"error":"`+localipc.PublicError(err).Code+`"}`, http.StatusConflict)
+		http.Error(w, `{"error":"`+code+`"}`, http.StatusConflict)
 		return
 	}
 	if _, err = w.Write(result); err != nil {

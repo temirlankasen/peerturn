@@ -21,6 +21,7 @@ Commands:
   setup claude|codex [--path DIR --sha256 PIN]  Install a verified local release plugin
   connect [--relay URL] [--no-invite] [--json]  From the current Claude session: init once, start the private daemon, verify the binding, print a coauthor link
   daemon start|stop|status  Control the foreground local daemon
+  upgrade [--check] [--verbose] [--json]  Install the latest signed release, update plugins and restart the daemon
   keys isolate [--state-dir DIR]  Rotate a stopped store into the OS keystore
   invite create --current  Create a coauthor invitation for the native session
   join     Consume a coauthor link from stdin for the selected session
@@ -53,11 +54,17 @@ func runInput(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if len(args) > 0 && args[0] == "setup" {
 		return runSetup(args[1:], stdout, stderr)
 	}
+	if len(args) > 0 && args[0] == "upgrade" {
+		return runUpgrade(args[1:], stdout, stderr)
+	}
 	if len(args) > 0 && localCommand(args[0]) {
 		return runLocal(args, stdin, stdout, stderr)
 	}
 	if len(args) > 0 && args[0] == "relay" {
 		return runRelay(args[1:], stderr)
+	}
+	if len(args) == 2 && args[0] == "help" {
+		return writeUsage(stdout, args[1:])
 	}
 	output, destination, code := usage, stdout, 0
 	switch {

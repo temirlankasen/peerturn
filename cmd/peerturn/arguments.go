@@ -3,7 +3,9 @@ package main
 import (
 	"io"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/temirlankasen/peerturn/internal/localipc"
@@ -50,7 +52,7 @@ func parseCommand(args []string) (cliCommand, error) {
 		arg := args[0]
 		args = args[1:]
 		if !strings.HasPrefix(arg, "--") {
-			if c.id != "" || (c.name != "receipt" && c.name != "grants revoke" && c.name != "delivery resolve") {
+			if c.id != "" || (c.name != "receipt" && c.name != "grants revoke" && c.name != "delivery resolve" && c.name != "invite revoke") {
 				return c, invalidArguments()
 			}
 			c.id = arg
@@ -83,7 +85,9 @@ var commandFlags = map[string]map[string]bool{
 	"daemon start":     {"state-dir": false},
 	"daemon stop":      {"json": true},
 	"daemon status":    {"json": true},
-	"invite create":    {"session": false, "current": true, "scope": false, "json": true},
+	"invite create":    {"session": false, "current": true, "scope": false, "json": true, "lifetime": false, "reuse": true},
+	"invite list":      {"session": false, "current": true, "json": true},
+	"invite revoke":    {"session": false, "current": true, "json": true},
 	"join":             {"session": false, "current": true, "scope": false, "link-stdin": true, "json": true},
 	"peers":            {"session": false, "current": true, "json": true},
 	"send":             {"session": false, "current": true, "peer": false, "kind": false, "stdin": true, "json": true},
@@ -95,7 +99,7 @@ var commandFlags = map[string]map[string]bool{
 	"grants revoke":    {"session": false, "current": true, "grant": false, "json": true},
 	"doctor":           {"session": false, "current": true, "json": true},
 	"mcp":              {"session": false, "current": true},
-	"connect":          {"relay": false, "no-invite": true, "json": true},
+	"connect":          {"relay": false, "no-invite": true, "json": true, "lifetime": false, "reuse": true},
 }
 
 func invalidArguments() error { return localipc.NewError("invalid_arguments", "rejected") }
@@ -113,7 +117,19 @@ func (c cliCommand) request(stdin io.Reader) (localipc.Request, error) {
 	case "daemon stop":
 		r.Method = "stop"
 	case "invite create":
-		r.Method = "invite"
+		r.Method, r.Reuse = "invite", c.flags["reuse"]
+		lifetime, err := parseLifetime(c.values["lifetime"])
+		if err != nil {
+			return r, err
+		}
+		r.Lifetime = lifetime
+	case "invite list":
+		r.Method = "invite.list"
+	case "invite revoke":
+		r.Method, r.InviteID = "invite.revoke", c.id
+		if r.InviteID == "" {
+			return r, invalidArguments()
+		}
 	case "grants list":
 		r.Method = "grants"
 	case "grants revoke":
@@ -182,6 +198,22 @@ func (c cliCommand) request(stdin io.Reader) (localipc.Request, error) {
 		return r, invalidArguments()
 	}
 	return r, r.Validate()
+}
+
+// parseLifetime accepts 10m, 24h or plain seconds; the daemon enforces the
+// bounds so the same rule applies to every caller.
+func parseLifetime(raw string) (int64, error) {
+	if raw == "" {
+		return 0, nil
+	}
+	if seconds, err := strconv.ParseInt(raw, 10, 64); err == nil {
+		return seconds, nil
+	}
+	d, err := time.ParseDuration(raw)
+	if err != nil || d <= 0 {
+		return 0, invalidArguments()
+	}
+	return int64(d / time.Second), nil
 }
 
 func readBounded(reader io.Reader, limit int64) (string, error) {

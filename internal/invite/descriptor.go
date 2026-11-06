@@ -12,8 +12,11 @@ import (
 	"github.com/temirlankasen/peerturn/internal/identity"
 )
 
-// MaxLifetime is the maximum invitation validity in seconds.
-const MaxLifetime int64 = 600
+// MaxLifetime is the maximum invitation validity in seconds. A day lets the
+// recipient open the link when they get to it; the link stays single use,
+// revocable, and useless on any other relay. Peers before 0.2.0 accept only
+// ten-minute links, so --lifetime 10m remains available for them.
+const MaxLifetime int64 = 24 * 60 * 60
 
 // Descriptor is the inviter-signed policy inside the invitation HPKE ciphertext.
 type Descriptor struct {
@@ -31,7 +34,7 @@ type Descriptor struct {
 	RelayOrigin string `json:"relay_origin"`
 	// NotBefore prevents early use of a future invitation.
 	NotBefore int64 `json:"not_before"`
-	// ExpiresAt bounds capability theft to at most ten minutes after NotBefore.
+	// ExpiresAt bounds capability theft to at most a day after NotBefore.
 	ExpiresAt int64 `json:"expires_at"`
 	// MaxUses is fixed to one; persistent enforcement belongs to the caller.
 	MaxUses int `json:"max_uses"`

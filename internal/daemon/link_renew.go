@@ -81,6 +81,7 @@ func (d *Daemon) renewLink(ctx context.Context, p *peerState, used string) error
 		return err
 	}
 	p.PriorIncoming, p.Incoming = p.Incoming, signed
+	d.logger().Info("grant renewed", "peer", shortID(peerID(p.Chain)), "expires_at", next.ExpiresAt)
 	return d.scheduleUpdate(p)
 }
 
@@ -165,6 +166,7 @@ func (d *Daemon) announceLoss(ctx context.Context) error {
 			continue
 		}
 		p.Floor = max(p.Floor, floor)
+		d.logger().Warn("lost sequences announced", "peer", shortID(id), "floor", p.Floor)
 		if err = d.scheduleUpdate(p); err != nil {
 			return err
 		}
@@ -200,6 +202,9 @@ func (d *Daemon) unrelayedFloor(ctx context.Context, peer string, before int64) 
 func (d *Daemon) acceptLinkUpdate(ctx context.Context, p *peerState, cert identity.SessionCertificate, u handshake) error {
 	if u.InviteID != "" || u.ClaimID != "" || u.ForwardGrant != "" || u.ReturnGrantHash != "" || u.NextSeq != 0 {
 		return invalidHandshake()
+	}
+	if u.Heartbeat {
+		return d.acceptHeartbeat(p, u)
 	}
 	if u.Grant != "" {
 		if err := d.acceptRenewedGrant(ctx, p, cert, u.Grant); err != nil {
@@ -266,6 +271,7 @@ func (d *Daemon) acceptRenewedGrant(ctx context.Context, p *peerState, cert iden
 		return err
 	}
 	p.PriorOutgoing, p.Outgoing = p.Outgoing, signed
+	d.logger().Info("renewed grant installed", "peer", shortID(peerID(p.Chain)), "expires_at", next.ExpiresAt)
 	return d.save()
 }
 

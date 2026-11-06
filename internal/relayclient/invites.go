@@ -48,6 +48,23 @@ func (c *Client) CreateInviteWithReceipt(ctx context.Context, input InviteReques
 	return receipt, nil
 }
 
+// RevokeInvite withdraws an unused invitation published under this routing key.
+func (c *Client) RevokeInvite(ctx context.Context, id string) error {
+	if !validInviteID(id) {
+		return invalid()
+	}
+	var result struct {
+		Revoked bool `json:"revoked"`
+	}
+	if err := c.do(ctx, "DELETE", "/v1/invites/"+id, nil, nil, &result, 200); err != nil {
+		return err
+	}
+	if !result.Revoked {
+		return malformed()
+	}
+	return nil
+}
+
 // GetInvite fetches encrypted material without redeeming or interpreting a link.
 func (c *Client) GetInvite(ctx context.Context, id string) (Invite, error) {
 	if !validInviteID(id) {

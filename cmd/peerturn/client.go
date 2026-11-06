@@ -21,12 +21,15 @@ func runLocal(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if args[0] == "codex-hook" && len(args) == 1 {
 		return runCodexHook(stdin, stdout)
 	}
+	if helpRequested(args) {
+		return writeUsage(stdout, args)
+	}
 	command, err := parseCommand(args)
 	if err != nil {
 		if args[0] == "mcp" {
 			return writeMCPFailure(stderr, err)
 		}
-		return writeFailure(stdout, stderr, err)
+		return writeFailure(stdout, stderr, withUsage(err, args))
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
@@ -66,13 +69,16 @@ func runLocal(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	}
 	request, err := command.request(stdin)
 	if err != nil {
-		return writeFailure(stdout, stderr, err)
+		return writeFailure(stdout, stderr, withUsage(err, args))
 	}
 	dir, err := daemon.DefaultRuntimeDir()
 	if err != nil {
 		return writeFailure(stdout, stderr, err)
 	}
 	client := localipc.Client{RuntimeDir: dir, NativeThread: request.NativeThread}
+	if command.name == "doctor" && !command.flags["json"] {
+		return runDoctor(ctx, client, request, stdout, stderr)
+	}
 	result, err := client.Call(ctx, request)
 	if err != nil {
 		return writeFailure(stdout, stderr, err)

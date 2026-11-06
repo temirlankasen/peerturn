@@ -76,6 +76,17 @@ type Status struct {
 	InformPending    int                        `json:"inform_pending"`
 	InformBoundary   string                     `json:"inform_boundary,omitempty"`
 	OnboardingErrors []string                   `json:"onboarding_errors,omitempty"`
+	// The fields below answer the questions an owner asks when a link stalls:
+	// what expires when, is the prompt hook seeing pasted links, which
+	// delivery is uncertain, and what to do about each of them.
+	RelayURL             string   `json:"relay_url,omitempty"`
+	CertificateNotBefore int64    `json:"certificate_not_before,omitempty"`
+	CertificateExpiresAt int64    `json:"certificate_expires_at,omitempty"`
+	OwnerInvitationHook  string   `json:"owner_invitation_hook,omitempty"`
+	InDoubt              []string `json:"in_doubt,omitempty"`
+	LatestVersion        string   `json:"latest_version,omitempty"`
+	Warnings             []string `json:"warnings,omitempty"`
+	Summary              string   `json:"summary,omitempty"`
 }
 
 // Peer is the exact attached remote session, never a discovery result.
@@ -85,6 +96,17 @@ type Peer struct {
 	State       string `json:"state"`
 	Scope       string `json:"scope"`
 	ExpiresAt   int64  `json:"expires_at"`
+	// LinkExpiresAt is when the peer's grant to this session lapses unless
+	// renewed by use; ExpiresAt above is the peer's certificate.
+	LinkExpiresAt int64 `json:"link_expires_at,omitempty"`
+	// LastSeenAt is the last packet from the peer's daemon; Presence is
+	// online, offline or unknown (a peer older than 0.2.0 sends no heartbeat).
+	LastSeenAt  int64  `json:"last_seen_at,omitempty"`
+	Presence    string `json:"presence"`
+	PeerVersion string `json:"peer_version,omitempty"`
+	// WaitingOnRelay counts own messages the peer has not fetched yet.
+	WaitingOnRelay int   `json:"waiting_on_relay"`
+	WaitingSince   int64 `json:"waiting_since,omitempty"`
 }
 
 // InboxPage exposes continuation rather than silently hiding retained messages.
@@ -128,6 +150,9 @@ type peerState struct {
 	UpdatedAt int64 `json:"updated_at,omitempty"`
 	// Floor is the highest own sequence announced to the peer as lost.
 	Floor uint64 `json:"floor,omitempty"`
+	// LastSeenAt and PeerVersion come from the peer's packets and heartbeats.
+	LastSeenAt  int64  `json:"last_seen_at,omitempty"`
+	PeerVersion string `json:"peer_version,omitempty"`
 }
 
 type issuedInvite struct {

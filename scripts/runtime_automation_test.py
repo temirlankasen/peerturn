@@ -73,7 +73,7 @@ class RuntimeAutomationTests(unittest.TestCase):
                     "docs/README.md", "docs/m3.md", "docs/install-lab.md"}
         self.assertTrue(required <= COMMON.PIN_FILES)
         installer = (ROOT / "scripts/install.sh").read_text()
-        pin = re.search(r"(?m)^version=(0\.1\.[0-9]+-preview)$", installer)[1]
+        pin = re.search(r"(?m)^version=(0\.[0-9]+\.[0-9]+-preview)$", installer)[1]
         for name in COMMON.PIN_FILES | {"README.md"}:
             self.assertIn(pin, (ROOT / name).read_text(), name)
         page = (ROOT / "internal/relay/invite_page.go").read_text()
@@ -137,6 +137,10 @@ class RuntimeAutomationTests(unittest.TestCase):
         tags = ["v0.1.4-preview", "v0.1.12-preview", "v0.1.3-preview", "v0.2.99-preview",
                 "v9.9.999", "v0.1.100-preview.1", "v0.1.013-preview", "malformed"]
         self.assertEqual(COMMON.next_tag(tags), "v0.1.13-preview")
+        self.assertEqual(COMMON.next_tag(tags, 2), "v0.2.100-preview")
+        self.assertEqual(COMMON.next_tag(["v0.2.0-preview", "v0.1.12-preview"], 2), "v0.2.1-preview")
+        self.assertEqual(COMMON.next_tag([], 3), "v0.3.1-preview")
+        self.assertEqual(COMMON.pin_series(ROOT), int(re.search(r"(?m)^version=0\.([0-9]+)\.", (ROOT / "scripts/install.sh").read_text())[1]))
 
     def fixture(self):
         temp = tempfile.TemporaryDirectory()

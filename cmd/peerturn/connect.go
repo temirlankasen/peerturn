@@ -24,12 +24,16 @@ type connectOptions struct {
 	relay    string
 	noInvite bool
 	json     bool
+	lifetime int64
+	reuse    bool
 }
 
 type connectInvitation struct {
 	URL       string `json:"url"`
 	ExpiresAt int64  `json:"expires_at"`
 	Scope     string `json:"scope"`
+	// Reused says the daemon printed an earlier unused link again.
+	Reused bool `json:"reused,omitempty"`
 }
 
 // A ready link is not evidence that a peer has connected.
@@ -129,7 +133,7 @@ func (c connector) run(ctx context.Context, options connectOptions) (connectResu
 	if options.noInvite {
 		return result, nil
 	}
-	if result.Invitation, err = c.createInvitation(ctx, evidence); err != nil {
+	if result.Invitation, err = c.createInvitation(ctx, evidence, options); err != nil {
 		return connectResult{}, err
 	}
 	result.State = "link_ready"
@@ -145,8 +149,8 @@ func (c connector) initializeProfile(ctx context.Context, relay string) error {
 	return c.initialize(ctx, relay, label)
 }
 
-func (c connector) createInvitation(ctx context.Context, evidence claudeipc.CurrentEvidence) (*connectInvitation, error) {
-	raw, err := c.call(ctx, localipc.Request{Method: "invite", Session: evidence.Session, Scope: "coauthor", BindingEpoch: evidence.BindingEpoch})
+func (c connector) createInvitation(ctx context.Context, evidence claudeipc.CurrentEvidence, options connectOptions) (*connectInvitation, error) {
+	raw, err := c.call(ctx, localipc.Request{Method: "invite", Session: evidence.Session, Scope: "coauthor", BindingEpoch: evidence.BindingEpoch, Lifetime: options.lifetime, Reuse: options.reuse})
 	if err != nil {
 		if errorCode(err) == "scope_denied" {
 			return nil, connectError("scope_denied", "rejected", "The relay operator must authorize this inviter's public routing_key. Read it with peerturn daemon status; do not edit relay access automatically.")
@@ -186,7 +190,12 @@ func (c connector) connectedPeers(ctx context.Context, evidence claudeipc.Curren
 }
 
 func runConnectWith(ctx context.Context, command cliCommand, stdout, stderr io.Writer, c connector) int {
-	options := connectOptions{relay: command.values["relay"], noInvite: command.flags["no-invite"], json: command.flags["json"]}
+	options := connectOptions{relay: command.values["relay"], noInvite: command.flags["no-invite"], json: command.flags["json"], reuse: command.flags["reuse"]}
+	lifetime, err := parseLifetime(command.values["lifetime"])
+	if err != nil {
+		return writeFailure(stdout, stderr, withUsage(err, []string{"connect"}))
+	}
+	options.lifetime = lifetime
 	result, err := c.run(ctx, options)
 	if err != nil {
 		return writeFailure(stdout, stderr, err)
@@ -218,6 +227,10 @@ func (r connectResult) text() string {
 	if r.Invitation == nil {
 		return out + "next: paste the invitation you received unchanged into this session, then call peer_join with {}.\n"
 	}
-	expires := time.Unix(r.Invitation.ExpiresAt, 0).UTC().Format(time.RFC3339)
-	return out + fmt.Sprintf("next: give this single-use %s link to the recipient; it is not a connection until they join (expires %s).\n%s\n", r.Invitation.Scope, expires, r.Invitation.URL)
+	expires := time.Unix(r.Invitation.ExpiresAt, 0).Local().Format("2006-01-02 15:04 MST")
+	if r.Invitation.Reused {
+		out += fmt.Sprintf("next: your latest unused link is still valid until %s; give it to the recipient (peerturn connect without --reuse mints another).\n%s\n", expires, r.Invitation.URL)
+		return out
+	}
+	return out + fmt.Sprintf("next: give this single-use %s link to the recipient; it is not a connection until they join (valid until %s; peerturn connect --reuse shows it again until used; peers before PeerTurn 0.2.0 need --lifetime 10m).\n%s\n", r.Invitation.Scope, expires, r.Invitation.URL)
 }

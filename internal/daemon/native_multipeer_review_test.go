@@ -25,7 +25,7 @@ func thirdNativePeer(t *testing.T, b *Daemon) *Daemon {
 			t.Error(closeErr)
 		}
 	})
-	invite, err := b.createInvite(t.Context())
+	invite, err := b.createInvite(t.Context(), localipc.Request{})
 	if err != nil {
 		t.Fatal(err)
 	}

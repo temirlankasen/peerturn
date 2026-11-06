@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"github.com/temirlankasen/peerturn/internal/invite"
 	"testing"
 
 	"github.com/temirlankasen/peerturn/internal/relayclient"
@@ -39,7 +40,7 @@ func TestSelfServiceDaemonFirstInvitationNeedsOnlyPublicationACK(t *testing.T) {
 				t.Fatal("relay admission was confused with a peer connection")
 			}
 			for id, entry := range saved.Issued {
-				if id != entry.Packet.InviteID || entry.Descriptor.ExpiresAt <= unixNow() || entry.Descriptor.ExpiresAt > unixNow()+600 {
+				if id != entry.Packet.InviteID || entry.Descriptor.ExpiresAt <= unixNow() || entry.Descriptor.ExpiresAt > unixNow()+invite.MaxLifetime {
 					t.Fatal("publication changed the invitation identity or exceeded the self-service TTL")
 				}
 			}

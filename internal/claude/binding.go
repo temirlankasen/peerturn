@@ -27,11 +27,14 @@ type Binding struct {
 	WorkingDirectory                                            string
 	ParentConfiguration                                         *ResponderConfiguration
 	ContractFailures                                            map[string]*runtimepolicy.Error
-	ConfirmedNonce                                              string
-	confirmed                                                   bool
-	lastSeen                                                    time.Time
-	nonce                                                       string
-	nonceExpiry                                                 time.Time
+	// LastBoundaryAt is the latest owner prompt the mod reported; it proves
+	// the prompt hook is live before the owner pastes a link.
+	LastBoundaryAt time.Time
+	ConfirmedNonce string
+	confirmed      bool
+	lastSeen       time.Time
+	nonce          string
+	nonceExpiry    time.Time
 }
 
 // NewBinding admits supported runtime versions without supplying native authority.
@@ -47,12 +50,23 @@ func NewBinding(session, socket, version, provider string, now time.Time) (*Bind
 }
 
 // Challenge requires the Bash child's exact native socket and a live helper.
+// A pending nonce is handed out again so that two callers racing to bind the
+// same session (the helper and an owner's connect) confirm one challenge.
 func (b *Binding) Challenge(socket string, now time.Time) (string, error) {
 	if socket != b.Socket || now.Sub(b.lastSeen) > 20*time.Second {
 		return "", ErrNeedsRebind
 	}
+	if b.nonce != "" && now.Before(b.nonceExpiry) {
+		return b.nonce, nil
+	}
 	b.nonce, b.nonceExpiry = nonce128()+nonce128(), now.Add(10*time.Second)
 	return b.nonce, nil
+}
+
+// Alive is the lease alone: the helper polls, whether or not it has proven
+// the session yet.
+func (b *Binding) Alive(now time.Time) bool {
+	return b != nil && now.Sub(b.lastSeen) <= 20*time.Second
 }
 
 // Confirm consumes a nonce only after the mod reports its host supplied UUID.

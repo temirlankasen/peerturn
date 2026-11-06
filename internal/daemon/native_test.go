@@ -80,7 +80,7 @@ func nativePair(t *testing.T) (*Daemon, *Daemon, *nativeFixture) {
 	}
 	a, _ := open("019edaa1-1111-7111-8111-111111111111", true)
 	b, runtime := open("019edaa1-2222-7222-8222-222222222222", false)
-	invitation, err := a.createInvite(t.Context())
+	invitation, err := a.createInvite(t.Context(), localipc.Request{})
 	if err != nil {
 		t.Fatal("create native fixture invitation:", err)
 	}

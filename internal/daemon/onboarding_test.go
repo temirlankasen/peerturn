@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"github.com/temirlankasen/peerturn/internal/localipc"
 	"testing"
 )
 
@@ -21,7 +22,7 @@ func TestInviteUsesAdminEnrollmentAndEncryptedDescriptor(t *testing.T) {
 			t.Error(closeErr)
 		}
 	}()
-	if _, err = d.createInvite(t.Context()); err != nil {
+	if _, err = d.createInvite(t.Context(), localipc.Request{}); err != nil {
 		t.Fatalf("invite error %T: %v", err, err)
 	}
 }

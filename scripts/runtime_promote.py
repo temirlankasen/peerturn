@@ -93,7 +93,7 @@ def same_code(a, b, api=None):
             continue
         if path not in C["PIN_FILES"] or api is None:
             return False
-        normalize = lambda text: re.sub(r"(?<![0-9])0\.1\.(?:0|[1-9][0-9]*)-preview", "RELEASE_PIN", text)
+        normalize = lambda text: re.sub(r"(?<![0-9])0\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)-preview", "RELEASE_PIN", text)
         if normalize(blob(api, a[path])) != normalize(blob(api, b[path])):
             return False
     return True
@@ -194,7 +194,7 @@ def promote(api, run, expected=None):
             return
         ledger = json.loads((root / C["RELEASES"]).read_text())
         tags = [item["name"] for item in api.pages("tags")]
-        tag = C["next_tag"](tags + [item["tag"] for item in ledger])
+        tag = C["next_tag"](tags + [item["tag"] for item in ledger], C["pin_series"](root))
         C["bump_pins"](root, tag)
         published = {item["tag_name"] for item in api.pages("releases") if not item["draft"]}
         supersede_pending(ledger, runtime, version, tag, published)
@@ -237,7 +237,7 @@ def reconcile_releases(api):
         if item.get("superseded_by"):
             continue
         tag = item["tag"]
-        if not re.fullmatch(r"v0\.1\.(0|[1-9][0-9]{0,8})-preview", tag):
+        if not re.fullmatch(r"v0\.(0|[1-9][0-9]{0,3})\.(0|[1-9][0-9]{0,8})-preview", tag):
             raise ValueError("invalid reserved release tag")
         if tag in releases and not releases[tag]["draft"]:
             continue

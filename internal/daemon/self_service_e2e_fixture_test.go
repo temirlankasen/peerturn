@@ -24,6 +24,13 @@ type selfServiceE2ERelay struct {
 
 func newSelfServiceE2ERelay(t *testing.T, operator string, open bool) *selfServiceE2ERelay {
 	t.Helper()
+	return newSelfServiceE2ERelayConfigured(t, operator, open, func(*config.Config) {})
+}
+
+// adjust lets one test model an operator setting, such as a relay that
+// still caps invitations at ten minutes.
+func newSelfServiceE2ERelayConfigured(t *testing.T, operator string, open bool, adjust func(*config.Config)) *selfServiceE2ERelay {
+	t.Helper()
 	f := &selfServiceE2ERelay{server: httptest.NewUnstartedServer(nil), cfg: config.Defaults()}
 	if f.cfg.AdmissionMode != config.AdmissionClosed {
 		t.Fatal("default relay admission is not closed")
@@ -31,6 +38,7 @@ func newSelfServiceE2ERelay(t *testing.T, operator string, open bool) *selfServi
 	if open {
 		f.cfg.AdmissionMode = config.AdmissionSelfService
 	}
+	adjust(&f.cfg)
 	// This independent operator key never signs a daemon or provisioning request.
 	f.cfg.AdminKeys = []string{operator}
 	f.cfg.DataDir = stateDir(t)

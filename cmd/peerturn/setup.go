@@ -28,6 +28,7 @@ func runSetup(args []string, stdout, stderr io.Writer) int {
 	flags.SetOutput(io.Discard)
 	root := flags.String("path", "", "Previously verified release marketplace root")
 	pin := flags.String("sha256", "", "Trusted SHA-256 of .peerturn-files.sha256")
+	verbose := flags.Bool("verbose", false, "Print the full activation contract")
 	if err := flags.Parse(args[1:]); err != nil || flags.NArg() != 0 {
 		return writeFailure(stdout, stderr, invalidArguments())
 	}
@@ -115,7 +116,7 @@ func runSetup(args []string, stdout, stderr io.Writer) int {
 		}
 		return nil
 	}
-	if err = installSetup(ctx, args[0], absolute, stdout, invoke); err != nil {
+	if err = installSetup(ctx, args[0], absolute, stdout, invoke, *verbose); err != nil {
 		if public, ok := errors.AsType[*localipc.Error](err); ok {
 			return writeFailure(stdout, stderr, public)
 		}
@@ -148,7 +149,7 @@ func verifyMarketplace(root, host string) error {
 	return nil
 }
 
-func installSetup(ctx context.Context, host, root string, stdout io.Writer, invoke setupInvoke) error {
+func installSetup(ctx context.Context, host, root string, stdout io.Writer, invoke setupInvoke, verbose bool) error {
 	root, err := resolveSetupRoot(root)
 	if err != nil {
 		return err
@@ -208,28 +209,35 @@ func installSetup(ctx context.Context, host, root string, stdout io.Writer, invo
 	if err = registerSetupMCP(ctx, host, root, invoke); err != nil {
 		return err
 	}
-	if _, err = fmt.Fprintf(stdout, "Runtime: %s %s; verification_status=%s; minimum=%s. Available capabilities: setup. Live binding/coauthor/owner-boundary contracts: not_observed; inspect status --current --json / doctor after activation.\n", runtime.Runtime, runtime.Version, runtime.Status, runtime.Minimum); err != nil {
-		return err
-	}
-	_, err = fmt.Fprintln(stdout, "Host-reported marketplace source and observable plugin files matched the installer inventory. This is a local integrity match, not independent publisher authentication or proof of activation/current-session binding. Review and accept the host's actual hook trust prompt; never bypass it.")
-	if err != nil {
-		return err
+	return writeSetupSummary(stdout, host, root, runtime, verbose)
+}
+
+// Five lines say what was installed and what to do next; the long contract
+// text that nobody read in practice stays behind --verbose.
+func writeSetupSummary(stdout io.Writer, host, root string, runtime runtimepolicy.Decision, verbose bool) error {
+	lines := []string{
+		fmt.Sprintf("PeerTurn %s: %s %s (verification_status=%s, minimum %s); plugin files matched the verified release at %s (a local integrity match, not independent publisher authentication); MCP registered. Available capabilities: setup; live binding and hook contracts: not_observed until activation in the session.", version.Version, runtime.Runtime, runtime.Version, runtime.Status, runtime.Minimum, root),
 	}
 	if host == "claude" {
-		_, err = fmt.Fprintln(stdout, "peerturn_binary is configured to the inventory-matched package executable. Run /reload-plugins in the selected session; if necessary resume the same session. Then peerturn session bind --current from its tool child. Do not create a replacement session or change its permission mode/model.")
+		lines = append(lines,
+			"Next: in the same session you want to connect, run /reload-plugins once and accept hook trust for PeerTurn when asked; then run peerturn connect from that session. It starts the daemon, binds the session and prints an invitation link. Sessions already open keep the previous plugin until /reload-plugins.",
+			"Check: peer_status with {} must show binding native_claude and owner_invitation_hook active before you paste a link; peer_join with {} then accepts it. A registration line or a tool listing is not proof of binding; /mcp reconnect is needed only when MCP was bound to an earlier epoch.")
 	} else {
-		_, err = fmt.Fprintln(stdout, "If the running session has not activated the plugin, restart/resume that same session and accept hook trust. Initialize with peerturn init --codex-current and trusted relay options from its tool child. Shared daemon only; embedded Codex is unsupported. Never change the owner's permission mode/model.")
-		if err == nil {
-			_, err = fmt.Fprintln(stdout, `On Linux, MCP can discover the daemon through its private-state runtime pointer. Name-only forwarding is an alternative: Codex 0.163.0 mcp add cannot configure it, so manually add env_vars = ["XDG_RUNTIME_DIR"] to the existing [mcp_servers.peerturn] table, preserving command/args and owner policy, and start Codex with the daemon's runtime environment. Without either discovery source, tool calls return runtime_unavailable; Codex discovery can still list tools and a later call can recover after the daemon publishes its pointer. Setup never saves the variable's value.`)
+		lines = append(lines,
+			"Next: restart or resume the same session and accept hook trust for PeerTurn, then run peerturn init --codex-current with the relay options from its tool child. Shared daemon only; the embedded Codex TUI is unsupported.",
+			"Check: peer_status with {} must show binding codex_shared_daemon with capabilities.attach_existing=true; peer_join with {} accepts a pasted link. A tool listing is not proof of binding; reconnect in /mcp only after the daemon is up.",
+			`On Linux, MCP can discover the daemon through its private-state runtime pointer. Name-only forwarding is an alternative: Codex 0.163.0 mcp add cannot configure it, so manually add env_vars = ["XDG_RUNTIME_DIR"] to the existing [mcp_servers.peerturn] table, preserving command/args and owner policy, and start Codex with the daemon's runtime environment. Without either discovery source, tool calls return runtime_unavailable; Codex discovery can still list tools and a later call can recover after the daemon publishes its pointer. Setup never saves the variable's value.`)
+	}
+	lines = append(lines,
+		"Upgrades: peerturn upgrade verifies the release, reinstalls, reruns this setup and restarts the daemon; profile, peers and links are kept.",
+		"Details: peerturn setup "+host+" --verbose; health: peerturn doctor.")
+	if verbose {
+		lines = append(lines, setupContractText(host)...)
+	}
+	for _, line := range lines {
+		if _, err := fmt.Fprintln(stdout, line); err != nil {
+			return err
 		}
 	}
-	if err != nil {
-		return err
-	}
-	_, err = fmt.Fprintln(stdout, "A running daemon keeps the code it started with. After an upgrade run peerturn daemon stop, then start it again (Claude: peerturn connect from the selected session; Codex: peerturn daemon start); the profile, peers and grants are kept.")
-	if err != nil {
-		return err
-	}
-	_, err = fmt.Fprintln(stdout, "MCP registration checked; this is not proof of activation or binding. Keep the daemon running in the same private runtime environment. In that same session, open /mcp and reconnect peerturn after native binding is ready (reload/resume that same session if needed). Confirm peer_join is listed, then call peer_status with {}: binding must be native_claude (Claude) or codex_shared_daemon (Codex), with capabilities.attach_existing=true. Codex host MCP binds on its first tool call using host metadata, not CODEX_THREAD_ID at startup; tool listing alone supplies no authority. Compare its session with peerturn status --current --json from that session's tool child. If unavailable, report the typed failure. The owner can run peerturn join --current --link-stdin in that session's tool child, supplying stdin or an owner-prepared private file; never embed an invitation in a tool command or configure a test label, native UUID or token as a fallback. A fresh live host rerun remains required.")
-	return err
+	return nil
 }

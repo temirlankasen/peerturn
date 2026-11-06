@@ -7,12 +7,15 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"errors"
-	"github.com/temirlankasen/peerturn/internal/claude"
-	"github.com/temirlankasen/peerturn/internal/claudeipc"
+	"io"
+	"log/slog"
 	"maps"
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/temirlankasen/peerturn/internal/claude"
+	"github.com/temirlankasen/peerturn/internal/claudeipc"
 
 	peercrypto "github.com/temirlankasen/peerturn/internal/crypto"
 	"github.com/temirlankasen/peerturn/internal/fault"
@@ -21,6 +24,7 @@ import (
 	"github.com/temirlankasen/peerturn/internal/localipc"
 	"github.com/temirlankasen/peerturn/internal/relayclient"
 	"github.com/temirlankasen/peerturn/internal/store"
+	"github.com/temirlankasen/peerturn/internal/version"
 )
 
 // Daemon serializes owner operations with custody and the local onboarding journal.
@@ -46,7 +50,15 @@ type Daemon struct {
 	persistenceFailed bool
 	lastMaintenance   int64
 	// lossGrace is floorGrace; isolated tests shorten it instead of waiting.
-	lossGrace                int64
+	lossGrace     int64
+	log           *slog.Logger
+	heartbeatSent map[string]int64
+	// inviteCap is the relay's invitation lifetime once a refusal revealed it.
+	inviteCap int64
+	// latestVersion is a newer release seen by the daily lookup; tests inject updateSource.
+	latestVersion            string
+	updateChecked            int64
+	updateSource             func(context.Context) (string, error)
 	ackedThrough             int64
 	notifyOnline             bool
 	claudeBinding            *claude.Binding
@@ -122,7 +134,7 @@ func Open(ctx context.Context, o Options) (_ *Daemon, result error) {
 	if err = db.BindSession(ctx, cert.Binding, bindingContext(state)); err != nil {
 		return nil, errors.Join(err, db.Close())
 	}
-	d := &Daemon{options: o, state: state, sealer: sealer, db: db, relay: client, key: key, cert: cert, capabilities: map[string]capabilityBinding{}, stateLock: stateLock, wake: make(chan struct{}, 1), lossGrace: floorGrace}
+	d := &Daemon{options: o, state: state, sealer: sealer, db: db, relay: client, key: key, cert: cert, capabilities: map[string]capabilityBinding{}, stateLock: stateLock, wake: make(chan struct{}, 1), lossGrace: floorGrace, heartbeatSent: map[string]int64{}}
 	d.native = o.Native
 	d.askContext, d.askCancel = context.WithCancel(context.Background())
 	d.askActive = map[string]context.CancelFunc{}
@@ -191,6 +203,13 @@ func Run(ctx context.Context, o Options) (result error) {
 	defer func() {
 		result = errors.Join(result, d.Close())
 	}()
+	var logCloser io.Closer
+	d.log, logCloser = openLog(o.StateDir)
+	defer func() {
+		d.logger().Info("daemon stopped")
+		result = errors.Join(result, logCloser.Close())
+	}()
+	d.logger().Info("daemon started", "version", version.Version, "relay", d.state.RelayURL, "profile", shortID(ProfileID(o.StateDir, d.state.RelayURL)), "certificate_expires_at", d.cert.ExpiresAt)
 	pointer, err := publishRuntimePointer(o.StateDir, o.RuntimeDir)
 	if err != nil {
 		return err
@@ -240,6 +259,12 @@ func (d *Daemon) loop(ctx context.Context) {
 		err := d.Sync(callCtx)
 		cancel()
 		d.mu.Lock()
+		// Transitions only: a relay outage must not fill the log every tick.
+		if err != nil && safeCode(err) != d.lastError {
+			d.logger().Warn("sync failed", "code", safeCode(err))
+		} else if err == nil && d.lastError != "" {
+			d.logger().Info("sync recovered")
+		}
 		if err != nil {
 			d.lastError = safeCode(err)
 		} else {

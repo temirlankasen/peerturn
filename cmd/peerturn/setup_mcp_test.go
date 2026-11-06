@@ -54,7 +54,7 @@ func TestSetupRegistersCurrentMCPAndPrintsVerification(t *testing.T) {
 				return err
 			}
 			var stdout bytes.Buffer
-			if err := installSetup(context.Background(), host, root, &stdout, invoke); err != nil {
+			if err := installSetup(context.Background(), host, root, &stdout, invoke, false); err != nil {
 				t.Fatal(err)
 			}
 			want := []string{"mcp", "add", "peerturn", "--", filepath.Join(root, "peerturn"), "mcp", "--current"}

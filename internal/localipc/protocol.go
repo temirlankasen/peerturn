@@ -54,6 +54,10 @@ type Request struct {
 	OwnerInvites        []string        `json:"owner_invites,omitempty"`
 	WorkingDirectory    string          `json:"working_directory,omitempty"`
 	NativeConfiguration json.RawMessage `json:"native_configuration,omitempty"`
+	// Lifetime (seconds) and Reuse shape an invitation; InviteID selects one.
+	Lifetime int64  `json:"lifetime,omitempty"`
+	Reuse    bool   `json:"reuse,omitempty"`
+	InviteID string `json:"invite_id,omitempty"`
 }
 
 // Error is the stable, sanitized public failure representation.

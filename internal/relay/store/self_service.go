@@ -17,6 +17,9 @@ type SelfServicePolicy struct {
 	MaxInvitesPer24h   int
 	MaxInvitesLifetime int
 	MaxInviters        int
+	// MaxInviteLifetime caps claimability; zero keeps the ten-minute floor
+	// older relays enforced, never an unbounded window.
+	MaxInviteLifetime time.Duration
 }
 
 // CreateOwnInvite atomically registers a canonical routing key, its derived
@@ -53,7 +56,11 @@ func (s *Store) CreateOwnInvite(ctx context.Context, routingKey string, invite I
 		if found, retryErr := retryOwnInvite(ctx, tx, mailbox, invite, voucherHash, now); found || retryErr != nil {
 			return retryErr
 		}
-		if !invite.ExpiresAt.After(now) || invite.ExpiresAt.After(now.Add(600*time.Second)) || invite.ExpiresAt.UnixNano() <= 0 {
+		lifetime := policy.MaxInviteLifetime
+		if lifetime <= 0 {
+			lifetime = 600 * time.Second
+		}
+		if !invite.ExpiresAt.After(now) || invite.ExpiresAt.After(now.Add(lifetime)) || invite.ExpiresAt.UnixNano() <= 0 {
 			return invalid()
 		}
 		createMailbox, mailboxErr := ownMailboxAdmission(ctx, tx, mailbox, registered)

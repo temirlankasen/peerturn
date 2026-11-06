@@ -4,6 +4,69 @@ Notable user-facing changes will be recorded here, following [Keep a Changelog](
 
 ## Unreleased
 
+## [0.2.0-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.2.0-preview) — 2026-11-06
+
+This release is about convenience: after installation the owner types no
+slash commands in the normal path and never pastes a link twice; errors say
+what happened and what to do; the daemon writes an operator log; links live a
+day; one command upgrades everything; and `peers` shows whether the other
+daemon is alive.
+
+### Added
+
+- `peerturn upgrade [--check]`: looks up the latest release, verifies the
+  publisher signature with cosign (same trust as the installer), installs it,
+  reruns `peerturn setup` for the hosts on PATH and restarts the daemon. The
+  profile, peers and links are kept. Already open sessions keep the previous
+  plugin until `/reload-plugins`; new sessions use the new one. The daemon
+  looks up releases once a day and `status`/`doctor` say when an upgrade is
+  available (`PEERTURN_NO_UPDATE_CHECK=1` disables the lookup).
+- `peerturn doctor` without `--json` prints a checklist: relay, binding, prompt
+  hook, certificate, every link with its presence and messages waiting at the
+  relay, deliveries in doubt, and a "Do next" list. `status` carries the same
+  facts: `certificate_expires_at`, `owner_invitation_hook`, `in_doubt` message
+  IDs, `latest_version`, `warnings` and a one-line `summary`.
+- `peers` reports `link_expires_at`, `presence` (`online`, `offline` or
+  `unknown` for peers older than 0.2.0), `peer_version`, `last_seen_at` and
+  `waiting_on_relay`. Linked daemons exchange an encrypted heartbeat every ten
+  minutes; older peers skip it as one unknown mailbox slot.
+- A daemon log at `<state dir>/logs/daemon.log` (4 MiB, three files kept) with
+  codes, identifiers and stages: registrations, bindings, link renewals, lost
+  sequences, rejected packets, failed owner commands, update lookups. It never
+  holds bodies, links, grants, nonces, tokens or keys.
+- `peerturn invite list` and `peerturn invite revoke ID`; `--lifetime` (for
+  example `10m`, `24h`) and `--reuse` on `connect` and `invite create`;
+  `peerturn help <command>` and `--help` on every subcommand.
+
+### Changed
+
+- Every error names its cause and the next step. `invalid_arguments` quotes the
+  command's usage. `needs_rebind` says the helper rebinds by itself.
+- The Claude plugin helper survives a daemon restart: it registers again and,
+  for a session the owner bound before, proves the binding itself through the
+  native socket. No `/mcp` reconnect and no `peerturn session bind --current`
+  in the normal path; a first binding still happens through `peerturn connect`.
+  The mod restarts a stopped helper with backoff and waits briefly for a
+  starting helper before reading a pasted link, so a link pasted right after a
+  restart is not lost. A link pasted while the proof is pending is kept.
+- Invitations live up to 24 hours (single use, revocable) instead of ten
+  minutes. `peerturn connect --reuse` prints the latest unused link again
+  instead of minting another. A relay from before 0.2.0 caps invitations at ten minutes:
+  the daemon notices the refusal, mints a ten-minute link instead and reports
+  `relay_max_lifetime`; peers before 0.2.0 accept ten-minute links only, so
+  use `--lifetime 10m` for them. A relay upgraded to 0.2.0 allows a day
+  (`self_service.invite_lifetime_seconds`, default 86400).
+- `peerturn setup` prints five lines; the full activation contract is behind
+  `--verbose`.
+
+### Upgrading
+
+- Run `peerturn upgrade` on both sides. 0.2.0 talks to 0.1.9: links, renewals
+  and lost-sequence floors are unchanged; heartbeats and day-long links need
+  0.2.0 on the peer and, for the latter, on the relay.
+- Sessions that were bound before keep their binding across the restart; the
+  helper proves it again by itself.
+
 ## [0.1.9-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.1.9-preview) — 2026-11-04
 
 ### Fixed

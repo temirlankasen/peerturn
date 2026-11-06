@@ -56,6 +56,14 @@ func transportCode(problem publicTransportError) string {
 	}
 }
 
+// Explain returns the public error for code with a message that names this
+// exact situation; the generic text per code stays for other call sites.
+func Explain(code, state, message string) *Error {
+	problem := NewError(code, state)
+	problem.Message = message
+	return problem
+}
+
 func actionMessage(code string) string {
 	switch code {
 	case "runtime_version_unknown":
@@ -72,6 +80,9 @@ func actionMessage(code string) string {
 		return "The invitation link is malformed or incomplete. Paste the complete link unchanged, including its fragment."
 	case "peer_invitation_denied":
 		return "This invitation claim matches a retained link from delivered peer content; joining is denied."
+	}
+	if message, ok := codeMessages[code]; ok {
+		return message
 	}
 	switch codeExit(code) {
 	case 3:

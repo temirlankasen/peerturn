@@ -144,7 +144,7 @@ func upgradeSetup(t *testing.T, host, kind string) (string, []string, error) {
 		}
 		return err
 	}
-	err := installSetup(t.Context(), host, root, io.Discard, invoke)
+	err := installSetup(t.Context(), host, root, io.Discard, invoke, false)
 	return root, calls, err
 }
 

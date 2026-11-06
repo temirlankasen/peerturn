@@ -173,7 +173,7 @@ func TestSetupMarketplaceAbsenceAllowsRegistration(t *testing.T) {
 				return nil
 			}
 			var stdout bytes.Buffer
-			if err := installSetup(t.Context(), host, root, &stdout, invoke); err != nil {
+			if err := installSetup(t.Context(), host, root, &stdout, invoke, false); err != nil {
 				t.Fatal(err)
 			}
 			if !added || len(calls) < 3 || calls[1] != "plugin marketplace list --json" || calls[2] != "plugin marketplace add "+root || !strings.Contains(stdout.String(), "matched") {

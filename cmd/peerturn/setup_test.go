@@ -91,7 +91,7 @@ func TestSetupHostPlansAndActivationLimits(t *testing.T) {
 			return nil
 		}
 		var output bytes.Buffer
-		if err := installSetup(context.Background(), host, root, &output, invoke); err != nil {
+		if err := installSetup(context.Background(), host, root, &output, invoke, false); err != nil {
 			t.Fatal(err)
 		}
 		count := 8

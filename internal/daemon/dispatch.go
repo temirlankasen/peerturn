@@ -17,6 +17,14 @@ import (
 // Dispatch checks the explicit test binding and keeps MCP capabilities separate
 // from trusted same-uid CLI owner operations. It never accepts raw keys or routes.
 func (d *Daemon) Dispatch(ctx context.Context, r localipc.Request) (any, error) {
+	result, err := d.dispatch(ctx, r)
+	if err != nil && logged(r.Method) {
+		d.logger().Warn("command failed", "method", r.Method, "code", localipc.PublicError(err).Code)
+	}
+	return result, err
+}
+
+func (d *Daemon) dispatch(ctx context.Context, r localipc.Request) (any, error) {
 	if err := r.Validate(); err != nil {
 		return nil, err
 	}
@@ -104,6 +112,9 @@ func (d *Daemon) Dispatch(ctx context.Context, r localipc.Request) (any, error) 
 		if r.Capability != "" && d.checkJoinCapability(r.Capability) == nil {
 			status.OwnerInvitations = d.pendingOwnerInvites(d.capabilities[r.Capability].nativeEpoch)
 		}
+		if err := d.explainStatus(ctx, &status); err != nil {
+			return nil, err
+		}
 		return status, nil
 	case "codex_inform":
 		return d.offerInform(ctx, r)
@@ -151,12 +162,16 @@ func (d *Daemon) Dispatch(ctx context.Context, r localipc.Request) (any, error) 
 		diagnostic["responder"], diagnostic["storage"] = d.responderPreflight, d.responderPreflight.StorageMode
 		return diagnostic, nil
 	case "peers":
-		return d.peers(), nil
+		return d.peerList(ctx)
 	case "invite":
 		if r.Scope != "coauthor" {
 			return nil, fault.New(fault.ScopeDenied)
 		}
-		return d.createInvite(ctx)
+		return d.createInvite(ctx, r)
+	case "invite.list":
+		return d.listInvites(), nil
+	case "invite.revoke":
+		return d.revokeInvite(ctx, r.InviteID)
 	case "join":
 		if r.Scope != "coauthor" {
 			return nil, fault.New(fault.ScopeDenied)

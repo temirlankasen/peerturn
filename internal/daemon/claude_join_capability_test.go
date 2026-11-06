@@ -47,7 +47,7 @@ func TestClaudeMCPJoinRejectsLostOrReplacedNativeBinding(t *testing.T) {
 			issuer := openRecoveryDaemon(t, relay, admin)
 			joiner := openRecoveryDaemon(t, relay, routingKey(t))
 			instance := bindClaude(t, joiner)
-			created, err := issuer.createInvite(t.Context())
+			created, err := issuer.createInvite(t.Context(), localipc.Request{})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -131,7 +131,7 @@ func TestClaudeMCPJoinRechecksLeaseAfterInviteFetch(t *testing.T) {
 	issuer := openRecoveryDaemon(t, relay, admin)
 	joiner := openRecoveryDaemon(t, relay, routingKey(t))
 	instance := bindClaude(t, joiner)
-	created, err := issuer.createInvite(t.Context())
+	created, err := issuer.createInvite(t.Context(), localipc.Request{})
 	if err != nil {
 		t.Fatal(err)
 	}

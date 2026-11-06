@@ -62,6 +62,9 @@ func (d *Daemon) syncWithBudget(ctx context.Context, phaseBudget time.Duration) 
 	if err := d.syncLinkUpdates(ctx); err != nil {
 		return err
 	}
+	if err := d.syncPresence(ctx); err != nil {
+		return err
+	}
 	flushErr := d.flush(ctx)
 	if retryCustody(flushErr) {
 		return flushErr
@@ -236,6 +239,9 @@ func (d *Daemon) receive(ctx context.Context, packet protocol.EncryptedPacket, s
 		if commitErr != nil {
 			return d.rejectSlot(ctx, seq, raw, commitErr)
 		}
+		if seenErr := d.markSeen(peer); seenErr != nil {
+			return seenErr
+		}
 		if recheckErr := d.recheckParked(ctx, peer); recheckErr != nil {
 			return recheckErr
 		}
@@ -271,6 +277,12 @@ func (d *Daemon) receive(ctx context.Context, packet protocol.EncryptedPacket, s
 	}})
 	// Only an admitted packet is use of the link that renews its grant.
 	admitted := err == nil
+	if admitted {
+		d.logger().Info("message admitted", "peer", shortID(id), "message", verified.MessageID, "kind", verified.Kind, "seq", verified.SenderSeq)
+		if seenErr := d.markSeen(peer); seenErr != nil {
+			return seenErr
+		}
+	}
 	if err != nil {
 		if buildErr != nil {
 			err = buildErr
@@ -302,6 +314,7 @@ func (d *Daemon) rejectSlot(ctx context.Context, seq uint64, raw []byte, cause e
 	if retryCustody(cause) {
 		return cause
 	}
+	d.logger().Warn("packet rejected", "seq", seq, "code", safeCode(cause))
 	if raw == nil {
 		_, err := d.db.CommitTombstone(ctx, d.mailbox(), seq, unixNow())
 		return err

@@ -3,6 +3,7 @@ package daemon
 import (
 	"crypto/tls"
 	"errors"
+	"github.com/temirlankasen/peerturn/internal/localipc"
 	"net/http"
 	"testing"
 	"time"
@@ -17,7 +18,7 @@ func TestOwnerRepasteDuringFailedJoinRetainsFreshInvitation(t *testing.T) {
 	relay := newRelayFixture(t, admin)
 	issuer := openRecoveryDaemon(t, relay, admin)
 	d := openRecoveryDaemon(t, relay, routingKey(t))
-	created, err := issuer.createInvite(t.Context())
+	created, err := issuer.createInvite(t.Context(), localipc.Request{})
 	if err != nil {
 		t.Fatal(err)
 	}

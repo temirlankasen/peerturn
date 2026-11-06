@@ -169,7 +169,7 @@ func TestIssuedClaimWaitsForJoiningMailboxWithoutBecomingTerminal(t *testing.T) 
 	relay := newRelayFixture(t, key)
 	a := openRecoveryDaemon(t, relay, key)
 	b := openRecoveryDaemon(t, relay, routingKey(t))
-	if _, err := a.createInvite(t.Context()); err != nil {
+	if _, err := a.createInvite(t.Context(), localipc.Request{}); err != nil {
 		t.Fatal(err)
 	}
 	var issued *issuedInvite
@@ -206,7 +206,7 @@ func TestJoiningInvalidProofBecomesTerminalWithoutRepeatedSubmission(t *testing.
 	relay := newRelayFixture(t, key)
 	a := openRecoveryDaemon(t, relay, key)
 	b := openRecoveryDaemon(t, relay, routingKey(t))
-	if _, err := a.createInvite(t.Context()); err != nil {
+	if _, err := a.createInvite(t.Context(), localipc.Request{}); err != nil {
 		t.Fatal(err)
 	}
 	var issued *issuedInvite

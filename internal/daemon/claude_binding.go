@@ -4,6 +4,7 @@ import (
 	"context"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"time"
 
 	"github.com/temirlankasen/peerturn/internal/claude"
@@ -42,7 +43,9 @@ func (d *Daemon) recordClaudeOwnerInvites(ctx context.Context, r localipc.Reques
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	b := d.claudeBinding
-	if ctx.Err() != nil || d.persistenceFailed || b == nil || !b.CapabilityAvailable("owner_invitation") || r.NativeSession != b.NativeSessionID || r.NativeSocket != b.Socket || r.Instance != b.Instance || !b.Ready(time.Now()) {
+	// A link pasted while the helper is still proving itself is kept under
+	// the epoch that proof will carry; it becomes usable only once confirmed.
+	if ctx.Err() != nil || d.persistenceFailed || b == nil || !b.CapabilityAvailable("owner_invitation") || r.NativeSession != b.NativeSessionID || r.NativeSocket != b.Socket || r.Instance != b.Instance || !b.Alive(time.Now()) {
 		return
 	}
 	d.recordOwnerInvites(r.OwnerInvites, b.MCPEpoch())
@@ -93,7 +96,10 @@ func (d *Daemon) claudeDispatch(ctx context.Context, r localipc.Request) (any, e
 		// process proof cannot be captured; adapter.current then fails closed.
 		d.claudeCurrentProof = claudeipc.CaptureNativeProcess(ctx, binding.Socket)
 		d.claudeNotice = nil
-		return map[string]string{"instance": binding.Instance}, nil
+		d.logger().Info("helper registered", "session", shortID(binding.NativeSessionID), "runtime", binding.RuntimeVersion, "pinned", d.state.NativeSessionID != "")
+		// pinned tells the helper this session was bound before, so it may
+		// renew the proof itself; the first binding stays the owner's action.
+		return map[string]string{"instance": binding.Instance, "pinned": strconv.FormatBool(d.state.NativeSessionID != "")}, nil
 	}
 	b := d.claudeBinding
 	if b == nil {
@@ -118,6 +124,7 @@ func (d *Daemon) claudeDispatch(ctx context.Context, r localipc.Request) (any, e
 		if err := d.save(); err != nil {
 			return nil, err
 		}
+		d.logger().Info("session bound", "session", shortID(b.NativeSessionID))
 		return map[string]bool{"bound": true}, nil
 	case "adapter.resolve":
 		if r.NativeSocket != b.Socket || !b.Ready(now) || r.Nonce != b.ConfirmedNonce {
@@ -148,9 +155,11 @@ func (d *Daemon) claudeDispatch(ctx context.Context, r localipc.Request) (any, e
 		if r.Method == "adapter.boundary-attached" {
 			return d.claudeBoundaryAttached(ctx, r)
 		}
+		b.LastBoundaryAt = now
 		return d.claudeBoundary(ctx)
 	}
 	if err := b.Touch(r.Instance, now); err != nil {
+		d.logger().Warn("helper lease lost", "method", r.Method)
 		return nil, rebindError()
 	}
 	if r.Method == "adapter.contract" {
@@ -173,6 +182,7 @@ func (d *Daemon) claudeDispatch(ctx context.Context, r localipc.Request) (any, e
 		d.claudeBinding = nil
 		d.claudeCurrentProof = nil
 		d.claudeAttempt, d.claudeNotice = nil, nil
+		d.logger().Info("helper closed")
 		return map[string]bool{"closed": true}, nil
 	}
 	if !b.Ready(now) {

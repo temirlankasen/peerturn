@@ -53,13 +53,13 @@ func newSessionFixture(t testing.TB, name string) sessionFixture {
 	}
 	id := identity.RootFingerprint(rootPub)
 	dc, err := identity.IssueDevice(identity.DeviceCertificate{Version: 1, IdentityID: id, DeviceID: "device-" + name,
-		DeviceEpoch: 1, SigningKey: devicePub, NotBefore: testNow - 100, ExpiresAt: testNow + 7200}, root)
+		DeviceEpoch: 1, SigningKey: devicePub, NotBefore: testNow - 100, ExpiresAt: testNow + 3*MaxLifetime}, root)
 	if err != nil {
 		t.Fatal(err)
 	}
 	cert := identity.SessionCertificate{Version: 1, IdentityID: id, DeviceID: "device-" + name,
 		DeviceEpoch: 1, SessionID: "session-" + name, SessionEpoch: 1, KeyEpoch: 1, SigningKey: sessionPub,
-		EncryptionKey: key.PublicKey().Bytes(), NotBefore: testNow - 50, ExpiresAt: testNow + 3600}
+		EncryptionKey: key.PublicKey().Bytes(), NotBefore: testNow - 50, ExpiresAt: testNow + 2*MaxLifetime}
 	sc, err := identity.IssueSession(cert, device)
 	if err != nil {
 		t.Fatal(err)

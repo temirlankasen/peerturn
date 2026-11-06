@@ -1,6 +1,9 @@
 package config
 
-import "errors"
+import (
+	"errors"
+	"time"
+)
 
 // AdmissionMode selects operator-controlled relay admission policy.
 type AdmissionMode string
@@ -19,6 +22,17 @@ type SelfServiceLimits struct {
 	DailyInvites    int `toml:"daily_invites"`
 	LifetimeInvites int `toml:"lifetime_invites"`
 	Inviters        int `toml:"inviters"`
+	// InviteLifetimeSeconds caps how long a self-service invitation may stay
+	// claimable; clients that ask for more are refused with invalid_schema.
+	InviteLifetimeSeconds int `toml:"invite_lifetime_seconds"`
+}
+
+// InviteLifetime is the effective cap: a day unless the operator set one.
+func (l SelfServiceLimits) InviteLifetime() time.Duration {
+	if l.InviteLifetimeSeconds == 0 {
+		return 24 * time.Hour
+	}
+	return time.Duration(l.InviteLifetimeSeconds) * time.Second
 }
 
 func (m AdmissionMode) validate() error {
@@ -42,6 +56,10 @@ func (l SelfServiceLimits) validate() error {
 	}
 	if l.Inviters < 1 || l.Inviters > 10000 {
 		return errors.New("self_service.inviters must be within 1..10000")
+	}
+	// Zero keeps configuration files written before the field existed valid.
+	if l.InviteLifetimeSeconds != 0 && (l.InviteLifetimeSeconds < 60 || l.InviteLifetimeSeconds > 24*60*60) {
+		return errors.New("self_service.invite_lifetime_seconds must be within 60..86400")
 	}
 	if l.ActiveInvites > l.DailyInvites || l.DailyInvites > l.LifetimeInvites {
 		return errors.New("self_service requires active_invites <= daily_invites <= lifetime_invites")
