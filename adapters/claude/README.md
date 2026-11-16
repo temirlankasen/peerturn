@@ -8,8 +8,15 @@ JavaScript mod handles the runtime API and UI. The Go helper owns binding,
 authorization, custody, framing and receipts. Installing the plugin does not
 authorize peers or automatically attach other sessions.
 
-**[v0.2.0-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.2.0-preview)
-was published on 2026-11-03**. It fixes the
+A helper runs only in a session that uses PeerTurn: one bound before (the mod
+remembers it after a confirmed binding), or one where the owner runs a `peerturn`
+command, pastes an invitation link or a PeerTurn MCP tool is called. Other
+sessions get no helper and no poll; only the stdio MCP proxy stays, idle.
+A refused session is forgotten. A waiting helper asks once to start the
+existing profile's daemon (after a reboot) and slows its probes to two seconds.
+
+**[v0.2.1-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.2.1-preview)
+was published on 2026-11-16**. It fixes the
 historical v0.1.2-preview native loader rejection with literal `$` API calls,
 adds model-free cold MCP recovery and [Claude-only connect](../../docs/connect.md).
 Verify its [pinned signed installer](../../docs/install.md) and attestations
@@ -64,7 +71,8 @@ All loopback calls use `Authorization: Bearer CAPABILITY`:
 before the model queue. The helper verifies the fresh nonce and exact native
 instance; kernel socket peer UID/PID/start must match the helper's Claude parent.
 Text or sender names do not grant authority. Clear/resume invalidates
-the old binding and starts a fresh helper at the next prompt boundary.
+the old binding; a fresh helper starts at the next prompt boundary only for a
+session that uses PeerTurn.
 
 The Go-framed coauthor text stays outside Claude's native queue until a trusted
 main `turn.complete` establishes idle. Unknown state after load/reload holds
@@ -94,10 +102,9 @@ MCP `peer_join({})` accepts no text; an optional nonsecret `handle` selects an
 entry shown with only relay host and age. No inviter label precedes descriptor
 authentication. The owner's paste remains in provider/native transcripts.
 See [the 23 October owner decision and typed failures](../../docs/onboarding.md#owner-invitation-handoff--decision-of-23-october-2026).
-The classic `UserPromptSubmit`
-command invokes `peerturn adapter claude owner-boundary` as a no-op fallback
-until a separately verified owner permit exists. Inform notifications show
-counts only and never call prompt submit.
+The plugin has no classic `UserPromptSubmit` command: it was a no-op that
+started a shell and a PeerTurn process on every prompt of every session.
+Inform notifications show counts only and never call prompt submit.
 Owner enrichment waits at most one second for the helper. The notice becomes
 `offered` only after `next(prompt)` succeeds and the mod confirms attachment.
 Failed/late calls leave it pending. Bodies become `delivered` only after successful

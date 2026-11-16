@@ -6,9 +6,10 @@ receipt means a committed SQLite write; it does not prove receiver or model inpu
 Agent adapters, Internet/NAT acceptance, clean VPS qualification, and the 24-hour
 128 MiB RSS soak remain separate acceptance work.
 
-Use Go 1.27.3, including for image builds. This includes the
+Use Go 1.27.4, including for image builds. It includes the
 [x509 security update](https://go.dev/doc/devel/release#go1.27.3) that fixes
-`GO-2026-6809`. The Docker builder is pinned by digest and asserts its exact Go
+`GO-2026-6809` and the [net/http update](https://go.dev/doc/devel/release#go1.27.4)
+that fixes `GO-2026-6859`, an HTTP/1 server crash. The Docker builder is pinned by digest and asserts its exact Go
 version before compiling. Local checks and their limits are in [M2 evidence](m2-evidence.md).
 
 The development [self-service admission candidate](self-service.md) keeps closed
@@ -18,7 +19,7 @@ production readiness or permission to migrate/deploy from that guide.
 
 ## Start and isolate
 
-Use Go 1.27.3 and `make build`, or build the image from the repository root:
+Use Go 1.27.4 and `make build`, or build the image from the repository root:
 
 ```sh
 docker build -f packaging/docker/Dockerfile -t peerturn-relay:local .

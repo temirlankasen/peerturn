@@ -3,7 +3,13 @@ const STARTUP_FAILURES = new Set(['runtime_unsupported', 'daemon_unavailable', '
   'auth_failed', 'adapter_unavailable', 'unsupported_version', 'runtime_version_unknown', 'runtime_contract_changed']);
 const RECOVERY = 'Update PeerTurn, reload/resume this session and rerun doctor / bind.';
 const ALL_CAPABILITIES = ['coauthor', 'owner_invitation', 'inform_boundary', 'inform_notification'];
-let runtime = null, working = null, turnGeneration = 0, shown = null, starting = null, bound = false;
+let runtime = null, working = null, turnGeneration = 0, shown = null, starting = null, bound = false, remembered = null;
+// Owners keep dozens of sessions open and use PeerTurn in few. A helper runs only
+// in a session bound before (remembered after a confirmed binding), or where the
+// owner runs peerturn, pastes a link or a PeerTurn tool is called.
+const REMEMBERED = 'session:', REMEMBERED_LIMIT = 32;
+const PEERTURN_COMMAND = /(?:^|[;&|(\n`]|\$\()[ \t]*(?:(?:[A-Za-z_][A-Za-z0-9_]*=(?:"[^"\n]*"|'[^'\n]*'|[^\s;&|()`'"])*|command|exec|env|nohup|time|--)[ \t]+)*(?:peerturn|(?:"[^"\n]*"|'[^'\n]*'|[^\s;&|()`'"=])*?(?:\/peerturn|"(?:[^"\n]*\/)?peerturn"|'(?:[^'\n]*\/)?peerturn'))(?:\s|$)/;
+const PEERTURN_TOOL = /^mcp__(?:plugin_peerturn_)?peerturn__peer_[a-z_]+$/;
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const identifier = value => typeof value === 'string' && /^[A-Za-z0-9._:-]{1,160}$/.test(value);
 async function runtimeFact($, read) {
@@ -25,6 +31,28 @@ export async function inspectRuntimeContract($) {
   }
   return { session, version: version?.version, failures, lifecycle: 'not_observed' };
 }
+async function wanted($) {
+  const session = await runtimeFact($, () => $.session.id());
+  if (typeof session !== 'string') return false;
+  if (remembered?.session !== session) {
+    remembered = { session, value: Number.isSafeInteger(await runtimeFact($, () => $.store.get(REMEMBERED + session))) };
+  }
+  return remembered.value;
+}
+async function remember($, session, keep) {
+  remembered = { session, value: keep };
+  try {
+    if (!keep) return await $.store.delete(REMEMBERED + session);
+    await $.store.set(REMEMBERED + session, await $.clock.now());
+    const keys = (await $.store.keys()).filter(key => key.startsWith(REMEMBERED) && key !== REMEMBERED + session);
+    const aged = await Promise.all(keys.map(async key => [key, Number(await $.store.get(key)) || 0]));
+    aged.sort((a, b) => a[1] - b[1]);
+    for (const [key] of aged.slice(0, Math.max(0, keys.length + 1 - REMEMBERED_LIMIT))) await $.store.delete(key);
+  } catch { /* A lost note costs one peerturn command later, never owner work. */ }
+}
+const invitationLinks = e => e.origin?.kind !== 'composer' || typeof e.text !== 'string' ? []
+  : (e.text.match(/https:\/\/[^\s<>"`()]+/g) ?? []).map(link => link.replace(/[\)\]},.;']+$/, ''))
+    .filter(link => link.includes('/i/') && link.length <= 2048).slice(0, 32);
 async function contractChanged($, state, id, capabilities) {
   for (const capability of capabilities) state.disabled.add(capability);
   state.contracts.add(id);
@@ -79,7 +107,9 @@ async function release($, state, frame) {
 }
 async function confirm($, state, nonce) {
   const session = await $.session.id();
-  if (state.active && session === state.session) await request($, state, '/confirm', { nonce, session });
+  if (!state.active || session !== state.session) return;
+  await request($, state, '/confirm', { nonce, session });
+  await remember($, session, true);
 }
 const confirmLater = ($, state, nonce) => confirm($, state, nonce).catch(() => status($, 'binding_unconfirmed'));
 async function deliver($, state, frame) {
@@ -89,9 +119,7 @@ async function deliver($, state, frame) {
   try {
     if (state.release) await release($, state, frame);
     state.release = true;
-    const admission = await request($, state, '/authorize', {
-      message_id: frame.message_id, attempt_id: frame.attempt_id,
-    });
+    const admission = await request($, state, '/authorize', { message_id: frame.message_id, attempt_id: frame.attempt_id });
     if (object(admission) && admission.authorized === false) {
       // The daemon already committed the terminal per-item rejection.
       state.pending = null;
@@ -117,9 +145,7 @@ async function deliver($, state, frame) {
         result = { error: 'submit_failed', in_doubt: true };
       }
     }
-    await request($, state, '/result', {
-      message_id: frame.message_id, attempt_id: frame.attempt_id, result,
-    });
+    await request($, state, '/result', { message_id: frame.message_id, attempt_id: frame.attempt_id, result });
     state.pending = null;
     state.release = false;
   } catch (error) {
@@ -133,9 +159,7 @@ async function deliver($, state, frame) {
       try { await release($, state, frame); } catch { /* Retry release before authorization. */ }
       await retryLater($, state, error);
     }
-  } finally {
-    state.submitting = false;
-  }
+  } finally { state.submitting = false; }
 }
 async function poll($, state) {
   if (!state.active || !state.url || state.polling) return;
@@ -146,18 +170,13 @@ async function poll($, state) {
       await request($, state, '/contract', { contract_id: id });
       state.contracts.delete(id);
     }
-    if (await $.session.id() !== state.session) {
-      await stop($, state, 'binding_lost');
-      return;
-    }
+    if (await $.session.id() !== state.session) return await stop($, state, 'binding_lost');
     if (state.report) {
       // Reporting the uncertainty is retryable; the native submission never is.
       await request($, state, '/result', state.report);
       state.report = null;
     }
-    if (state.pending && !state.submitting && !state.fenced && working === false) {
-      void deliver($, state, state.pending);
-    }
+    if (state.pending && !state.submitting && !state.fenced && working === false) void deliver($, state, state.pending);
     const frame = await request($, state, '/poll');
     state.failures = 0;
     if (!object(frame)) throw new Error('adapter_protocol_error');
@@ -208,6 +227,8 @@ async function launch($, state) {
           diagnostic = diagnostic.slice(newline + 1);
           const code = line.startsWith('peerturn: ') ? line.slice(10) : '';
           if (STARTUP_FAILURES.has(code)) {
+            // The daemon refused this session: it is not, or no longer, PeerTurn's.
+            if (code === 'needs_rebind') await remember($, state.session, false);
             await stop($, state, code === 'runtime_contract_changed' ? code + ': ' + RECOVERY : code);
             return;
           }
@@ -241,14 +262,19 @@ async function launch($, state) {
     await stop($, state, 'adapter_unavailable');
   }
 }
-// Concurrent hooks share one startup so a live helper is never launched twice.
-const start = ($, options) => (starting ??= startOnce($, options).finally(() => { starting = null; }));
-async function startOnce($, options) {
+// Concurrent hooks share one startup so a live helper is never launched twice;
+// a forced start (peerturn command, link, PeerTurn tool) runs after an unforced one.
+async function start($, options, force = false) {
+  if (starting) { await starting; if (!force || runtime?.active) return; }
+  return (starting ??= startOnce($, options, force).finally(() => { starting = null; }));
+}
+async function startOnce($, options, force) {
   if (runtime?.active) {
     const current = await runtimeFact($, () => $.session.id());
     // A slow lookup is no proof of another session; rotating loses the live epoch.
     if (current === undefined || current === runtime.session) return;
   }
+  if (!force && !await wanted($)) { if (runtime?.active) await stop($, runtime, 'binding_lost'); return; }
   const contract = await inspectRuntimeContract($);
   const { session, version, failures } = contract;
   if (failures.some(failure => failure.affected_capabilities.length === ALL_CAPABILITIES.length)) {
@@ -262,11 +288,9 @@ async function startOnce($, options) {
   const provider = await runtimeFact($, async () => ({ url: await $.env.get('ANTHROPIC_BASE_URL') }));
   if (!object(provider) || (provider.url != null && typeof provider.url !== 'string')) { await status($, 'adapter_unavailable'); return; }
   const state = {
-    session, binary, version, provider: provider.url ? 'gateway' : 'anthropic',
-    active: true, url: null, capability: null, polling: false, submitting: false,
-    nonce: null, inform: -1, pending: null, timer: null,
-    failures: 0, backoff: 0, fenced: false, release: false, report: null,
-    disabled: new Set(), contracts: new Set(),
+    session, binary, version, provider: provider.url ? 'gateway' : 'anthropic', active: true, url: null, capability: null,
+    polling: false, submitting: false, nonce: null, inform: -1, pending: null, timer: null, failures: 0, backoff: 0,
+    fenced: false, release: false, report: null, disabled: new Set(), contracts: new Set(),
   };
   runtime = state;
   for (const failure of failures) await contractChanged($, state, failure.contract_id, failure.affected_capabilities);
@@ -291,15 +315,9 @@ async function ownerBoundary($, e) {
   if (await runtimeFact($, () => $.session.id()) !== state.session) return null;
   // Only the human composer can authorize joining. Bridge/plugin/peer input
   // cannot create an owner invitation, even on an ordinary prompt boundary.
-  const links = e.origin.kind === 'composer'
-    ? (e.text.match(/https:\/\/[^\s<>"`()]+/g) ?? [])
-      .map(link => link.replace(/[\)\]},.;']+$/, ''))
-      .filter(link => link.includes('/i/') && link.length <= 2048).slice(0, 32)
-    : [];
+  const links = invitationLinks(e);
   const result = await Promise.race([
-    request($, state, '/owner-boundary', {
-      session: state.session, ...(links.length ? { invitation_links: links } : {}),
-    }),
+    request($, state, '/owner-boundary', { session: state.session, ...(links.length ? { invitation_links: links } : {}) }),
     $.clock.sleep(1000).then(() => null),
   ]);
   if (!state.active || await $.session.id() !== state.session || !object(result)
@@ -318,9 +336,10 @@ export function register(on, options) {
     return next(e);
   });
   on('tool.call', async ($, e, next) => {
-    if (e.tool === 'Bash' && e.agentId === undefined && !runtime?.active) {
-      try { await start($, options); } catch { await status($, 'adapter_unavailable'); }
-    }
+    try {
+      const bash = e.tool === 'Bash', command = bash && typeof e.command === 'string' && PEERTURN_COMMAND.test(e.command);
+      if (e.agentId === undefined && !runtime?.active && (command || bash || PEERTURN_TOOL.test(e.tool))) await start($, options, command || !bash);
+    } catch { await status($, 'adapter_unavailable'); }
     return next(e);
   });
   on('prompt.submit', async ($, e, next) => {
@@ -328,7 +347,7 @@ export function register(on, options) {
     let prompt = e;
     let boundary = null;
     try {
-      await start($, options);
+      await start($, options, invitationLinks(e).length > 0);
       boundary = await ownerBoundary($, e);
       if (boundary) prompt = boundary.prompt;
     } catch { await status($, 'adapter_unavailable'); }

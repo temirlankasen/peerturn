@@ -26,8 +26,9 @@ test:
 vet:
 	$(GO) vet ./...
 
+# Other sessions on the same machine lint too; wait for their lock instead of failing.
 lint:
-	$(GOLANGCI_LINT) run
+	$(GOLANGCI_LINT) run --allow-serial-runners
 
 vuln:
 	$(GOVULNCHECK) ./...

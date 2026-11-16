@@ -12,7 +12,7 @@ Follow the [Code of Conduct](CODE_OF_CONDUCT.md). Report vulnerabilities private
 
 ## Development setup
 
-Install **Go 1.27.3**, Python 3, Git, and Make. Clone the repository or work from an existing checkout:
+Install **Go 1.27.4**, Python 3, Git, and Make. Clone the repository or work from an existing checkout:
 
 ```sh
 git clone https://github.com/temirlankasen/peerturn.git

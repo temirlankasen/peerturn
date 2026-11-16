@@ -28,6 +28,9 @@ type Options struct {
 	NativeSession, RuntimeVersion, Provider string
 	Client                                  localipc.Client
 	ResolveClient                           func() (localipc.Client, error)
+	// StartDaemon starts the owner's existing profile daemon when it is
+	// absent, as after a reboot; it never creates a profile.
+	StartDaemon func()
 }
 
 type bridge struct {

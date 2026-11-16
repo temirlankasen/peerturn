@@ -1,17 +1,3 @@
 {
-  "modules": ["./register.js"],
-  "hooks": {
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/bin/sh",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/owner-boundary.sh"],
-            "timeout": 5
-          }
-        ]
-      }
-    ]
-  }
+  "modules": ["./register.js"]
 }

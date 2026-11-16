@@ -88,3 +88,49 @@ func TestHelperStartupIsBoundedAndDoesNotFollowUnsafeDiscovery(t *testing.T) {
 		})
 	}
 }
+
+// After a reboot nobody starts the daemon for a while. A waiting helper asks
+// for it once and then slows its probes; it must not hammer the native socket.
+func TestHelperAsksForAbsentDaemonOnceAndSlowsDown(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 1300*time.Millisecond)
+	defer cancel()
+	var probes, guards, starts atomic.Int32
+	options := Options{
+		Client:      localipc.Client{RuntimeDir: currentDirectory(t)},
+		StartDaemon: func() { starts.Add(1) },
+		ResolveClient: func() (localipc.Client, error) {
+			probes.Add(1)
+			return localipc.Client{}, localipc.NewError("unavailable", "unavailable")
+		},
+	}
+	_, err := readyDaemonClient(ctx, options, func(context.Context) error {
+		guards.Add(1)
+		return nil
+	})
+	if localipc.PublicError(err).Code != "unavailable" {
+		t.Fatalf("wait ended with %v", err)
+	}
+	if starts.Load() != 1 {
+		t.Fatalf("asked for the daemon %d times, want once", starts.Load())
+	}
+	// 0, 200, 600 ms and the cut at 1.3 s: a fixed 200 ms tick would probe seven times.
+	if probes.Load() > 4 || guards.Load() > 4 {
+		t.Fatalf("%d probes and %d native checks in 1.3 s", probes.Load(), guards.Load())
+	}
+}
+
+func TestHelperDoesNotStartDaemonOnTimeout(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 300*time.Millisecond)
+	defer cancel()
+	var starts atomic.Int32
+	options := Options{StartDaemon: func() { starts.Add(1) }, ResolveClient: func() (localipc.Client, error) {
+		return localipc.Client{}, localipc.NewError("timeout", "pending")
+	}}
+	if _, err := readyDaemonClient(ctx, options, func(context.Context) error { return nil }); err == nil {
+		t.Fatal("wait succeeded without a daemon")
+	}
+	// A busy daemon is running; starting a second one would only fail on its lock.
+	if starts.Load() != 0 {
+		t.Fatal("a slow daemon triggered a start")
+	}
+}

@@ -2,7 +2,11 @@ import { readFile } from 'node:fs/promises';
 
 const source = await readFile(new URL('../../adapters/claude/hooks/register.js', import.meta.url), 'utf8');
 
-export async function harness(version = '2.1.306', idle = true, configure = () => {}) {
+// A session the owner bound before is remembered in the mod's store; tests of
+// sessions that never used PeerTurn pass remembered = false.
+export const SESSION = '11111111-1111-4111-8111-111111111111';
+export async function harness(version = '2.1.306', idle = true, configure = () => {}, remembered = true, store = new Map()) {
+  if (remembered && !store.has('session:' + SESSION)) store.set('session:' + SESSION, 1);
   const mod = await import(`data:text/javascript,${encodeURIComponent(source)}#${Math.random()}`);
   const hooks = new Map();
   const timers = [];
@@ -13,10 +17,16 @@ export async function harness(version = '2.1.306', idle = true, configure = () =
   const inbox = [];
   const $ = {
     session: {
-      id: async () => '11111111-1111-4111-8111-111111111111',
+      id: async () => SESSION,
       version: async () => ({ version, base: version }),
     },
     env: { get: async () => undefined },
+    store: {
+      get: async key => store.get(key),
+      set: async (key, value) => { store.set(key, JSON.parse(JSON.stringify(value))); },
+      delete: async key => { store.delete(key); },
+      keys: async () => [...store.keys()],
+    },
     clock: {
       every: (ms, fn) => {
         const timer = { fn, cancelled: false };
@@ -24,6 +34,7 @@ export async function harness(version = '2.1.306', idle = true, configure = () =
         return { cancel: () => { timer.cancelled = true; } };
       },
       sleep: ms => new Promise(resolve => setTimeout(resolve, ms)),
+      now: async () => Date.now(),
     },
     ui: { status: async text => statuses.push(text), toast: async () => {} },
     process: {
@@ -58,6 +69,6 @@ export async function harness(version = '2.1.306', idle = true, configure = () =
   await hooks.get('session.start')?.($, {}, async value => value);
   await tick();
   if (idle) await hooks.get('turn.complete')?.($, {}, async value => value);
-  return { $, hooks, tick, inbox, submitted, requests, launched, statuses, timers, mod };
+  return { $, hooks, tick, inbox, submitted, requests, launched, statuses, timers, mod, store };
 }
 

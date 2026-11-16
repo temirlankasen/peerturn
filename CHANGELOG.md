@@ -4,6 +4,53 @@ Notable user-facing changes will be recorded here, following [Keep a Changelog](
 
 ## Unreleased
 
+## [0.2.1-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.2.1-preview) — 2026-11-16
+
+This release is about cost in multi-session work: PeerTurn no longer runs in
+Claude Code sessions that do not use it, and comes back by itself after a
+reboot.
+
+### Changed
+
+- The Claude plugin starts its helper only in a session that uses PeerTurn:
+  one bound before, or one where the owner runs a `peerturn` command, pastes
+  an invitation link or a PeerTurn MCP tool is called. Before, every open
+  session kept a helper process polling the daemon. Other sessions now keep
+  only the idle stdio MCP proxy. A session the daemon refuses is forgotten.
+- A helper waiting for the daemon slows its probes from 200 ms to 2 s. Before,
+  after a reboot every open session checked the daemon and its native socket
+  five times a second, without end.
+- The plugin no longer has the classic `UserPromptSubmit` command. It did
+  nothing, yet started a shell and a PeerTurn process on every prompt of every
+  session.
+
+### Security
+
+- Build with Go 1.27.4, which fixes `GO-2026-6859`: a header race in
+  `net/http` `MaxBytesReader` could crash an HTTP/1 server. The relay and the
+  helper's loopback endpoint use that server. The Docker builder is pinned to
+  the official 1.27.4 image by digest.
+
+### Fixed
+
+- After a reboot the daemon stayed down until someone ran `peerturn connect`.
+  A helper now asks once to start the existing profile's daemon, so resuming
+  the bound session brings PeerTurn back. No profile is ever created this way.
+- A runtime directory removed by a crash or temporary-directory cleanup made
+  clients reject the daemon pointer as unsafe, so the helper gave up without
+  starting the daemon. A missing directory now reads as an offline daemon.
+- The plugin recognises `command peerturn`, `env NAME=value peerturn` and a
+  quoted path to the executable. Before, such a `connect` in a new session
+  started no helper and failed after 20 seconds with `needs_rebind`.
+
+### Upgrading
+
+- Run `peerturn upgrade`, then `/reload-plugins` or restart open Claude Code
+  sessions: a running session keeps the old plugin until then.
+- The plugin learns which session is bound when the binding is next
+  confirmed. In the bound session, run `peerturn status` or call `peer_status`
+  once after upgrading; from then on it starts with the session.
+
 ## [0.2.0-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.2.0-preview) — 2026-11-06
 
 This release is about convenience: after installation the owner types no

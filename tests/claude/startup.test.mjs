@@ -58,7 +58,7 @@ test('a helper that expired before connect restarts before the next Bash operati
     };
   });
   assert.equal(launches, 1);
-  const event = { tool: 'Bash', args: { command: 'peerturn connect' } };
+  const event = { tool: 'Bash', command: 'peerturn connect' };
   assert.equal(await h.hooks.get('tool.call')(h.$, event, async value => value), event);
   await h.tick();
   assert.equal(launches, 2);
@@ -98,7 +98,7 @@ test('a frozen provider lookup cannot hold an owner Bash operation', async () =>
 
 test('an active helper is not replaced by ordinary Bash operations', async () => {
   const h = await harness();
-  const event = { tool: 'Bash', args: { command: 'echo owner work' } };
+  const event = { tool: 'Bash', command: 'echo owner work' };
   assert.equal(await h.hooks.get('tool.call')(h.$, event, async value => value), event);
   assert.equal(h.launched.length, 1);
   assert.equal(h.submitted.length, 0);
@@ -112,13 +112,14 @@ test('an unbound session stays quiet across ordinary Bash operations', async () 
       yield { stream: 'stderr', text: 'peerturn: needs_rebind\n' };
     };
   });
-  const event = { tool: 'Bash', args: { command: 'echo owner work' } };
+  const event = { tool: 'Bash', command: 'echo owner work' };
   for (let i = 0; i < 3; i += 1) {
     assert.equal(await h.hooks.get('tool.call')(h.$, event, async value => value), event);
     await h.tick();
   }
-  // A never-ready helper had no binding to lose; PeerTurn stays out of sight.
+  // A never-ready helper had no binding to lose; PeerTurn stays out of sight,
+  // and the refused session is forgotten, so ordinary Bash spawns nothing.
   assert.deepEqual(h.statuses, []);
-  assert.equal(launches, 4);
+  assert.equal(launches, 1);
   assert.equal(h.submitted.length, 0);
 });

@@ -1,6 +1,6 @@
-FROM golang:1.27.3@sha256:f24164268fc1e741bbdc0066dbadcf1c8426c5a8489f0729c02c3905a53032fd AS build
+FROM golang:1.27.4@sha256:fe517acaa580cc7915457080f850c37e618b3c1e750f98b58fc6429b605147a1 AS build
 WORKDIR /src
-RUN test "$(go env GOVERSION)" = "go1.27.3"
+RUN test "$(go env GOVERSION)" = "go1.27.4"
 COPY go.mod go.sum ./
 RUN go mod download
 COPY cmd ./cmd

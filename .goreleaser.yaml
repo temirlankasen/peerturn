@@ -53,8 +53,6 @@ archives:
         info: *file_info
       - src: adapters/claude/hooks/register.js
         info: *file_info
-      - src: adapters/claude/hooks/owner-boundary.sh
-        info: *file_info
       - src: adapters/claude/README.md
         info: *file_info
       - src: adapters/claude/skills/peerturn/SKILL.md

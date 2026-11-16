@@ -54,6 +54,7 @@ func runClaudeAdapter(args []string, stdin io.Reader, stdout, stderr io.Writer) 
 			dir, err := daemon.DefaultRuntimeDir()
 			return localipc.Client{RuntimeDir: dir}, err
 		},
+		StartDaemon: helperDaemonStarter(daemon.DefaultConfigPath, os.Executable, os.Environ, spawnDetached),
 	})
 	if err != nil {
 		return writeClaudeFailure(stderr, err)

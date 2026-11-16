@@ -19,8 +19,10 @@ func TestRuntimePointerDaemonRecoversDeletedTarget(t *testing.T) {
 	if err := os.Remove(stale); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := DefaultRuntimeDir(); localipc.PublicError(err).Code != "unsafe_runtime" {
-		t.Fatal("client must reject the missing runtime target")
+	// A target removed by a crash or temporary-dir cleanup means the daemon is
+	// offline, so a waiting helper asks to start it instead of giving up.
+	if _, err := DefaultRuntimeDir(); localipc.PublicError(err).Code != "runtime_unavailable" {
+		t.Fatalf("missing runtime target must read as an offline daemon: %v", err)
 	}
 	base, err := shortRecoveryRuntime()
 	if err != nil {

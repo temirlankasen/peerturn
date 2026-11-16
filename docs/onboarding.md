@@ -274,11 +274,13 @@ uses the pinned directory. Before hello, late daemon startup can still recover.
 The pointer only locates IPC; exact native binding still supplies authority.
 `env_vars` cannot manufacture a current thread.
 
-For `unsafe_runtime` after a deleted temporary directory, restart `peerturn daemon`
-with the intended runtime environment. The daemon computes its own directory
+A pointer whose directory was deleted (a crash or temporary-directory cleanup)
+reads as an offline daemon, `runtime_unavailable`; a waiting Claude helper asks
+once to start it. Otherwise run `peerturn daemon start` with the intended runtime
+environment. The daemon computes its own directory
 from explicit `XDG_RUNTIME_DIR`, then the platform default (macOS `TMPDIR`), and
 republishes `runtime.path` only after listening and taking the state lock.
-Clients keep rejecting stale targets until that publication. A malformed pointer,
+Clients connect to no other directory until that publication. A malformed pointer,
 unsafe permissions or symlinks still require correcting the local path/permissions;
 do not bypass checks or scan for another socket. Then paste the invitation again.
 

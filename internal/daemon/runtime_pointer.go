@@ -46,6 +46,11 @@ func pointedRuntimeDir() (string, bool, error) {
 		return "", false, nil
 	}
 	runtimeRoot, err := store.OpenPrivateDirectory(dir, false)
+	if errors.Is(err, os.ErrNotExist) {
+		// A crash or temporary-dir cleanup removed the target: the daemon is
+		// offline, and its next start republishes the pointer.
+		return "", false, localipc.NewError("runtime_unavailable", "offline")
+	}
 	if err != nil {
 		return "", false, unsafeRuntimePointer()
 	}

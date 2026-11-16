@@ -31,16 +31,21 @@ test('concurrent same-session startup launches one helper', async () => {
   assert.equal(h.timers.filter(timer => !timer.cancelled).length, 1);
 });
 
-test('a proven different native session still retires the old helper', async () => {
-  const h = await harness();
-  h.$.session.id = async () => '22222222-2222-4222-8222-222222222222';
-  await h.hooks.get('session.start')(h.$, {}, async value => value);
-  await h.tick();
-  assert.equal(h.launched.length, 2);
-  assert.ok(h.requests.some(r => r.url.endsWith('/close')));
-  assert.equal(h.timers[0].cancelled, true);
-  assert.equal(h.submitted.length, 0);
-});
+for (const known of [false, true]) {
+  test(`a proven different native session still retires the old helper (new session ${known ? 'bound before' : 'never bound'})`, async () => {
+    const other = '22222222-2222-4222-8222-222222222222';
+    const h = await harness();
+    if (known) h.store.set('session:' + other, 2);
+    h.$.session.id = async () => other;
+    await h.hooks.get('session.start')(h.$, {}, async value => value);
+    await h.tick();
+    // Only a session bound before gets a helper of its own.
+    assert.equal(h.launched.length, known ? 2 : 1);
+    assert.ok(h.requests.some(r => r.url.endsWith('/close')));
+    assert.equal(h.timers[0].cancelled, true);
+    assert.equal(h.submitted.length, 0);
+  });
+}
 
 test('an unproven current session never sends owner consent from a kept helper', async () => {
   const h = await harness();
