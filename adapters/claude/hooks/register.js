@@ -4,9 +4,8 @@ const STARTUP_FAILURES = new Set(['runtime_unsupported', 'daemon_unavailable', '
 const RECOVERY = 'Update PeerTurn, reload/resume this session and rerun doctor / bind.';
 const ALL_CAPABILITIES = ['coauthor', 'owner_invitation', 'inform_boundary', 'inform_notification'];
 let runtime = null, working = null, turnGeneration = 0, shown = null, starting = null, bound = false, remembered = null;
-// Owners keep dozens of sessions open and use PeerTurn in few. A helper runs only
-// in a session bound before (remembered after a confirmed binding), or where the
-// owner runs peerturn, pastes a link or a PeerTurn tool is called.
+// Owners keep dozens of sessions open and use PeerTurn in few. A helper runs only in a session bound before (remembered
+// on confirm, or named by setup's upgrade hint until refused, kept as 0), or where peerturn, a link or a PeerTurn tool is used.
 const REMEMBERED = 'session:', REMEMBERED_LIMIT = 32;
 const PEERTURN_COMMAND = /(?:^|[;&|(\n`]|\$\()[ \t]*(?:(?:[A-Za-z_][A-Za-z0-9_]*=(?:"[^"\n]*"|'[^'\n]*'|[^\s;&|()`'"])*|command|exec|env|nohup|time|--)[ \t]+)*(?:peerturn|(?:"[^"\n]*"|'[^'\n]*'|[^\s;&|()`'"=])*?(?:\/peerturn|"(?:[^"\n]*\/)?peerturn"|'(?:[^'\n]*\/)?peerturn'))(?:\s|$)/;
 const PEERTURN_TOOL = /^mcp__(?:plugin_peerturn_)?peerturn__peer_[a-z_]+$/;
@@ -31,18 +30,19 @@ export async function inspectRuntimeContract($) {
   }
   return { session, version: version?.version, failures, lifecycle: 'not_observed' };
 }
-async function wanted($) {
+async function wanted($, hint) {
   const session = await runtimeFact($, () => $.session.id());
   if (typeof session !== 'string') return false;
   if (remembered?.session !== session) {
-    remembered = { session, value: Number.isSafeInteger(await runtimeFact($, () => $.store.get(REMEMBERED + session))) };
+    const note = await runtimeFact($, () => $.store.get(REMEMBERED + session)), hinted = hint === session;
+    remembered = { session, hinted, value: Number.isSafeInteger(note) ? note > 0 : note == null && hinted };
   }
   return remembered.value;
 }
 async function remember($, session, keep) {
-  remembered = { session, value: keep };
+  remembered = { session, hinted: remembered?.session === session && remembered.hinted, value: keep };
   try {
-    if (!keep) return await $.store.delete(REMEMBERED + session);
+    if (!keep) return await (remembered.hinted ? $.store.set(REMEMBERED + session, 0) : $.store.delete(REMEMBERED + session));
     await $.store.set(REMEMBERED + session, await $.clock.now());
     const keys = (await $.store.keys()).filter(key => key.startsWith(REMEMBERED) && key !== REMEMBERED + session);
     const aged = await Promise.all(keys.map(async key => [key, Number(await $.store.get(key)) || 0]));
@@ -274,7 +274,7 @@ async function startOnce($, options, force) {
     // A slow lookup is no proof of another session; rotating loses the live epoch.
     if (current === undefined || current === runtime.session) return;
   }
-  if (!force && !await wanted($)) { if (runtime?.active) await stop($, runtime, 'binding_lost'); return; }
+  if (!force && !await wanted($, options.peerturn_bound_session)) { if (runtime?.active) await stop($, runtime, 'binding_lost'); return; }
   const contract = await inspectRuntimeContract($);
   const { session, version, failures } = contract;
   if (failures.some(failure => failure.affected_capabilities.length === ALL_CAPABILITIES.length)) {

@@ -121,8 +121,8 @@ func TestReplyBudgetAndReceiptAdmission(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if a, checkErr := envelope.Open(raw, o); checkErr != nil || a.WantsModel || a.Routing != envelope.InboxNoWake {
-		t.Fatalf("reply: %v", checkErr)
+	if a, checkErr := envelope.Open(raw, o); checkErr != nil || !a.WantsModel || a.Routing != envelope.Live {
+		t.Fatalf("coauthor reply must wake the receiver: %v", checkErr)
 	}
 	first, err := envelope.Open(raw, o)
 	if err != nil {

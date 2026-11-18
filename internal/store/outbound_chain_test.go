@@ -44,7 +44,7 @@ func TestReplyResolvesDurableOutgoingRoot(t *testing.T) {
 		t.Fatalf("reply to outgoing root: %v", err)
 	}
 	item, err := reopened.Inbox(t.Context(), strings.Repeat("c", 32))
-	if err != nil || item.Routing != envelope.InboxNoWake || string(item.Body) != "reply to retained outgoing root" {
+	if err != nil || item.Routing != envelope.Live || string(item.Body) != "reply to retained outgoing root" {
 		t.Fatalf("reply routing/body: %+v %v", item, err)
 	}
 	// The next incoming message must continue the newer outgoing hop, not the

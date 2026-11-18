@@ -207,7 +207,7 @@ func open(data []byte, o OpenOptions, custody bool) (Admission, error) {
 		return custodyRefusal(custody, metadata, routeErr)
 	}
 	if !duplicate {
-		if checkErr := checkBudget(m, g.Limits, o.Budget, o.Now); checkErr != nil {
+		if checkErr := checkBudget(m, route, g.Limits, o.Budget, o.Now); checkErr != nil {
 			return custodyRefusal(custody, metadata, checkErr)
 		}
 	}

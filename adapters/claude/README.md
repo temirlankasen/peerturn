@@ -15,8 +15,8 @@ sessions get no helper and no poll; only the stdio MCP proxy stays, idle.
 A refused session is forgotten. A waiting helper asks once to start the
 existing profile's daemon (after a reboot) and slows its probes to two seconds.
 
-**[v0.2.1-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.2.1-preview)
-was published on 2026-11-16**. It fixes the
+**[v0.2.2-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.2.2-preview)
+was published on 2026-11-18**. It fixes the
 historical v0.1.2-preview native loader rejection with literal `$` API calls,
 adds model-free cold MCP recovery and [Claude-only connect](../../docs/connect.md).
 Verify its [pinned signed installer](../../docs/install.md) and attestations
@@ -28,6 +28,10 @@ unqualified; native static validation and artifact verification cannot establish
 them.
 
 Configure `peerturn_binary` as the absolute path to the installed executable.
+`peerturn setup` also sets `peerturn_bound_session` to the Claude session this
+profile is bound to, when there is one. Only that session starts its helper
+without a `peerturn` command, link or PeerTurn tool call; the daemon still
+checks the binding, and a refusal retires the hint for that session.
 The repository includes a local marketplace at `.claude-plugin/marketplace.json`;
 the plugin source is `adapters/claude`. Installation and enabling require the
 owner's explicit instruction. Native activation must be checked after reload or

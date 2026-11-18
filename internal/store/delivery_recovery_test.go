@@ -125,8 +125,8 @@ func TestLegacyIntentRevokePreservesAmbiguity(t *testing.T) {
 	if err := s.GrantRevoke(t.Context(), "grant_one", 1, testNow+1, f.receipt); err != nil {
 		t.Fatal(err)
 	}
-	if uncertain, err := s.UncertainDeliveries(t.Context()); err != nil || !uncertain {
-		t.Fatalf("legacy revoke lost fence: %v %v", uncertain, err)
+	if uncertain, err := s.UncertainDeliveries(t.Context()); err != nil || uncertain {
+		t.Fatalf("revoked legacy ambiguity still pauses delivery: %v %v", uncertain, err)
 	}
 	if r, err := s.Receipt(t.Context(), id); err != nil || r.Stage != "in_doubt" || r.Outcome != "submit_unknown" {
 		t.Fatalf("false unsent legacy revoke: %+v %v", r, err)

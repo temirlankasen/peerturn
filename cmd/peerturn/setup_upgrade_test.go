@@ -94,6 +94,7 @@ func existingSetupMarketplace(t *testing.T, host, root, prefix, kind string) str
 
 func upgradeSetup(t *testing.T, host, kind string) (string, []string, error) {
 	t.Helper()
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
 	root, prefix := upgradeSetupRelease(t, host)
 	listing := existingSetupMarketplace(t, host, root, "adapters/claude", "older_package")
 	if !strings.Contains(kind, "disabled") && kind != "not_installed" {

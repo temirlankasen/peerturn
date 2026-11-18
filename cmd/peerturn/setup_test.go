@@ -66,6 +66,8 @@ func TestSetupRejectsMissingFilesTraversalAndSymlinks(t *testing.T) {
 }
 
 func TestSetupHostPlansAndActivationLimits(t *testing.T) {
+	// No profile here: the plugin gets only the helper path, never a session hint.
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
 	for _, host := range []string{"claude", "codex"} {
 		root, _, prefix := setupObservedFixture(t, host)
 		marketplaces, plugins := observedSetupJSON(t, host, root, filepath.Join(root, prefix))

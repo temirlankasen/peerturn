@@ -102,3 +102,15 @@ func TestStatusWarningsNameTheAction(t *testing.T) {
 		t.Fatalf("healthy status warns: %v", got)
 	}
 }
+
+// The owner must learn from status alone that delivery has stopped, not just
+// that some old attempt is uncertain.
+func TestInDoubtWarningSaysWhetherDeliveryIsPaused(t *testing.T) {
+	ids := []string{"9f5f4bac9b8fdc97958f86e521883819"}
+	if w := inDoubtWarning(ids, true); !strings.HasPrefix(w, "Delivery into this session is paused") || !strings.Contains(w, "9f5f4bac9b8f") {
+		t.Fatalf("paused delivery not stated: %q", w)
+	}
+	if w := inDoubtWarning(ids, false); strings.Contains(w, "is paused") || !strings.Contains(w, "no longer pause delivery") {
+		t.Fatalf("revoked ambiguity reported as a pause: %q", w)
+	}
+}

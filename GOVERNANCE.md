@@ -16,8 +16,8 @@ Changes to security, cryptography, access, money, database schema/migrations, CI
 
 The maintainer controls merge and release permissions. Release approval follows
 passing gates, required evidence, and an honest compatibility statement.
-The current release is **[v0.2.1-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.2.1-preview),
-published 2026-11-16**. [Installation](docs/install.md) requires the pinned release's
+The current release is **[v0.2.2-preview](https://github.com/temirlankasen/peerturn/releases/tag/v0.2.2-preview),
+published 2026-11-18**. [Installation](docs/install.md) requires the pinned release's
 publisher signature, installer attestation and archive checksum. Release
 validation, publication and scoped external artifact checks passed; publication
 does not qualify completed installation or native acceptance.

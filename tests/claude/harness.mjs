@@ -5,7 +5,7 @@ const source = await readFile(new URL('../../adapters/claude/hooks/register.js',
 // A session the owner bound before is remembered in the mod's store; tests of
 // sessions that never used PeerTurn pass remembered = false.
 export const SESSION = '11111111-1111-4111-8111-111111111111';
-export async function harness(version = '2.1.306', idle = true, configure = () => {}, remembered = true, store = new Map()) {
+export async function harness(version = '2.1.306', idle = true, configure = () => {}, remembered = true, store = new Map(), options = {}) {
   if (remembered && !store.has('session:' + SESSION)) store.set('session:' + SESSION, 1);
   const mod = await import(`data:text/javascript,${encodeURIComponent(source)}#${Math.random()}`);
   const hooks = new Map();
@@ -60,7 +60,7 @@ export async function harness(version = '2.1.306', idle = true, configure = () =
   };
   configure($);
   mod.register((name, hook) => hooks.set(name, hook), {
-    peerturn_binary: '/fixture/peerturn', provider: 'fixture',
+    peerturn_binary: '/fixture/peerturn', provider: 'fixture', ...options,
   });
   const tick = async () => {
     for (const timer of timers) if (!timer.cancelled) await timer.fn();

@@ -15,7 +15,8 @@ const (
 	Live Routing = "live"
 	// Responder requires a qualified restricted fork; no fallback to live is allowed.
 	Responder Routing = "responder"
-	// InboxNoWake preserves text without starting a model turn, including replies.
+	// InboxNoWake preserves text without starting a model turn: inform, and
+	// replies under a grant narrower than coauthor.
 	InboxNoWake Routing = "inbox_no_wake"
 	// Control processes a validated receipt without a model or automatic response.
 	Control Routing = "control"
@@ -40,7 +41,14 @@ func decideRouting(m protocol.MessagePayload, g grant.Grant, c *Conversation, ad
 		return Live, nil
 	case protocol.Ask:
 		return Responder, nil
-	case protocol.Inform, protocol.Reply:
+	case protocol.Inform:
+		return InboxNoWake, nil
+	case protocol.Reply:
+		// A coauthor reply continues a conversation and wakes the receiver like
+		// a new coauthor message; hop and turn budgets end automatic chains.
+		if g.Scope == grant.Coauthor {
+			return Live, nil
+		}
 		return InboxNoWake, nil
 	case protocol.Receipt:
 		return Control, nil
@@ -106,7 +114,7 @@ func checkKind(m protocol.MessagePayload, g grant.Grant, c *Conversation) error 
 	return fault.New(fault.ScopeDenied)
 }
 
-func checkBudget(m protocol.MessagePayload, l grant.Limits, b BudgetSnapshot, now int64) error {
+func checkBudget(m protocol.MessagePayload, route Routing, l grant.Limits, b BudgetSnapshot, now int64) error {
 	if m.Hop > l.MaxHops || b.MinuteStart > now || b.TurnWindowStart > now {
 		return fault.New(fault.BudgetExceeded)
 	}
@@ -116,7 +124,7 @@ func checkBudget(m protocol.MessagePayload, l grant.Limits, b BudgetSnapshot, no
 	if now-b.MinuteStart < 60 && b.MessagesInMinute >= l.MaxMessagesPerMinute {
 		return fault.New(fault.BudgetExceeded)
 	}
-	if m.Kind == protocol.Coauthor && now-b.TurnWindowStart < 600 && b.TurnsInTenMinutes >= l.MaxTurnsPerTenMinutes {
+	if route == Live && now-b.TurnWindowStart < 600 && b.TurnsInTenMinutes >= l.MaxTurnsPerTenMinutes {
 		return fault.New(fault.BudgetExceeded)
 	}
 	return nil

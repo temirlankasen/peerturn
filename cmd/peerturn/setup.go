@@ -193,7 +193,7 @@ func installSetup(ctx context.Context, host, root string, stdout io.Writer, invo
 	}
 	installArgs := []string{"plugin", verb, "peerturn@peerturn"}
 	if host == "claude" {
-		installArgs = append(installArgs, "--config", "peerturn_binary="+filepath.Join(root, "peerturn"))
+		installArgs = append(installArgs, claudePluginConfig(ctx, root)...)
 	}
 	if err = invoke(ctx, host, installArgs, stdout); err != nil {
 		return err

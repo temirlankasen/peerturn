@@ -1,6 +1,6 @@
 {
   "name": "peerturn",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Explicit PeerTurn binding and coauthor delivery for Claude Code 2.1.306 or later",
   "license": "Apache-2.0",
   "author": { "name": "PeerTurn contributors" },
@@ -9,6 +9,11 @@
       "type": "string",
       "title": "PeerTurn executable",
       "description": "Absolute path to the installed peerturn executable"
+    },
+    "peerturn_bound_session": {
+      "type": "string",
+      "title": "Bound Claude session",
+      "description": "Set by peerturn setup: the session bound before an upgrade, so its helper comes back by itself"
     }
   }
 }

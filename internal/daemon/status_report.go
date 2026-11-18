@@ -47,6 +47,11 @@ func (d *Daemon) explainStatus(ctx context.Context, s *Status) error {
 		return err
 	}
 	s.InDoubt = ids
+	if len(ids) > 0 {
+		if s.DeliveryPaused, err = d.db.UncertainDeliveries(ctx); err != nil {
+			return err
+		}
+	}
 	peers, err := d.peerList(ctx)
 	if err != nil {
 		return err
@@ -93,11 +98,7 @@ func statusWarnings(s Status, peers []Peer, now int64) []string {
 		w = append(w, "The prompt hook is disabled for this session (host contract failed); accept links with peerturn join --current --link-stdin.")
 	}
 	if len(s.InDoubt) > 0 {
-		ids := make([]string, 0, len(s.InDoubt))
-		for _, id := range s.InDoubt {
-			ids = append(ids, shortID(id))
-		}
-		w = append(w, fmt.Sprintf("%d delivery(ies) in doubt (%s): decide with peerturn delivery resolve ID --sent or --not-sent; nothing is resent automatically.", len(ids), strings.Join(ids, ", ")))
+		w = append(w, inDoubtWarning(s.InDoubt, s.DeliveryPaused))
 	}
 	if s.LastError != "" {
 		w = append(w, "Relay sync is failing with "+s.LastError+"; last success "+ago(s.LastVerifiedAt, now)+".")
@@ -200,4 +201,19 @@ func ago(unix, now int64) string {
 		return fmt.Sprintf("%d h ago", d/3600)
 	}
 	return fmt.Sprintf("%d d ago", d/86400)
+}
+
+// inDoubtWarning says whether the ambiguity still stops delivery: a live
+// grant's unknown outcome pauses this session, a revoked link's only waits
+// for the owner's record.
+func inDoubtWarning(inDoubt []string, paused bool) string {
+	ids := make([]string, 0, len(inDoubt))
+	for _, id := range inDoubt {
+		ids = append(ids, shortID(id))
+	}
+	list := strings.Join(ids, ", ")
+	if paused {
+		return fmt.Sprintf("Delivery into this session is paused: %d delivery(ies) in doubt (%s). Decide each with peerturn delivery resolve ID --sent or --not-sent; nothing is resent automatically.", len(ids), list)
+	}
+	return fmt.Sprintf("%d delivery(ies) in doubt on revoked links (%s) no longer pause delivery; record the outcome with peerturn delivery resolve ID --sent or --not-sent.", len(ids), list)
 }

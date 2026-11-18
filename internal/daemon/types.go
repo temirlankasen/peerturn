@@ -84,6 +84,7 @@ type Status struct {
 	CertificateExpiresAt int64    `json:"certificate_expires_at,omitempty"`
 	OwnerInvitationHook  string   `json:"owner_invitation_hook,omitempty"`
 	InDoubt              []string `json:"in_doubt,omitempty"`
+	DeliveryPaused       bool     `json:"delivery_paused,omitempty"`
 	LatestVersion        string   `json:"latest_version,omitempty"`
 	Warnings             []string `json:"warnings,omitempty"`
 	Summary              string   `json:"summary,omitempty"`

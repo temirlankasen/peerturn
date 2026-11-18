@@ -136,6 +136,7 @@ func readSetupHostCalls(t *testing.T, calls string) []byte {
 }
 
 func TestSetupMarketplaceAbsenceAllowsRegistration(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
 	for _, host := range []string{"claude", "codex"} {
 		t.Run(host, func(t *testing.T) {
 			root, _, prefix := setupObservedFixture(t, host)

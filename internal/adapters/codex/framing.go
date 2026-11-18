@@ -26,8 +26,9 @@ type framedMessage struct {
 
 // Frame wraps already authenticated coauthor data without interpolating its text.
 // The caller must verify the grant and exact peer binding before invoking it.
+// A reply admitted live under a coauthor grant carries the same authority.
 func Frame(m protocol.MessagePayload, senderFingerprint string) (string, error) {
-	if m.Kind != protocol.Coauthor {
+	if m.Kind != protocol.Coauthor && m.Kind != protocol.Reply {
 		return "", failure("scope_denied")
 	}
 	return frame(m, senderFingerprint, protocol.Coauthor, coauthorPrefix)
@@ -90,7 +91,7 @@ func validateFrame(text, messageID string) error {
 	if err := decoder.Decode(&f); err != nil {
 		return failure("invalid_input")
 	}
-	if f.Scope != string(protocol.Coauthor) || f.Message.Kind != protocol.Coauthor {
+	if f.Scope != string(protocol.Coauthor) || f.Message.Kind != protocol.Coauthor && f.Message.Kind != protocol.Reply {
 		return failure("scope_denied")
 	}
 	if f.Schema != "peerturn.native.v1" || f.Message.MessageID != messageID {

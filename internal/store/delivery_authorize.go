@@ -89,8 +89,10 @@ func (s *Store) IsDeliveryAuthorized(ctx context.Context, id, attempt string) (b
 // UncertainDeliveries keeps native admission closed across helper replacement
 // until trusted reconciliation resolves every ambiguous live outcome. A fork's
 // discarded answer cannot imply an ambiguous effect in the owner's live session.
+// A revoked grant can start no further peer turn, so its ambiguity stays on the
+// owner's record (UncertainDeliveryIDs) without pausing other peers forever.
 func (s *Store) UncertainDeliveries(ctx context.Context) (bool, error) {
 	var count int
-	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM delivery_attempts a JOIN inbox i ON i.id=a.message_id WHERE a.state='in_doubt' AND i.route<>?`, envelope.Responder).Scan(&count)
+	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM delivery_attempts a JOIN inbox i ON i.id=a.message_id JOIN grants g ON g.id=i.grant_id WHERE a.state='in_doubt' AND i.route<>? AND g.revoked=0`, envelope.Responder).Scan(&count)
 	return count > 0, databaseError(err)
 }
